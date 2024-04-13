@@ -1,5 +1,7 @@
 use alc::text_processor::*;
 
+
 fn main() {
-    println!("{}", keycode::placeholder());
+    println!("{:?}", keycode::Keycode::_A);
+    
 }
