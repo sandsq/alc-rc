@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Keycode {
 	_A,
 	_B,
@@ -6,11 +6,14 @@ pub enum Keycode {
 	_D,
 	_E,
 	_SFT,
+	_ENT,
 	_PLACEHOLDER,
 }
 use Keycode::*;
 
-pub fn char_to_keycode(c: char) -> Vec<Keycode> {
+struct ParseKeycodeError;
+
+fn char_to_keycode(c: char) -> Vec<Keycode> {
 	let mut keycodes: Vec<Keycode> = vec![];
 	if c.is_uppercase() {
 		keycodes.push(_SFT);
@@ -21,8 +24,9 @@ pub fn char_to_keycode(c: char) -> Vec<Keycode> {
 		'c' => keycodes.push(_C),
 		'd' => keycodes.push(_D),
 		'e' => keycodes.push(_E),
+		'\n' => keycodes.push(_ENT),
 		_ => keycodes.push(_PLACEHOLDER),
-	};
+	}
 	keycodes
 }
 
@@ -35,13 +39,10 @@ pub fn string_to_keycode(s: &str) -> Vec<Keycode> {
 }
 
 
-
 #[cfg(test)]
 mod tests {
 	use super::*;
 
-	const DUMMY_STR: &str = "Aaaaabbbb ccc
-							 dd e";
 
 	#[test]
 	fn a_to_keycode() {
@@ -55,9 +56,16 @@ mod tests {
 		assert_eq!(char_to_keycode('E'), res);
 	}
 
+	fn newline_to_keycode() {
+		let res: Vec<Keycode> = vec![_ENT];
+		assert_eq!(char_to_keycode('\n'), res)
+	}
+
 	#[test]
 	fn acb_to_keycodes() {
 		let res: Vec<Keycode> = vec![_A, _SFT, _C, _B];
 		assert_eq!(string_to_keycode("aCb"), res);
 	}
+
+	
 }
