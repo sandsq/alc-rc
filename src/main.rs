@@ -1,3 +1,5 @@
+use alc::text_processor::*;
+
 fn main() {
-    println!("Hello, world!");
+    println!("{}", keycode::placeholder());
 }
