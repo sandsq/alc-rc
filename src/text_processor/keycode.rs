@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Keycode {
 	_A,
 	_B,
@@ -10,6 +10,10 @@ pub enum Keycode {
 	_PLACEHOLDER,
 }
 use Keycode::*;
+
+
+
+
 
 struct ParseKeycodeError;
 
