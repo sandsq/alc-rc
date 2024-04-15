@@ -104,7 +104,20 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 }
 impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, KeycodeKey> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		for row in self.layer.rows_iter() {
+		write!(f, "  ");
+		for k in 0..C {
+			write!(f, "{:>3}", k);
+			write!(f, " ");
+		}
+		writeln!(f);
+		write!(f, "  ");
+		for k in 0..C {
+			write!(f, "{:>3}", "-");
+			write!(f, " ");
+		}
+		writeln!(f);
+		for (i, row) in self.layer.rows_iter().enumerate() {
+			write!(f, "{}|", i);
 			for element in row {
 				write!(f, "{}", element);
 				write!(f, " ");
@@ -114,7 +127,31 @@ impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, KeycodeKey> {
 		write!(f, "")
     }
 }
-
+impl<const R: usize, const C: usize> fmt::Binary for Layer<R, C, KeycodeKey> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "  ");
+		for k in 0..C {
+			write!(f, "{:>3}", k);
+			write!(f, "    ");
+		}
+		writeln!(f);
+		write!(f, "  ");
+		for k in 0..C {
+			write!(f, "{:>3}", "-");
+			write!(f, "    ");
+		}
+		writeln!(f);
+		for (i, row) in self.layer.rows_iter().enumerate() {
+			write!(f, "{}|", i);
+			for element in row {
+				write!(f, "{:b}", element);
+				write!(f, " ");
+			}
+			writeln!(f);
+		}
+		write!(f, "")
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -169,19 +206,24 @@ mod tests {
 	fn test_randomize() {
 		let mut rng = StdRng::seed_from_u64(0);
 		let mut layer = Layer::<2, 2, KeycodeKey>::init_blank();
-		// let mut target_key = layer.get(0, 0).unwrap();
-		// target_key.set_is_symmetric(true);
-		// layer.set(0, 0, target_key);
 		layer.get_mut(0, 0).unwrap().set_is_symmetric(true);
 		assert_eq!(layer.randomize(&mut rng, vec![_E]).unwrap_err(), KeyboardError::SymmetryError(0, 0, 0, 1));
 		layer.get_mut(0, 1).unwrap().set_is_symmetric(true);
 		layer.get_mut(1, 1).unwrap().set_is_moveable(false);
 		layer.randomize(&mut rng, vec![_E]);
-		println!("{}", layer);
 		assert_eq!(layer.get(0, 0).unwrap().value(), _NO);
 		assert_eq!(layer.get(0, 1).unwrap().value(), _NO);
 		assert_eq!(layer.get(1, 1).unwrap().value(), _NO);
 		assert_eq!(layer.get(1, 0).unwrap().value(), _E);
-		
+	}
+
+	#[test]
+	fn test_displaying_things() {
+		let mut rng = StdRng::seed_from_u64(0);
+		let mut layer = Layer::<5, 6, KeycodeKey>::init_blank();
+		layer.randomize(&mut rng, vec![_A, _B, _C, _D, _E]);
+		layer.get_mut(3, 5).unwrap().set_is_moveable(false);
+		println!("{}", layer);
+		println!("{:b}", layer);
 	}
 }

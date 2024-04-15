@@ -47,21 +47,18 @@ impl KeyValue for KeycodeKey {
 /// {Keycode}_{Moveability}{Symmetry}
 impl fmt::Display for KeycodeKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		let moveability_text = if self.is_moveable {
-			"T"
-		} else {
-			"F"
-		};
-		let symmetry_text = if self.is_symmetric {
-			"T"
-		} else {
-			"F"
-		};
 		// add row / column number later maybe
-		write!(f, "{:>3}_{}{}", str::replace(&self.value.to_string(), "_", ""), moveability_text, symmetry_text)
+		write!(f, "{:>3}", str::replace(&self.value.to_string(), "_", ""))
     }
 }
+impl fmt::Binary for KeycodeKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let m: u8 = self.is_moveable.into();
+		let s: u8 = self.is_symmetric.into();
 
+        write!(f, "{:>3}_{}{}", str::replace(&self.value.to_string(), "_", ""), m, s)
+    }
+}
 
 
 impl KeyValue for f32 {
