@@ -4,34 +4,39 @@ use std::ops::Index;
 use rand::prelude::*;
 use std::error::Error;
 use std::fmt;
+use thiserror;
 
 use crate::text_processor::keycode::Keycode::{self, *};
 use super::key::{KeyValue, KeycodeKey, PhysicalKey};
 use super::LayoutPosition;
 
-#[derive(Debug, PartialEq)]
+
+#[derive(Debug, PartialEq, thiserror::Error)]
 pub enum KeyboardError {
+	#[error("position ({0}, {1}) is marked as symmetric but its corresponding symmetric position ({2}, {3}) is not")]
 	SymmetryError(usize, usize, usize, usize),
+	#[error("expected {0} rows but tried to create {1} rows instead")]
 	RowMismatchError(usize, usize),
+	#[error("expected {0} cols but tried to create {1} cols instead")]
 	ColMismatchError(usize, usize),
+	#[error("{0} cannot be parsed into a KeycodeKey")]
 	InvalidKeyFromString(String), // add another param to describe what exactly is invalid
 }
-impl Error for KeyboardError {}
-impl fmt::Display for KeyboardError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			KeyboardError::SymmetryError(r1, c1, r2, c2) =>
-					write!(f, "Position ({r1}, {c1}) is marked as symmetric but its corresponding symmetric position ({r2}, {c2}) is not."),
-			KeyboardError::RowMismatchError(r1, r2) =>
-					write!(f, "Expected {r1} rows but found {:?} rows.", r1),
-			KeyboardError::ColMismatchError(c1, c2) =>
-					write!(f, "Expected {c1} rows but found {:?} rows.", c2),
-			KeyboardError::InvalidKeyFromString(s) =>
-					write!(f, "{} cannot be parsed into a KeycodeKey.", s),
-			_ => write!(f, "Oops, don't have this error yet.")
-		}
-    }
-}
+// impl fmt::Display for KeyboardError {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+// 		match self {
+// 			KeyboardError::SymmetryError(r1, c1, r2, c2) =>
+// 					write!(f, "Position ({r1}, {c1}) is marked as symmetric but its corresponding symmetric position ({r2}, {c2}) is not."),
+// 			KeyboardError::RowMismatchError(r1, r2) =>
+// 					write!(f, "Expected {r1} rows but found {:?} rows.", r1),
+// 			KeyboardError::ColMismatchError(c1, c2) =>
+// 					write!(f, "Expected {c1} rows but found {:?} rows.", c2),
+// 			KeyboardError::InvalidKeyFromString(s) =>
+// 					write!(f, "{} cannot be parsed into a KeycodeKey.", s),
+// 			_ => write!(f, "Oops, don't have this error yet.")
+// 		}
+//     }
+// }
 
 
 /// Layers are grids. For non-grid keyboard layouts, create the largest grid that fits and block unused cells with dummy keys. Works for anything implementing [KeyValue]
@@ -70,7 +75,7 @@ impl<const R: usize, const C: usize, K: KeyValue + std::clone::Clone> Layer<R, C
 	pub fn num_columns(&self) -> usize {
 		C
 	}
-	// Specifically, mirrored left-right
+	/// Specifically, mirrored left-right
 	pub fn symmetric_position(&self, l: LayoutPosition) -> LayoutPosition {
 		let num_rows = self.num_rows();
 		let num_cols = self.num_columns();
@@ -79,6 +84,7 @@ impl<const R: usize, const C: usize, K: KeyValue + std::clone::Clone> Layer<R, C
 		let symm_col = (num_cols - 1) - orig_col;
 		LayoutPosition { layer_index: l.layer_index, row_index: orig_row, col_index: symm_col }
 	}
+	
 }
 impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 	pub fn init_blank() -> Self {
@@ -117,21 +123,14 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, KeycodeKey> {
 	type Error = Box<dyn Error>;
 	fn try_from(layer_string: &str) -> Result<Self, Self::Error> {
 		let mut layer = Self::init_blank();
-		let rows: Vec<&str> = layer_string.split("\n").filter(|s| s.trim().len() > 0).collect();
-		if rows.len() != R {
-			return Err(Box::new(KeyboardError::RowMismatchError(R, rows.len())));
-		}
-		// yes it's dumb to collect an iterator and then re-iter it
+		let rows = rows_from_string(layer_string, R)?;
+		// yes it's silly to collect an iterator and then re-iter it
 		for (i, row) in rows.iter().enumerate() {
-			let cols: Vec<&str> = row.split_whitespace().collect();
-			if cols.len() != C {
-				return Err(Box::new(KeyboardError::ColMismatchError(C, cols.len())));
-			}
+			let cols = cols_from_string(row, C)?;
 			for (j, col) in cols.iter().enumerate() {
 				let mut key = KeycodeKey::from_keycode(_NO);
 				let mut key_details = col.split("_");
 				if &col[0..1] == "_" {
-					println!("the string in the cell is {}", col);
 					key_details.next();
 					key_details.next();
 				} else {
@@ -160,23 +159,46 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, KeycodeKey> {
 			}
 		}
 		Ok(layer)
-
 	}
-} 
-impl<const R: usize, const C: usize, K> fmt::Display for Layer<R, C, K> where K: KeyValue + fmt::Display {
+}
+impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, f32> {
+	type Error = Box<dyn Error>;
+	fn try_from(layer_string: &str) -> Result<Self, Self::Error> {
+		let mut effort_layer = Array2D::filled_with(0.0, R, C);
+		let rows = rows_from_string(layer_string, R)?;
+		for (i, row) in rows.iter().enumerate() {
+			let cols = cols_from_string(row, C)?;
+			for (j, col) in cols.iter().enumerate() {
+				let effort_value = col.parse::<f32>()?;
+				effort_layer.set(i, j, effort_value);
+			}
+		}
+		Ok(Layer{ layer: effort_layer })
+	}
+}
+
+
+fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, KeyboardError> {
+	let rows: Vec<&str> = input_s.split("\n").filter(|s| s.trim().len() > 0).collect();
+	if rows.len() != r {
+		Err(KeyboardError::RowMismatchError(r, rows.len()))
+	} else {
+		Ok(rows)
+	}
+}
+fn cols_from_string(input_s: &str, c: usize) -> Result<Vec<&str>, KeyboardError> {
+	let cols: Vec<&str> = input_s.split_whitespace().collect();
+	if cols.len() != c {
+		return Err(KeyboardError::ColMismatchError(c, cols.len()));
+	} else { 
+		Ok(cols)
+	}
+}
+
+
+impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, KeycodeKey> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "  ");
-		for k in 0..C {
-			write!(f, "{:>3}", k);
-			write!(f, " ");
-		}
-		writeln!(f);
-		write!(f, "  ");
-		for k in 0..C {
-			write!(f, "{:>3}", "-");
-			write!(f, " ");
-		}
-		writeln!(f);
+		write_col_indexes(f, C);
 		for (i, row) in self.layer.rows_iter().enumerate() {
 			write!(f, "{}|", i);
 			for element in row {
@@ -190,18 +212,7 @@ impl<const R: usize, const C: usize, K> fmt::Display for Layer<R, C, K> where K:
 }
 impl<const R: usize, const C: usize> fmt::Binary for Layer<R, C, KeycodeKey> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "  ");
-		for k in 0..C {
-			write!(f, "{:>3}", k);
-			write!(f, "    ");
-		}
-		writeln!(f);
-		write!(f, "  ");
-		for k in 0..C {
-			write!(f, "{:>3}", "-");
-			write!(f, "    ");
-		}
-		writeln!(f);
+		write_col_indexes(f, C);
 		for (i, row) in self.layer.rows_iter().enumerate() {
 			write!(f, "{}|", i);
 			for element in row {
@@ -213,6 +224,37 @@ impl<const R: usize, const C: usize> fmt::Binary for Layer<R, C, KeycodeKey> {
 		write!(f, "")
     }
 }
+// there should be a smarter way to do this
+impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, f32> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write_col_indexes(f, C);
+		for (i, row) in self.layer.rows_iter().enumerate() {
+			write!(f, "{}|", i);
+			for element in row {
+				write!(f, "{:>4.2}", element);
+				write!(f, " ");
+			}
+			writeln!(f);
+		}
+		write!(f, "")
+    }
+}
+
+fn write_col_indexes(f: &mut fmt::Formatter, c: usize) -> () {
+	write!(f, "  ");
+	for k in 0..c {
+		write!(f, "{:>3}", k);
+		write!(f, " ");
+	}
+	writeln!(f);
+	write!(f, "  ");
+	for k in 0..c {
+		write!(f, "{:>3}", "-");
+		write!(f, " ");
+	}
+	writeln!(f);
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -282,6 +324,8 @@ mod tests {
 	fn test_displaying_things() {
 		let mut rng = StdRng::seed_from_u64(0);
 		let mut layer = Layer::<5, 6, KeycodeKey>::init_blank();
+		layer.get_mut(0, 0).unwrap().set_value(_ENT);
+		layer.get_mut(0, 0).unwrap().set_is_moveable(false);
 		layer.randomize(&mut rng, vec![_A, _B, _C, _D, _E]);
 		layer.get_mut(3, 5).unwrap().set_is_moveable(false);
 		println!("{}", layer);
@@ -296,5 +340,12 @@ mod tests {
 		";
 		let layer = Layer::<2, 3, KeycodeKey>::try_from(layer_string).unwrap();
 		println!("{:b}", layer);
+
+		let effort_string = "
+			0.5 1.0 1.5
+			0.25 2.0 3.0
+		";
+		let effort_layer = Layer::<2, 3, f32>::try_from(effort_string).unwrap();
+		println!("{}", effort_layer);
 	}
 }
