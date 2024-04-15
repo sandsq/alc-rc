@@ -6,7 +6,7 @@ use std::error::Error;
 use std::fmt;
 
 use crate::text_processor::keycode::Keycode::{self, *};
-use super::key::{KeyValue, KeycodeKey};
+use super::key::{KeyValue, KeycodeKey, PhysicalKey};
 use super::LayoutPosition;
 
 #[derive(Debug, PartialEq)]
@@ -32,6 +32,7 @@ impl fmt::Display for KeyboardError {
 		}
     }
 }
+
 
 /// Layers are grids. For non-grid keyboard layouts, create the largest grid that fits and block unused cells with dummy keys. Works for anything implementing [KeyValue]
 #[derive(Debug, PartialEq, Clone)]
@@ -162,7 +163,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, KeycodeKey> {
 
 	}
 } 
-impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, KeycodeKey> {
+impl<const R: usize, const C: usize, K> fmt::Display for Layer<R, C, K> where K: KeyValue + fmt::Display {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "  ");
 		for k in 0..C {

@@ -2,6 +2,14 @@ use std::fmt;
 
 use crate::text_processor::keycode::Keycode::{self, *};
 
+
+pub enum LayerElement {
+	Key(KeycodeKey),
+	PhysicalKeyKey(PhysicalKey),
+	EffortValue(f32),
+}
+
+
 pub trait KeyValue {
 	type Item;
 	fn value(&self) -> Self::Item;
