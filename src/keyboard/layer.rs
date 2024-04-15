@@ -104,7 +104,14 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 }
 impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, KeycodeKey> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		
+		for row in self.layer.rows_iter() {
+			for element in row {
+				write!(f, "{}", element);
+				write!(f, " ");
+			}
+			writeln!(f);
+		}
+		write!(f, "")
     }
 }
 
@@ -170,6 +177,7 @@ mod tests {
 		layer.get_mut(0, 1).unwrap().set_is_symmetric(true);
 		layer.get_mut(1, 1).unwrap().set_is_moveable(false);
 		layer.randomize(&mut rng, vec![_E]);
+		println!("{}", layer);
 		assert_eq!(layer.get(0, 0).unwrap().value(), _NO);
 		assert_eq!(layer.get(0, 1).unwrap().value(), _NO);
 		assert_eq!(layer.get(1, 1).unwrap().value(), _NO);

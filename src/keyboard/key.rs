@@ -44,6 +44,7 @@ impl KeyValue for KeycodeKey {
 		self.value
 	}
 }
+/// {Keycode}_{Moveability}{Symmetry}
 impl fmt::Display for KeycodeKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let moveability_text = if self.is_moveable {
@@ -56,7 +57,8 @@ impl fmt::Display for KeycodeKey {
 		} else {
 			"F"
 		};
-		write!(f, "{}_{}{}", self.value, moveability_text, symmetry_text)
+		// add row / column number later maybe
+		write!(f, "{:>3}_{}{}", str::replace(&self.value.to_string(), "_", ""), moveability_text, symmetry_text)
     }
 }
 
