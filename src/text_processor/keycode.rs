@@ -1,3 +1,6 @@
+
+use std::fmt;
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Keycode {
 	_A,
@@ -8,9 +11,14 @@ pub enum Keycode {
 	_SFT,
 	_ENT,
 	_PLACEHOLDER,
+	_NO,
 }
 use Keycode::*;
-
+impl fmt::Display for Keycode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		writeln!(f, "{}", str::replace(stringify!(self), "_", ""))
+    }
+}
 
 
 

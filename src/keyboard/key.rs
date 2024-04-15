@@ -1,6 +1,8 @@
+use std::fmt;
+
 use crate::text_processor::keycode::Keycode::{self, *};
 
-pub trait Value {
+pub trait KeyValue {
 	type Item;
 	fn value(&self) -> Self::Item;
 }
@@ -14,6 +16,18 @@ impl KeycodeKey {
 	pub fn from_keycode(k: Keycode) -> Self {
 		Self { value: k, is_moveable: true, is_symmetric: false }
 	}
+	pub fn is_moveable(&self) -> bool {
+		self.is_moveable
+	}
+	pub fn set_is_moveable(&mut self, new_moveability: bool) -> () {
+		self.is_moveable = new_moveability
+	}
+	pub fn is_symmetric(&self) -> bool {
+		self.is_symmetric
+	}
+	pub fn set_is_symmetric(&mut self, new_symmetric: bool) -> () {
+		self.is_symmetric = new_symmetric
+	}
 }
 impl Default for KeycodeKey {
 	fn default() -> Self {
@@ -24,10 +38,46 @@ impl Default for KeycodeKey {
 		}
 	}
 }
-impl Value for KeycodeKey {
+impl KeyValue for KeycodeKey {
 	type Item = Keycode;
 	fn value(&self) -> Self::Item {
 		self.value
+	}
+}
+impl fmt::Display for KeycodeKey {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		let moveability_text = if self.is_moveable {
+			"T"
+		} else {
+			"F"
+		};
+		let symmetry_text = if self.is_symmetric {
+			"T"
+		} else {
+			"F"
+		};
+		write!(f, "{}_{}{}", self.value, moveability_text, symmetry_text)
+    }
+}
+
+
+
+impl KeyValue for f32 {
+	type Item = f32;
+	fn value(&self) -> Self::Item {
+		*self
+	}
+}
+
+pub struct PhysicalKey {
+	text: String,
+	x: f32,
+	y: f32,
+}
+impl KeyValue for PhysicalKey {
+	type Item = String;
+	fn value(&self) -> Self::Item {
+		String::from(self.text.clone())
 	}
 }
 
@@ -37,7 +87,7 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn basic_key() {
+	fn keycode_key() {
 		let k = KeycodeKey::default();
 		assert_eq!(k.value(), _E);
 		assert_eq!(k.value, _E);
