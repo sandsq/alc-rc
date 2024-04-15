@@ -2,6 +2,8 @@
 use strum_macros;
 use std::fmt;
 
+
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString)]
 pub enum Keycode {
 	_A,
@@ -11,6 +13,7 @@ pub enum Keycode {
 	_E,
 	_SFT,
 	_ENT,
+	_LS(usize),
 	_PLACEHOLDER,
 	_NO,
 }

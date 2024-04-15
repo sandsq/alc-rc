@@ -1,13 +1,11 @@
 use array2d::{Array2D, Error as Array2DError};
-use delegate::delegate;
-use std::ops::Index;
 use rand::prelude::*;
 use std::error::Error;
 use std::fmt;
 use thiserror;
 
 use crate::text_processor::keycode::Keycode::{self, *};
-use super::key::{KeyValue, KeycodeKey, PhysicalKey};
+use super::key::{KeyValue, KeycodeKey, Randomizeable};
 use super::LayoutPosition;
 
 
@@ -19,8 +17,6 @@ pub enum KeyboardError {
 	RowMismatchError(usize, usize),
 	#[error("expected {0} cols but tried to create {1} cols instead")]
 	ColMismatchError(usize, usize),
-	#[error("{0} cannot be parsed into a KeycodeKey")]
-	InvalidKeyFromString(String), // add another param to describe what exactly is invalid
 }
 // impl fmt::Display for KeyboardError {
 //     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -100,14 +96,13 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 				if key.is_symmetric() {
 					let symm_lp = self.symmetric_position(lp);
 					let symm_key = self.get_from_layout_position(&symm_lp).unwrap();
-					// println!("{} {} is symmetric, checking {} {}: {:?}", i, j, &symm_lp.row_index, &symm_lp.col_index, &symm_key);
 					if !symm_key.is_symmetric() {
 						return Err(KeyboardError::SymmetryError(i, j, symm_lp.row_index, symm_lp.col_index));
 					} else {
 						continue;
 					}
 				}
-				if  !key.is_moveable() {
+				if  !key.is_randomizeable() {
 					continue;
 				}
 				if let Some(random_keycode) = valid_keycodes.choose(rng) {
@@ -128,33 +123,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, KeycodeKey> {
 		for (i, row) in rows.iter().enumerate() {
 			let cols = cols_from_string(row, C)?;
 			for (j, col) in cols.iter().enumerate() {
-				let mut key = KeycodeKey::from_keycode(_NO);
-				let mut key_details = col.split("_");
-				if &col[0..1] == "_" {
-					key_details.next();
-					key_details.next();
-				} else {
-					if let Some(key_value_string) = key_details.next() {
-						let key_value = Keycode::try_from(format!("_{key_value_string}").as_str())?;
-						key.set_value(key_value);
-					} else {
-						return Err(Box::new(KeyboardError::InvalidKeyFromString(String::from(*col))));
-					}
-				}
-				if let Some(flags) = key_details.next() {
-					// is_moveable flag and is_symmetric flag
-					if flags.len() != 2 {
-						return Err(Box::new(KeyboardError::InvalidKeyFromString(String::from(*col))));	
-					}
-					let mut flags_iter = flags.chars();
-					// should handle errors if they aren't 0 or 1, but lazy so skipping for now
-					let move_flag: bool = flags_iter.next().unwrap().to_digit(10).unwrap() != 0;
-					key.set_is_moveable(move_flag);
-					let symm_flag: bool = flags_iter.next().unwrap().to_digit(10).unwrap() != 0;
-					key.set_is_symmetric(symm_flag);
-				} else {
-					return Err(Box::new(KeyboardError::InvalidKeyFromString(String::from(*col))));
-				}
+				let mut key = KeycodeKey::try_from(*col)?;
 				layer.set(i, j, key);
 			}
 		}
@@ -308,16 +277,19 @@ mod tests {
 	#[test]
 	fn test_randomize() {
 		let mut rng = StdRng::seed_from_u64(0);
-		let mut layer = Layer::<2, 2, KeycodeKey>::init_blank();
+		let mut layer = Layer::<3, 2, KeycodeKey>::init_blank();
 		layer.get_mut(0, 0).unwrap().set_is_symmetric(true);
 		assert_eq!(layer.randomize(&mut rng, vec![_E]).unwrap_err(), KeyboardError::SymmetryError(0, 0, 0, 1));
-		layer.get_mut(0, 1).unwrap().set_is_symmetric(true);
+		layer.get_mut(0, 1).unwrap().set_is_symmetric(true); // set the corresponding slot to be symmetric to continue
+
 		layer.get_mut(1, 1).unwrap().set_is_moveable(false);
+		layer.get_mut(2, 0).unwrap().set_value(_LS(1)); // there is no layer switch to be had but use it to test that _LS does not get randomized
 		layer.randomize(&mut rng, vec![_E]);
 		assert_eq!(layer.get(0, 0).unwrap().value(), _NO);
 		assert_eq!(layer.get(0, 1).unwrap().value(), _NO);
 		assert_eq!(layer.get(1, 1).unwrap().value(), _NO);
 		assert_eq!(layer.get(1, 0).unwrap().value(), _E);
+		assert_eq!(layer.get(2, 0).unwrap().value(), _LS(1));
 	}
 
 	#[test]
@@ -336,10 +308,12 @@ mod tests {
 	fn test_from_string() {
 		let layer_string = "
 			A_11 B_10 C_11
-			D_00 __01 E_10
+			D_00 __01 LS1_10
 		";
 		let layer = Layer::<2, 3, KeycodeKey>::try_from(layer_string).unwrap();
-		println!("{:b}", layer);
+		println!("layer from string\n{:b}", layer);
+		println!("layer from string\n{}", layer);
+		assert_eq!(layer.get(1, 2).unwrap(), KeycodeKey::from_keycode(_LS(1)));
 
 		let effort_string = "
 			0.5 1.0 1.5
