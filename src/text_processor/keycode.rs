@@ -2,7 +2,7 @@
 use strum_macros;
 use std::fmt;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString)]
 pub enum Keycode {
 	_A,
 	_B,

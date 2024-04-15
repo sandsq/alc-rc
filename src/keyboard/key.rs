@@ -16,6 +16,9 @@ impl KeycodeKey {
 	pub fn from_keycode(k: Keycode) -> Self {
 		Self { value: k, is_moveable: true, is_symmetric: false }
 	}
+	pub fn set_value(&mut self, new_value: Keycode) -> () {
+		self.value = new_value
+	}
 	pub fn is_moveable(&self) -> bool {
 		self.is_moveable
 	}
@@ -48,7 +51,12 @@ impl KeyValue for KeycodeKey {
 impl fmt::Display for KeycodeKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		// add row / column number later maybe
-		write!(f, "{:>3}", str::replace(&self.value.to_string(), "_", ""))
+		let str_to_display = str::replace(&self.value.to_string(), "_", "");
+		let value_to_display = match self.value {
+			_NO => "_",
+			_ => &str_to_display,
+		};
+		write!(f, "{:>3}", value_to_display)
     }
 }
 impl fmt::Binary for KeycodeKey {
@@ -56,7 +64,12 @@ impl fmt::Binary for KeycodeKey {
         let m: u8 = self.is_moveable.into();
 		let s: u8 = self.is_symmetric.into();
 
-        write!(f, "{:>3}_{}{}", str::replace(&self.value.to_string(), "_", ""), m, s)
+		let str_to_display = str::replace(&self.value.to_string(), "_", "");
+		let value_to_display = match self.value {
+			_NO => "_",
+			_ => &str_to_display,
+		};
+        write!(f, "{:>3}_{}{}", value_to_display, m, s)
     }
 }
 

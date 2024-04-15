@@ -11,14 +11,24 @@ use super::LayoutPosition;
 
 #[derive(Debug, PartialEq)]
 pub enum KeyboardError {
-	SymmetryError(usize, usize, usize, usize)
+	SymmetryError(usize, usize, usize, usize),
+	RowMismatchError(usize, usize),
+	ColMismatchError(usize, usize),
+	InvalidKeyFromString(String), // add another param to describe what exactly is invalid
 }
 impl Error for KeyboardError {}
 impl fmt::Display for KeyboardError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			KeyboardError::SymmetryError(r1, c1, r2, c2) =>
-					write!(f, "Position ({r1}, {c1}) is marked as symmetric but its corresponding symmetric position ({r2}, {c2}) is not.")
+					write!(f, "Position ({r1}, {c1}) is marked as symmetric but its corresponding symmetric position ({r2}, {c2}) is not."),
+			KeyboardError::RowMismatchError(r1, r2) =>
+					write!(f, "Expected {r1} rows but found {:?} rows.", r1),
+			KeyboardError::ColMismatchError(c1, c2) =>
+					write!(f, "Expected {c1} rows but found {:?} rows.", c2),
+			KeyboardError::InvalidKeyFromString(s) =>
+					write!(f, "{} cannot be parsed into a KeycodeKey.", s),
+			_ => write!(f, "Oops, don't have this error yet.")
 		}
     }
 }
@@ -102,6 +112,56 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 		Ok(())
 	}
 }
+impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, KeycodeKey> {
+	type Error = Box<dyn Error>;
+	fn try_from(layer_string: &str) -> Result<Self, Self::Error> {
+		let mut layer = Self::init_blank();
+		let rows: Vec<&str> = layer_string.split("\n").filter(|s| s.trim().len() > 0).collect();
+		if rows.len() != R {
+			return Err(Box::new(KeyboardError::RowMismatchError(R, rows.len())));
+		}
+		// yes it's dumb to collect an iterator and then re-iter it
+		for (i, row) in rows.iter().enumerate() {
+			let cols: Vec<&str> = row.split_whitespace().collect();
+			if cols.len() != C {
+				return Err(Box::new(KeyboardError::ColMismatchError(C, cols.len())));
+			}
+			for (j, col) in cols.iter().enumerate() {
+				let mut key = KeycodeKey::from_keycode(_NO);
+				let mut key_details = col.split("_");
+				if &col[0..1] == "_" {
+					println!("the string in the cell is {}", col);
+					key_details.next();
+					key_details.next();
+				} else {
+					if let Some(key_value_string) = key_details.next() {
+						let key_value = Keycode::try_from(format!("_{key_value_string}").as_str())?;
+						key.set_value(key_value);
+					} else {
+						return Err(Box::new(KeyboardError::InvalidKeyFromString(String::from(*col))));
+					}
+				}
+				if let Some(flags) = key_details.next() {
+					// is_moveable flag and is_symmetric flag
+					if flags.len() != 2 {
+						return Err(Box::new(KeyboardError::InvalidKeyFromString(String::from(*col))));	
+					}
+					let mut flags_iter = flags.chars();
+					// should handle errors if they aren't 0 or 1, but lazy so skipping for now
+					let move_flag: bool = flags_iter.next().unwrap().to_digit(10).unwrap() != 0;
+					key.set_is_moveable(move_flag);
+					let symm_flag: bool = flags_iter.next().unwrap().to_digit(10).unwrap() != 0;
+					key.set_is_symmetric(symm_flag);
+				} else {
+					return Err(Box::new(KeyboardError::InvalidKeyFromString(String::from(*col))));
+				}
+				layer.set(i, j, key);
+			}
+		}
+		Ok(layer)
+
+	}
+} 
 impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, KeycodeKey> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "  ");
@@ -224,6 +284,16 @@ mod tests {
 		layer.randomize(&mut rng, vec![_A, _B, _C, _D, _E]);
 		layer.get_mut(3, 5).unwrap().set_is_moveable(false);
 		println!("{}", layer);
+		println!("{:b}", layer);
+	}
+
+	#[test]
+	fn test_from_string() {
+		let layer_string = "
+			A_11 B_10 C_11
+			D_00 __01 E_10
+		";
+		let layer = Layer::<2, 3, KeycodeKey>::try_from(layer_string).unwrap();
 		println!("{:b}", layer);
 	}
 }
