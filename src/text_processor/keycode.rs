@@ -11,6 +11,7 @@ pub enum Keycode {
 	_C,
 	_D,
 	_E,
+	_H,
 	_SFT,
 	_ENT,
 	_LS(usize),
@@ -40,6 +41,7 @@ fn char_to_keycode(c: char) -> Vec<Keycode> {
 		'c' => keycodes.push(_C),
 		'd' => keycodes.push(_D),
 		'e' => keycodes.push(_E),
+		'h' => keycodes.push(_H),
 		'\n' => keycodes.push(_ENT),
 		_ => keycodes.push(_PLACEHOLDER),
 	}
