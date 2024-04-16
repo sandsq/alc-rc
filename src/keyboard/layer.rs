@@ -104,6 +104,7 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 		Layer::<R, C, KeycodeKey> { layer: layer_array2d }
 	}
 	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: Vec<Keycode>) -> Result<(), LayerError> {
+		let mut valid_keycodes_to_draw_from = valid_keycodes.clone();
 		for i in 0..R {
 			for j in 0..C {
 				let key = self.get(i, j).unwrap();
@@ -120,8 +121,12 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 				if  !key.is_randomizeable() {
 					continue;
 				}
-				if let Some(random_keycode) = valid_keycodes.choose(rng) {
-					let replacement_key = KeycodeKey::from_keycode(*random_keycode);
+				if valid_keycodes_to_draw_from.len() == 0 {
+					valid_keycodes_to_draw_from = valid_keycodes.clone();
+				}
+				
+				if let Some(random_keycode) = choose_and_remove(rng, &mut valid_keycodes_to_draw_from) {
+					let replacement_key = KeycodeKey::from_keycode(random_keycode);
 					self.set(i, j, replacement_key);
 				}
 			}
@@ -129,6 +134,16 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 		Ok(())
 	}
 }
+fn choose_and_remove(rng: &mut impl Rng, v: &mut Vec<Keycode>) -> Option<Keycode> {
+	match v.iter().enumerate().choose(rng) {
+		Some((i, &out)) => {
+			v.swap_remove(i);
+			Some(out)
+		}
+		None => None,
+	}
+}
+
 impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, KeycodeKey> {
 	type Error = Box<dyn Error>;
 	fn try_from(layer_string: &str) -> Result<Self, Self::Error> {

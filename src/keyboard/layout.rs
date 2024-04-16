@@ -180,30 +180,30 @@ mod tests {
 
 		fn test_string_construction<const R: usize, const C: usize>(layout: Layout<R, C>) {
 			let layout_string = "
-				___Layer 0___
-						0       1       2 
-				0| LS1_10  LS2_10  LS3_10 
-				1| LS4_10    E_10    D_00 
-				
-				___Layer 1___
-						0       1       2 
-				0| LS1_10    E_10    A_10 
-				1|   E_10    E_10    A_10 
-				
-				___Layer 2___
-						0       1       2 
-				0|   A_10  LS2_10    A_10 
-				1|   E_10    E_10    E_10 
-				
-				___Layer 3___
-						0       1       2 
-				0|   A_10    A_10  LS3_10 
-				1|   A_10    A_10    A_10 
-				
-				___Layer 4___
-						0       1       2 
-				0|   E_10    A_10    A_10 
-				1| LS4_10    E_10    E_10 
+			___Layer 0___
+					0       1       2 
+			0| LS1_10  LS2_10  LS3_10 
+			1| LS4_10    E_10    D_00 
+			
+			___Layer 1___
+					0       1       2 
+			0| LS1_10    E_10    A_10 
+			1|   E_10    A_10    A_10 
+			
+			___Layer 2___
+					0       1       2 
+			0|   A_10  LS2_10    E_10 
+			1|   E_10    A_10    A_10 
+			
+			___Layer 3___
+					0       1       2 
+			0|   A_10    E_10  LS3_10 
+			1|   A_10    E_10    E_10 
+			
+			___Layer 4___
+					0       1       2 
+			0|   A_10    E_10    E_10 
+			1| LS4_10    A_10    E_10 
 			";
 			let layout_from_string = Layout::try_from(layout_string);
 			println!("layout from string\n{:b}", layout_from_string.clone().unwrap());
