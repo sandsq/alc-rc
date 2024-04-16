@@ -5,6 +5,7 @@ use std::error::Error;
 use std::fmt::{self, Formatter};
 use std::collections::HashMap;
 use thiserror;
+use regex;
 
 use crate::text_processor::keycode::Keycode::{self, *};
 use super::key::{KeyValue, KeycodeKey, PhysicalKey};
@@ -13,7 +14,7 @@ use super::{LayoutPosition, LayoutPositionSequence};
 
 type KeycodePositionMap = HashMap<Keycode, Vec<LayoutPositionSequence>>;
 
-#[derive(Debug, PartialEq, thiserror::Error)]
+#[derive(Debug, PartialEq, Clone, thiserror::Error)]
 pub enum LayoutError {
 	#[error("layer {0} is not reachable")]
 	LayerAccessError(usize),
@@ -22,7 +23,7 @@ pub enum LayoutError {
 /// A keyboard layout is a collection of layers of KeycodeKeys, plus additional info specifying how to navigate the layout, etc. (fill in later)
 /// Layouts with multiple layers must have a way to access every layer.
 /// For now, the only way to change layers is via a layer switch key. _LS(2) means that key switches to layer 2
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Layout<const R: usize, const C: usize> {
 	layers: Vec<Layer<R, C, KeycodeKey>>,
 	keycodes_to_positions: KeycodePositionMap,
@@ -98,10 +99,20 @@ fn keycode_position_mapping_from_layout<const R: usize, const C: usize>(layers: 
 	Ok(keycodes_to_positions)
 }
 impl<const R: usize, const C: usize> TryFrom<&str> for Layout<R, C> {
-	type Error = Box<dyn Error>;
-	fn try_from(value: &str) -> Result<Self, Self::Error> {
-		
-		todo!()
+	type Error = LayoutError; //Box<dyn Error>;
+
+	fn try_from(layout_string: &str) -> Result<Self, Self::Error> {
+		let mut layers: Vec<Layer<R, C, KeycodeKey>> = vec![];
+
+		let re = regex::Regex::new(r"(___)(.*)(___)").unwrap();
+		for layer_string in re.split(layout_string).collect::<Vec<&str>>() {
+			if layer_string.trim().is_empty() {
+				continue;
+			}
+			layers.push(Layer::try_from(layer_string).unwrap());
+		}
+		let keycodes_to_positions = keycode_position_mapping_from_layout::<R, C>(layers.clone())?;
+		Ok(Layout { layers, keycodes_to_positions: keycodes_to_positions})
 	}
 }
 
@@ -154,15 +165,56 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn test_randomize() {
+	fn test() {
 		let mut rng = StdRng::seed_from_u64(0);
 		let mut layout = Layout::<2, 3>::init_blank(5);
 		layout.get_mut(0, 1, 2).unwrap().set_value(_D);
 		layout.get_mut(0, 1, 2).unwrap().set_is_moveable(false);
 		layout.randomize(&mut rng, vec![_A, _E]);
-		let expected_key = KeycodeKey::try_from("D_00").unwrap();
-		assert_eq!(layout.get(0, 1, 2).unwrap(), expected_key);
-		println!("{:b}", layout);
+		fn test_randomize<const R: usize, const C: usize>(layout: Layout<R, C>) {
+			let expected_key = KeycodeKey::try_from("D_00").unwrap();
+			assert_eq!(layout.get(0, 1, 2).unwrap(), expected_key);
+			println!("{:b}", layout);
+		}
+		test_randomize::<2, 3>(layout.clone());
+
+		fn test_string_construction<const R: usize, const C: usize>(layout: Layout<R, C>) {
+			let layout_string = "
+				___Layer 0___
+						0       1       2 
+				0| LS1_10  LS2_10  LS3_10 
+				1| LS4_10    E_10    D_00 
+				
+				___Layer 1___
+						0       1       2 
+				0| LS1_10    E_10    A_10 
+				1|   E_10    E_10    A_10 
+				
+				___Layer 2___
+						0       1       2 
+				0|   A_10  LS2_10    A_10 
+				1|   E_10    E_10    E_10 
+				
+				___Layer 3___
+						0       1       2 
+				0|   A_10    A_10  LS3_10 
+				1|   A_10    A_10    A_10 
+				
+				___Layer 4___
+						0       1       2 
+				0|   E_10    A_10    A_10 
+				1| LS4_10    E_10    E_10 
+			";
+			let layout_from_string = Layout::try_from(layout_string);
+			println!("layout from string\n{:b}", layout_from_string.clone().unwrap());
+			assert_eq!(layout_from_string.unwrap(), layout);
+		}
+		test_string_construction::<2, 3>(layout);
+	}
+
+	#[test]
+	fn test_keycode_position_map () {
+		// assert!(false);
 	}
 
 	
