@@ -22,7 +22,7 @@ impl LayoutPosition {
 }
 impl fmt::Display for LayoutPosition {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "L{}: (R{}, C{})", self.layer_index, self.row_index, self.col_index)
+		write!(f, "(L{} R{} C{})", self.layer_index, self.row_index, self.col_index)
     }
 }
 
@@ -47,9 +47,15 @@ impl Index<usize> for LayoutPositionSequence {
 }
 impl fmt::Display for LayoutPositionSequence {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		for lp in self.sequence.clone() {
-			write!(f, "{} -> ", lp);
+		write!(f, "[");
+		for (i, lp) in self.sequence.clone().iter().enumerate() {
+			if i == self.sequence.len() - 1 {
+				write!(f, "{}", lp);
+			} else {
+				write!(f, "{} -> ", lp);
+			}
+			
 		}
-		write!(f, "")
+		write!(f, "]")
     }
 }

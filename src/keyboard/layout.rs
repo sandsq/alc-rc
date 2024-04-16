@@ -2,7 +2,7 @@ use array2d::{Array2D, Error as Array2DError};
 use std::ops::Index;
 use rand::prelude::*;
 use std::error::Error;
-use std::fmt;
+use std::fmt::{self, Formatter};
 use std::collections::HashMap;
 use thiserror;
 
@@ -30,50 +30,69 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			layers[0].get_mut_row_major(j).unwrap().set_value(_LS(j + 1));
 			layers[j + 1].get_mut_row_major(j).unwrap().set_value(_LS(j + 1));
 		}
-
-		let mut keycodes_to_positions: HashMap<Keycode, Vec<LayoutPositionSequence>> = Default::default();
-		for (i, layer) in layers.iter().enumerate() {
-			for r in 0..R {
-				for c in 0..C {
-					let key = layer.get(r, c).unwrap();
-					let key_value = key.value();
-					let layout_position = LayoutPosition::for_layout(i, r, c);
-					let layout_position_sequence = LayoutPositionSequence::from(vec![layout_position.clone()]);
-					if i == 0 {
-						keycodes_to_positions.entry(key_value).or_insert(vec![]).push(layout_position_sequence);
-					} else {
-						let mut map_clone = keycodes_to_positions.clone();
-						let mut sequences_to_reach_layer = map_clone.get(&_LS(i)).unwrap(); // shouldn't need to check that this exists since we are controlling how the layout is put together, but would need to check if coming from user input
-						// loop through all sequences that can reach _LS(i)
-						for s_index in 0..sequences_to_reach_layer.len() {
-							let mut seq_clone = sequences_to_reach_layer.clone();
-							let new_seq = seq_clone.get_mut(s_index).unwrap();
-							// add the position of the current key we are on at the end
-							new_seq.push(layout_position.clone());
-							keycodes_to_positions.entry(key_value).or_insert(vec![]).push(new_seq.clone());
-						}
-						
-					}
-				}
-			}
-			
-		}
-		
+		let mut keycodes_to_positions = keycode_position_mapping_from_layout::<R, C>(layers.clone());
 		Layout { layers: layers, keycodes_to_positions: keycodes_to_positions }
 	}
+
 	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: Vec<Keycode>) -> Result<(), KeyboardError> {
 		
 		
 		Ok(())
 	}
 }
+
+fn keycode_position_mapping_from_layout<const R: usize, const C: usize>(layers: Vec<Layer<R, C, KeycodeKey>>) -> HashMap<Keycode, Vec<LayoutPositionSequence>> {
+	let mut keycodes_to_positions: HashMap<Keycode, Vec<LayoutPositionSequence>> = Default::default();
+	for (i, layer) in layers.iter().enumerate() {
+		for r in 0..R {
+			for c in 0..C {
+				let key = layer.get(r, c).unwrap();
+				let key_value = key.value();
+				let layout_position = LayoutPosition::for_layout(i, r, c);
+				let layout_position_sequence = LayoutPositionSequence::from(vec![layout_position.clone()]);
+				if i == 0 {
+					keycodes_to_positions.entry(key_value).or_insert(vec![]).push(layout_position_sequence);
+				} else {
+					match key_value {
+						_LS(i) => continue,
+						_ => (),
+					}
+					let mut map_clone = keycodes_to_positions.clone();
+					let mut sequences_to_reach_layer = map_clone.get(&_LS(i)).unwrap(); // need to check this to make sure layer is reachable. Could store this for after the keymap is processed in case there is a layer move downward, but not going to implement that now since QMK does not recommend having layer switches like that
+					// loop through all sequences that can reach _LS(i)
+					for s_index in 0..sequences_to_reach_layer.len() {
+						let mut seq_clone = sequences_to_reach_layer.clone();
+						let new_seq = seq_clone.get_mut(s_index).unwrap();
+						// add the position of the current key we are on at the end
+						new_seq.push(layout_position.clone());
+						keycodes_to_positions.entry(key_value).or_insert(vec![]).push(new_seq.clone());
+					}
+				}
+			}
+		}	
+	}
+	keycodes_to_positions
+}
+
+
 impl<const R: usize, const C: usize> fmt::Display for Layout<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		for (i, layer) in self.layers.iter().enumerate() {
 			writeln!(f, "@@@ L{} @@@", i);
 			writeln!(f, "{}", layer);
 		}
-		writeln!(f, "{}", self.keycodes_to_positions);
+		for k in self.keycodes_to_positions.keys() {
+			let key_text = match k {
+				_LS(i) => format!("_LS{}", i),
+				_ => k.to_string(),
+			};
+			write!(f, "{}: ", key_text);
+			for seq in self.keycodes_to_positions.get(k).unwrap().iter() {
+				write!(f, "{}, ", seq);
+			}
+			writeln!(f, "");
+		}
+		
 		write!(f, "")
     }
 }
@@ -83,7 +102,17 @@ impl<const R: usize, const C: usize> fmt::Binary for Layout<R, C> {
 			writeln!(f, "@@@ L{} @@@", i);
 			writeln!(f, "{:b}", layer);
 		}
-		writeln!(f, "{}", self.keycodes_to_positions);
+		for k in self.keycodes_to_positions.keys() {
+			let key_text = match k {
+				_LS(i) => format!("_LS{}", i),
+				_ => k.to_string(),
+			};
+			write!(f, "{}: ", key_text);
+			for seq in self.keycodes_to_positions.get(k).unwrap().iter() {
+				write!(f, "{}, ", seq);
+			}
+			writeln!(f, "");
+		}
 		write!(f, "")
     }
 }
@@ -95,7 +124,7 @@ mod tests {
 
 	#[test]
 	fn display_layout() {
-		let layout = Layout::<3, 4>::init_blank(6);
+		let layout = Layout::<2, 3>::init_blank(5);
 		println!("{:b}", layout);
 	}
 }
