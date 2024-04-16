@@ -2,6 +2,7 @@ use array2d::{Array2D, Error as Array2DError};
 use rand::prelude::*;
 use std::error::Error;
 use std::fmt;
+use std::str;
 use thiserror;
 
 use crate::text_processor::keycode::Keycode::{self, *};
@@ -17,6 +18,8 @@ pub enum LayerError {
 	RowMismatchError(usize, usize),
 	#[error("expected {0} cols but tried to create {1} cols instead")]
 	ColMismatchError(usize, usize),
+	#[error("layer string seems to contain column index header but its format is invalid {0}")]
+	FromStringHeaderError(String),
 }
 // impl fmt::Display for KeyboardError {
 //     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -160,19 +163,47 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, f32> {
 
 
 fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, LayerError> {
-	let rows: Vec<&str> = input_s.split("\n").filter(|s| s.trim().len() > 0).collect();
-	if rows.len() != r {
-		Err(LayerError::RowMismatchError(r, rows.len()))
-	} else {
-		Ok(rows)
+	let mut rows = input_s.split("\n").filter(|s| s.trim().len() > 0);
+	let rows_vec: Vec<&str> = rows.clone().collect();
+	let mut rows_vec_len = rows_vec.len();
+	if rows_vec_len == r + 1 {
+		// this is for convenience: layers are outputted with row and column indexes and it would be nice if we could just copy past those outputs as valid strings to create layers from
+		// if first row is a series of numbers, then it is a column index row
+		let first_row = rows.next().unwrap();
+		rows_vec_len -= 1;
+		let mut first_row_chars = first_row.chars();
+		let previous_char = first_row_chars.next().unwrap();
+		for c_ind in 0..first_row.len() - 1 {
+			let current_char = first_row_chars.next().unwrap();
+			if previous_char.is_digit(10) && current_char.is_digit(10) {
+				if previous_char.to_digit(10).unwrap() + 1 != current_char.to_digit(10).unwrap() {
+					return Err(LayerError::FromStringHeaderError(String::from(first_row)));
+				}
+			}
+		}
+	}
+	if rows_vec_len != r {
+		return Err(LayerError::RowMismatchError(r, rows_vec_len));
+	}
+	else {
+		Ok(rows.collect())
 	}
 }
 fn cols_from_string(input_s: &str, c: usize) -> Result<Vec<&str>, LayerError> {
-	let cols: Vec<&str> = input_s.split_whitespace().collect();
-	if cols.len() != c {
-		return Err(LayerError::ColMismatchError(c, cols.len()));
+	// see note for rows_from_string
+	// | is used as a separator between the row index and the row
+	let mut cols = if input_s.contains("|") {
+		let cols_no_index: Vec<&str> = input_s.split("|").collect();
+		cols_no_index[1].split_whitespace()
+	} else {
+		input_s.split_whitespace()
+	};
+	// let mut cols = input_s.split_whitespace();
+	let cols_vec: Vec<&str> = cols.clone().collect();
+	if cols_vec.len() != c {
+		return Err(LayerError::ColMismatchError(c, cols_vec.len()));
 	} else { 
-		Ok(cols)
+		Ok(cols_vec)
 	}
 }
 
@@ -333,11 +364,20 @@ mod tests {
 		println!("layer from string\n{}", layer);
 		assert_eq!(layer.get(1, 2).unwrap(), KeycodeKey::from_keycode(_LS(1)));
 
+		let layer_string_with_indexes = "
+			0       1       2 
+			0| LS1_10  LS2_10  LS3_10 
+			1| LS4_10    E_10    D_00 
+		";
+		let layer_from_string_with_indexes = Layer::<2, 3, KeycodeKey>::try_from(layer_string_with_indexes).unwrap();
+		assert_eq!(layer_from_string_with_indexes.get(1, 2).unwrap().value(), _D);
+		println!("layer from string that had indexes\n{}", layer_from_string_with_indexes);
+
 		let effort_string = "
 			0.5 1.0 1.5
 			0.25 2.0 3.0
 		";
 		let effort_layer = Layer::<2, 3, f32>::try_from(effort_string).unwrap();
-		println!("{}", effort_layer);
+		println!("effort layer\n{}", effort_layer);
 	}
 }

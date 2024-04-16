@@ -97,6 +97,13 @@ fn keycode_position_mapping_from_layout<const R: usize, const C: usize>(layers: 
 	}
 	Ok(keycodes_to_positions)
 }
+impl<const R: usize, const C: usize> TryFrom<&str> for Layout<R, C> {
+	type Error = Box<dyn Error>;
+	fn try_from(value: &str) -> Result<Self, Self::Error> {
+		
+		todo!()
+	}
+}
 
 
 impl<const R: usize, const C: usize> fmt::Display for Layout<R, C> {
