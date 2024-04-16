@@ -58,6 +58,18 @@ impl<const R: usize, const C: usize, K: KeyValue + std::clone::Clone> Layer<R, C
 			None => Err(Array2DError::IndicesOutOfBounds(r, c)),
 		}
 	}
+	pub fn get_row_major(&self, index: usize) -> Result<K, Array2DError> {
+		match self.layer.get_row_major(index) {
+			Some(v) => Ok(v.clone()),
+			None => Err(Array2DError::IndexOutOfBounds(index)),
+		}
+	}
+	pub fn get_mut_row_major(&mut self, index: usize) -> Result<&mut K, Array2DError> {
+		match self.layer.get_mut_row_major(index) {
+			Some(v) => Ok(v),
+			None => Err(Array2DError::IndexOutOfBounds(index)),
+		}
+	}
 	pub fn set(&mut self, row: usize, col: usize, element: K) -> Result<(), Array2DError> {
 		self.layer.set(row, col, element)
 	}
@@ -215,12 +227,12 @@ fn write_col_indexes(f: &mut fmt::Formatter, c: usize) -> () {
 		write!(f, "{:>3}", k);
 		write!(f, " ");
 	}
-	writeln!(f);
-	write!(f, "  ");
-	for k in 0..c {
-		write!(f, "{:>3}", "-");
-		write!(f, " ");
-	}
+	// writeln!(f);
+	// write!(f, "  ");
+	// for k in 0..c {
+	// 	write!(f, "{:>3}", "-");
+	// 	write!(f, " ");
+	// }
 	writeln!(f);
 }
 
