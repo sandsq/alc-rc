@@ -8,8 +8,16 @@ use thiserror;
 
 use crate::text_processor::keycode::Keycode::{self, *};
 use super::key::{KeyValue, KeycodeKey, PhysicalKey};
-use super::layer::{Layer, KeyboardError};
+use super::layer::{Layer, LayerError};
 use super::{LayoutPosition, LayoutPositionSequence};
+
+type KeycodePositionMap = HashMap<Keycode, Vec<LayoutPositionSequence>>;
+
+#[derive(Debug, PartialEq, thiserror::Error)]
+pub enum LayoutError {
+	#[error("layer {0} is not reachable")]
+	LayerAccessError(usize),
+}
 
 /// A keyboard layout is a collection of layers of KeycodeKeys, plus additional info specifying how to navigate the layout, etc. (fill in later)
 /// Layouts with multiple layers must have a way to access every layer.
@@ -17,9 +25,17 @@ use super::{LayoutPosition, LayoutPositionSequence};
 #[derive(Debug, PartialEq)]
 pub struct Layout<const R: usize, const C: usize> {
 	layers: Vec<Layer<R, C, KeycodeKey>>,
-	keycodes_to_positions: HashMap<Keycode, Vec<LayoutPositionSequence>>,
+	keycodes_to_positions: KeycodePositionMap,
 }
 impl<const R: usize, const C: usize> Layout<R, C> {
+	pub fn get(&self, layer_index: usize, row_index: usize, col_index: usize) -> Result<KeycodeKey, Array2DError> {
+		// the first get isn't an Array2DError since it's on a vector, but deal with that later.
+		self.layers.get(layer_index).unwrap().get(row_index, col_index)
+	}
+	pub fn get_mut(&mut self, layer_index: usize, row_index: usize, col_index: usize) -> Result<&mut KeycodeKey, Array2DError> {
+		// the first get_mut isn't an Array2DError since it's on a vector, but deal with that later.
+		self.layers.get_mut(layer_index).unwrap().get_mut(row_index, col_index)
+	}
 	pub fn init_blank(num_layers: usize) -> Self {
 		let mut layers: Vec<Layer<R, C, KeycodeKey>> = vec![];
 		for i in 0..num_layers {
@@ -30,27 +46,31 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			layers[0].get_mut_row_major(j).unwrap().set_value(_LS(j + 1));
 			layers[j + 1].get_mut_row_major(j).unwrap().set_value(_LS(j + 1));
 		}
-		let mut keycodes_to_positions = keycode_position_mapping_from_layout::<R, C>(layers.clone());
+		let keycodes_to_positions = keycode_position_mapping_from_layout::<R, C>(layers.clone()).unwrap();
 		Layout { layers: layers, keycodes_to_positions: keycodes_to_positions }
 	}
 
-	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: Vec<Keycode>) -> Result<(), KeyboardError> {
-		
-		
+	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: Vec<Keycode>) -> Result<(), LayoutError> {
+		for layer_num in 0..self.layers.len() {
+			let mut layer = self.layers.get_mut(layer_num).unwrap();
+			layer.randomize(rng, valid_keycodes.clone());
+		}
+		let keycodes_to_positions = keycode_position_mapping_from_layout::<R, C>(self.layers.clone())?;
+		self.keycodes_to_positions = keycodes_to_positions;
 		Ok(())
 	}
 }
 
-fn keycode_position_mapping_from_layout<const R: usize, const C: usize>(layers: Vec<Layer<R, C, KeycodeKey>>) -> HashMap<Keycode, Vec<LayoutPositionSequence>> {
-	let mut keycodes_to_positions: HashMap<Keycode, Vec<LayoutPositionSequence>> = Default::default();
-	for (i, layer) in layers.iter().enumerate() {
+fn keycode_position_mapping_from_layout<const R: usize, const C: usize>(layers: Vec<Layer<R, C, KeycodeKey>>) -> Result<KeycodePositionMap, LayoutError> {
+	let mut keycodes_to_positions: KeycodePositionMap = Default::default();
+	for (layer_num, layer) in layers.iter().enumerate() {
 		for r in 0..R {
 			for c in 0..C {
 				let key = layer.get(r, c).unwrap();
 				let key_value = key.value();
-				let layout_position = LayoutPosition::for_layout(i, r, c);
+				let layout_position = LayoutPosition::for_layout(layer_num, r, c);
 				let layout_position_sequence = LayoutPositionSequence::from(vec![layout_position.clone()]);
-				if i == 0 {
+				if layer_num == 0 {
 					keycodes_to_positions.entry(key_value).or_insert(vec![]).push(layout_position_sequence);
 				} else {
 					match key_value {
@@ -58,7 +78,11 @@ fn keycode_position_mapping_from_layout<const R: usize, const C: usize>(layers: 
 						_ => (),
 					}
 					let mut map_clone = keycodes_to_positions.clone();
-					let mut sequences_to_reach_layer = map_clone.get(&_LS(i)).unwrap(); // need to check this to make sure layer is reachable. Could store this for after the keymap is processed in case there is a layer move downward, but not going to implement that now since QMK does not recommend having layer switches like that
+					// check that layer_num is reachable. If layer is currently not reachable, could pass until after the rest of the layout is processed in case there is a downward layer move, but not going to implement that now since QMK does not recommend having layer switches like that
+					let mut sequences_to_reach_layer = match map_clone.get(&_LS(layer_num)) {
+						Some(v) => v,
+						None => return Err(LayoutError::LayerAccessError(layer_num)),
+					};
 					// loop through all sequences that can reach _LS(i)
 					for s_index in 0..sequences_to_reach_layer.len() {
 						let mut seq_clone = sequences_to_reach_layer.clone();
@@ -71,14 +95,14 @@ fn keycode_position_mapping_from_layout<const R: usize, const C: usize>(layers: 
 			}
 		}	
 	}
-	keycodes_to_positions
+	Ok(keycodes_to_positions)
 }
 
 
 impl<const R: usize, const C: usize> fmt::Display for Layout<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		for (i, layer) in self.layers.iter().enumerate() {
-			writeln!(f, "@@@ L{} @@@", i);
+			writeln!(f, "___Layer {}___", i);
 			writeln!(f, "{}", layer);
 		}
 		for k in self.keycodes_to_positions.keys() {
@@ -99,7 +123,7 @@ impl<const R: usize, const C: usize> fmt::Display for Layout<R, C> {
 impl<const R: usize, const C: usize> fmt::Binary for Layout<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		for (i, layer) in self.layers.iter().enumerate() {
-			writeln!(f, "@@@ L{} @@@", i);
+			writeln!(f, "___Layer {}___", i);
 			writeln!(f, "{:b}", layer);
 		}
 		for k in self.keycodes_to_positions.keys() {
@@ -123,8 +147,16 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn display_layout() {
-		let layout = Layout::<2, 3>::init_blank(5);
+	fn test_randomize() {
+		let mut rng = StdRng::seed_from_u64(0);
+		let mut layout = Layout::<2, 3>::init_blank(5);
+		layout.get_mut(0, 1, 2).unwrap().set_value(_D);
+		layout.get_mut(0, 1, 2).unwrap().set_is_moveable(false);
+		layout.randomize(&mut rng, vec![_A, _E]);
+		let expected_key = KeycodeKey::try_from("D_00").unwrap();
+		assert_eq!(layout.get(0, 1, 2).unwrap(), expected_key);
 		println!("{:b}", layout);
 	}
+
+	
 }

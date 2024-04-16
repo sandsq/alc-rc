@@ -99,6 +99,7 @@ impl KeyValue for KeycodeKey {
 	}
 }
 /// {Keycode}_{Moveability}{Symmetry}
+/// Keycodes have an up to 4 character representation in QMK, so {:>4} pads that (we ignore the KC_). Fix magic number later
 impl fmt::Display for KeycodeKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let str_to_display = format!("{}", str::replace(&self.value.to_string(), "_", ""));
@@ -107,7 +108,7 @@ impl fmt::Display for KeycodeKey {
 			_LS(i) => format!("LS{}", i),
 			_ => str_to_display,
 		};
-		write!(f, "{:>3}", value_to_display)
+		write!(f, "{:>4}", value_to_display)
     }
 }
 impl fmt::Binary for KeycodeKey {
@@ -121,7 +122,7 @@ impl fmt::Binary for KeycodeKey {
 			_LS(i) => format!("LS{}", i),
 			_ => str_to_display,
 		};
-        write!(f, "{:>3}_{}{}", value_to_display, m, s)
+        write!(f, "{:>4}_{}{}", value_to_display, m, s)
     }
 }
 impl Randomizeable for KeycodeKey {

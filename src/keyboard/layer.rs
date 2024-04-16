@@ -10,7 +10,7 @@ use super::LayoutPosition;
 
 
 #[derive(Debug, PartialEq, thiserror::Error)]
-pub enum KeyboardError {
+pub enum LayerError {
 	#[error("position ({0}, {1}) is marked as symmetric but its corresponding symmetric position ({2}, {3}) is not")]
 	SymmetryError(usize, usize, usize, usize),
 	#[error("expected {0} rows but tried to create {1} rows instead")]
@@ -100,7 +100,7 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 		let mut layer_array2d = Array2D::filled_with(default_key.clone(), R, C);
 		Layer::<R, C, KeycodeKey> { layer: layer_array2d }
 	}
-	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: Vec<Keycode>) -> Result<(), KeyboardError> {
+	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: Vec<Keycode>) -> Result<(), LayerError> {
 		for i in 0..R {
 			for j in 0..C {
 				let key = self.get(i, j).unwrap();
@@ -109,7 +109,7 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 					let symm_lp = self.symmetric_position(lp);
 					let symm_key = self.get_from_layout_position(&symm_lp).unwrap();
 					if !symm_key.is_symmetric() {
-						return Err(KeyboardError::SymmetryError(i, j, symm_lp.row_index, symm_lp.col_index));
+						return Err(LayerError::SymmetryError(i, j, symm_lp.row_index, symm_lp.col_index));
 					} else {
 						continue;
 					}
@@ -159,18 +159,18 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, f32> {
 }
 
 
-fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, KeyboardError> {
+fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, LayerError> {
 	let rows: Vec<&str> = input_s.split("\n").filter(|s| s.trim().len() > 0).collect();
 	if rows.len() != r {
-		Err(KeyboardError::RowMismatchError(r, rows.len()))
+		Err(LayerError::RowMismatchError(r, rows.len()))
 	} else {
 		Ok(rows)
 	}
 }
-fn cols_from_string(input_s: &str, c: usize) -> Result<Vec<&str>, KeyboardError> {
+fn cols_from_string(input_s: &str, c: usize) -> Result<Vec<&str>, LayerError> {
 	let cols: Vec<&str> = input_s.split_whitespace().collect();
 	if cols.len() != c {
-		return Err(KeyboardError::ColMismatchError(c, cols.len()));
+		return Err(LayerError::ColMismatchError(c, cols.len()));
 	} else { 
 		Ok(cols)
 	}
@@ -179,7 +179,7 @@ fn cols_from_string(input_s: &str, c: usize) -> Result<Vec<&str>, KeyboardError>
 
 impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, KeycodeKey> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write_col_indexes(f, C);
+		write_col_indexes(f, C, false);
 		for (i, row) in self.layer.rows_iter().enumerate() {
 			write!(f, "{}|", i);
 			for element in row {
@@ -193,7 +193,7 @@ impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, KeycodeKey> {
 }
 impl<const R: usize, const C: usize> fmt::Binary for Layer<R, C, KeycodeKey> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write_col_indexes(f, C);
+		write_col_indexes(f, C, true);
 		for (i, row) in self.layer.rows_iter().enumerate() {
 			write!(f, "{}|", i);
 			for element in row {
@@ -208,7 +208,7 @@ impl<const R: usize, const C: usize> fmt::Binary for Layer<R, C, KeycodeKey> {
 // there should be a smarter way to do this
 impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, f32> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write_col_indexes(f, C);
+		write_col_indexes(f, C, false);
 		for (i, row) in self.layer.rows_iter().enumerate() {
 			write!(f, "{}|", i);
 			for element in row {
@@ -221,10 +221,16 @@ impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, f32> {
     }
 }
 
-fn write_col_indexes(f: &mut fmt::Formatter, c: usize) -> () {
+/// Remember 4 is a magic number for keycodes. The moveability and symmetric flags add 3 characters (_00)
+fn write_col_indexes(f: &mut fmt::Formatter, c: usize, is_binary: bool) -> () {
 	write!(f, "  ");
 	for k in 0..c {
-		write!(f, "{:>3}", k);
+		if is_binary {
+			write!(f, "{:>7}", k);
+		} else {
+			write!(f, "{:>4}", k);
+		}
+		
 		write!(f, " ");
 	}
 	// writeln!(f);
@@ -291,7 +297,7 @@ mod tests {
 		let mut rng = StdRng::seed_from_u64(0);
 		let mut layer = Layer::<3, 2, KeycodeKey>::init_blank();
 		layer.get_mut(0, 0).unwrap().set_is_symmetric(true);
-		assert_eq!(layer.randomize(&mut rng, vec![_E]).unwrap_err(), KeyboardError::SymmetryError(0, 0, 0, 1));
+		assert_eq!(layer.randomize(&mut rng, vec![_E]).unwrap_err(), LayerError::SymmetryError(0, 0, 0, 1));
 		layer.get_mut(0, 1).unwrap().set_is_symmetric(true); // set the corresponding slot to be symmetric to continue
 
 		layer.get_mut(1, 1).unwrap().set_is_moveable(false);
