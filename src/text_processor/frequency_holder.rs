@@ -135,4 +135,5 @@ mod tests {
 		// this value is found by control + F "he" and seeing how many matches there are
 		assert_eq!(holder[Ngram::new([_H, _E])], 145);
 	}
+
 }
