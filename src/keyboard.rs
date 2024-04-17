@@ -40,11 +40,19 @@ impl LayoutPositionSequence {
 	pub fn from(lps: Vec<LayoutPosition>) -> Self {
 		LayoutPositionSequence { sequence: lps }
 	}
+	
 }
 impl Index<usize> for LayoutPositionSequence {
 	type Output = LayoutPosition;
 	fn index(&self, index: usize) -> &Self::Output {
 		self.sequence.index(index)
+	}
+}
+impl IntoIterator for LayoutPositionSequence {
+	type Item = LayoutPosition;
+	type IntoIter = std::vec::IntoIter<Self::Item>;
+	fn into_iter(self) -> Self::IntoIter {
+		self.sequence.into_iter()
 	}
 }
 impl fmt::Display for LayoutPositionSequence {
