@@ -4,3 +4,5 @@ pub mod text_processor;
 pub mod keyboard;
 #[allow(unused)]
 pub mod objective;
+#[allow(unused)]
+pub mod optimizer;
