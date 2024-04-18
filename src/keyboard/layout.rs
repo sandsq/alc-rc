@@ -3,7 +3,7 @@ use std::ops::Index;
 use rand::prelude::*;
 use std::error::Error;
 use std::fmt::{self, Formatter};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use thiserror;
 use regex;
 use std::ptr;
@@ -59,10 +59,21 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		Layout { layers: layers, keycodes_to_positions: keycodes_to_positions }
 	}
 
-	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: Vec<Keycode>) -> Result<(), AlcError> {
+
+	
+	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: &Vec<Keycode>) -> Result<(), AlcError> {
+		let mut used_all_keycodes_flag = false;
+		let mut valid_keycodes_all = VecDeque::from(valid_keycodes.clone());
+		valid_keycodes_all.make_contiguous().shuffle(rng);
+		let mut valid_keycodes_to_draw_from = VecDeque::from(valid_keycodes.clone());
+		valid_keycodes_to_draw_from.make_contiguous().shuffle(rng);
 		for layer_num in 0..self.layers.len() {
 			let mut layer = self.layers.get_mut(layer_num).unwrap();
-			layer.randomize(rng, valid_keycodes.clone());
+			// we want to fill out all valid keycodes over the entire layout, not just layer by layer
+			(valid_keycodes_to_draw_from, used_all_keycodes_flag) = layer.randomize(&valid_keycodes_all, &valid_keycodes_to_draw_from);
+		}
+		if !used_all_keycodes_flag {
+			println!("Warning: the keycodes {:?} may not have made it into the layout since they were left over. This could happen if the layout is too small or if you prefilled a lot of immovable spots.", valid_keycodes_to_draw_from)
 		}
 		let keycodes_to_positions = keycode_position_mapping_from_layout::<R, C>(self.layers.clone())?;
 		self.keycodes_to_positions = keycodes_to_positions;
@@ -301,7 +312,7 @@ mod tests {
 		let mut layout = Layout::<2, 3>::init_blank(5);
 		layout.get_mut(0, 1, 2).unwrap().set_value(_D);
 		layout.get_mut(0, 1, 2).unwrap().set_is_moveable(false);
-		layout.randomize(&mut rng, vec![_A, _E]);
+		layout.randomize(&mut rng, &vec![_A, _E]);
 		fn test_randomize<const R: usize, const C: usize>(layout: Layout<R, C>) {
 			let expected_key = KeycodeKey::try_from("D_00").unwrap();
 			assert_eq!(layout.get(0, 1, 2).unwrap(), expected_key);

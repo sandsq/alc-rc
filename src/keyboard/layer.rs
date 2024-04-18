@@ -3,6 +3,7 @@ use rand::prelude::*;
 use std::error::Error;
 use std::fmt;
 use std::str;
+use std::collections::VecDeque;
 use thiserror;
 
 use crate::alc_error::AlcError;
@@ -93,35 +94,39 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 		let mut layer_array2d = Array2D::filled_with(default_key.clone(), R, C);
 		Layer::<R, C, KeycodeKey> { layer: layer_array2d }
 	}
-	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: Vec<Keycode>) -> Result<(), AlcError> {
+	/// give layout access to this but not anything else to ensure valid_keycodes is already randomized
+	pub (in super) fn randomize(&mut self, valid_keycodes_all: &VecDeque<Keycode>, valid_keycodes: &VecDeque<Keycode>) -> (VecDeque<Keycode>, bool) {
+		let mut used_all_keycodes_flag = false;
 		let mut valid_keycodes_to_draw_from = valid_keycodes.clone();
 		for i in 0..R {
 			for j in 0..C {
-				let key = self.get(i, j)?;
+				let key = self.get(i, j).unwrap(); // should be guaranteed to exist
 				let lp = LayoutPosition::for_layer(i, j);
-				if key.is_symmetric() {
-					let symm_lp = self.symmetric_position(&lp);
-					let symm_key = self.get_from_layout_position(&symm_lp)?;
-					if !symm_key.is_symmetric() {
-						return Err(AlcError::SymmetryError(i, j, symm_lp.row_index, symm_lp.col_index));
-					} else {
-						continue;
-					}
-				}
+				// I don't think it makes sense to check valid symmetry here?
+				// if key.is_symmetric() {
+				// 	let symm_lp = self.symmetric_position(&lp);
+				// 	let symm_key = self.get_from_layout_position(&symm_lp)?;
+				// 	if !symm_key.is_symmetric() {
+				// 		return Err(AlcError::SymmetryError(i, j, symm_lp.row_index, symm_lp.col_index));
+				// 	} else {
+				// 		continue;
+				// 	}
+				// }
 				if  !key.is_randomizeable() {
 					continue;
 				}
 				if valid_keycodes_to_draw_from.len() == 0 {
-					valid_keycodes_to_draw_from = valid_keycodes.clone();
+					valid_keycodes_to_draw_from = valid_keycodes_all.clone();
+					used_all_keycodes_flag = true;
 				}
 				
-				if let Some(random_keycode) = choose_and_remove(rng, &mut valid_keycodes_to_draw_from) {
+				if let Some(random_keycode) = valid_keycodes_to_draw_from.pop_front() {
 					let replacement_key = KeycodeKey::from_keycode(random_keycode);
 					self.set(i, j, replacement_key);
 				}
 			}
 		}
-		Ok(())
+		(valid_keycodes_to_draw_from, used_all_keycodes_flag)
 	}
 }
 fn choose_and_remove(rng: &mut impl Rng, v: &mut Vec<Keycode>) -> Option<Keycode> {
@@ -144,6 +149,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, KeycodeKey> {
 			let cols = cols_from_string(row, C)?;
 			for (j, col) in cols.iter().enumerate() {
 				let mut key = KeycodeKey::try_from(*col)?;
+				println!("reminder: check for symmetry here");
 				layer.set(i, j, key);
 			}
 		}
@@ -333,12 +339,11 @@ mod tests {
 		let mut rng = StdRng::seed_from_u64(0);
 		let mut layer = Layer::<3, 2, KeycodeKey>::init_blank();
 		layer.get_mut(0, 0).unwrap().set_is_symmetric(true);
-		assert_eq!(layer.randomize(&mut rng, vec![_E]).unwrap_err(), AlcError::SymmetryError(0, 0, 0, 1));
 		layer.get_mut(0, 1).unwrap().set_is_symmetric(true); // set the corresponding slot to be symmetric to continue
 
 		layer.get_mut(1, 1).unwrap().set_is_moveable(false);
 		layer.get_mut(2, 0).unwrap().set_value(_LS(1)); // there is no layer switch to be had but use it to test that _LS does not get randomized
-		layer.randomize(&mut rng, vec![_E]);
+		layer.randomize(&VecDeque::from(vec![_E]), &VecDeque::from(vec![_E]));
 		assert_eq!(layer.get(0, 0).unwrap().value(), _NO);
 		assert_eq!(layer.get(0, 1).unwrap().value(), _NO);
 		assert_eq!(layer.get(1, 1).unwrap().value(), _NO);
@@ -352,7 +357,7 @@ mod tests {
 		let mut layer = Layer::<5, 6, KeycodeKey>::init_blank();
 		layer.get_mut(0, 0).unwrap().set_value(_ENT);
 		layer.get_mut(0, 0).unwrap().set_is_moveable(false);
-		layer.randomize(&mut rng, vec![_A, _B, _C, _D, _E]);
+		layer.randomize(&VecDeque::from(vec![_E]), &VecDeque::from(vec![_A, _B, _C, _D, _E]));
 		layer.get_mut(3, 5).unwrap().set_is_moveable(false);
 		println!("{}", layer);
 		println!("{:b}", layer);

@@ -31,7 +31,7 @@ impl FrequencyDataset<u32> {
 		Self {name, ngram_frequencies}
 	}
 
-	fn from_dir(dir: PathBuf, max_n: usize) -> Result<Self, FrequencyDatasetError> {
+	pub fn from_dir(dir: PathBuf, max_n: usize) -> Result<Self, FrequencyDatasetError> {
 		let metadata = dir.metadata().unwrap();
 		if !metadata.is_dir() {
 			Err(FrequencyDatasetError::ExpectedDirectoryError(dir))

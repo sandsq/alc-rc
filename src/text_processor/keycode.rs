@@ -1,10 +1,10 @@
-
+use strum::IntoEnumIterator;
 use strum_macros;
 use std::fmt;
 
 
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter)]
 pub enum Keycode {
 	_A,
 	_B,
@@ -21,6 +21,20 @@ pub enum Keycode {
 	_NO,
 }
 use Keycode::*;
+
+pub fn get_default_keycode_set() -> Vec<Keycode> {
+	let mut keycodes: Vec<Keycode> = vec![];
+	for keycode in Keycode::iter() {
+		// there should be more valid keycodes than invalid ones when it comes to what is allowed to be randomized into a layout
+		match keycode {
+			_LS(i) => (),
+			_PLACEHOLDER => (),
+			_NO => (),
+			_ => keycodes.push(keycode),
+		}
+	}
+	keycodes
+}
 // impl fmt::Display for Keycode {
 //     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 // 		write!(f, "{}", self) // str::replace(self, "_", ""))
