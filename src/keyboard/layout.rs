@@ -6,6 +6,7 @@ use std::fmt::{self, Formatter};
 use std::collections::HashMap;
 use thiserror;
 use regex;
+use std::ptr;
 
 use crate::text_processor::keycode::Keycode::{self, *};
 use super::key::{KeyValue, KeycodeKey, PhysicalKey};
@@ -16,7 +17,7 @@ type KeycodePositionMap = HashMap<Keycode, Vec<LayoutPositionSequence>>;
 
 #[derive(Debug, PartialEq, Clone, thiserror::Error)]
 pub enum LayoutError {
-	#[error("layer {0} is not reachable")]
+	#[error("layer {0} is not reachable, check to make sure LS{0} exists in your layout and does not require first accessing a higher layer")]
 	LayerAccessError(usize),
 }
 
@@ -33,9 +34,19 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		// the first get isn't an Array2DError since it's on a vector, but deal with that later.
 		self.layers.get(layer_index).unwrap().get(row_index, col_index)
 	}
+	pub fn get_from_layout_position(&self, lp: &LayoutPosition) -> Result<KeycodeKey, Array2DError> {
+		// the first get isn't an Array2DError since it's on a vector, but deal with that later.
+		self.layers.get(lp.layer_index).unwrap().get(lp.row_index, lp.col_index)
+	}
 	pub fn get_mut(&mut self, layer_index: usize, row_index: usize, col_index: usize) -> Result<&mut KeycodeKey, Array2DError> {
 		// the first get_mut isn't an Array2DError since it's on a vector, but deal with that later.
 		self.layers.get_mut(layer_index).unwrap().get_mut(row_index, col_index)
+	}
+	pub fn get_mut_from_layout_position(&mut self, lp: &LayoutPosition) -> Result<&mut KeycodeKey, Array2DError> {
+		self.layers.get_mut(lp.layer_index).unwrap().get_mut(lp.row_index, lp.col_index)
+	}
+	pub fn symmetric_position(&self, lp: &LayoutPosition) -> LayoutPosition {
+		self.layers.get(0).unwrap().symmetric_position(&lp)
 	}
 	pub fn init_blank(num_layers: usize) -> Self {
 		let mut layers: Vec<Layer<R, C, KeycodeKey>> = vec![];
@@ -59,6 +70,118 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		let keycodes_to_positions = keycode_position_mapping_from_layout::<R, C>(self.layers.clone())?;
 		self.keycodes_to_positions = keycodes_to_positions;
 		Ok(())
+	}
+
+	/// Swaps two keys. Ignores symmetry, layer switching, etc., as those should be taken care of by the calling function.
+	unsafe fn swap_two(&mut self, p1: &LayoutPosition, p2: &LayoutPosition) -> () {
+		// this is ~probably~ definitely not the most efficient, but it is easy
+		// let k1_clone = self.get_from_layout_position(p1).unwrap().clone();
+		// let k2_clone = self.get_from_layout_position(p2).unwrap().clone();
+
+		// let k1 = self.get_mut_from_layout_position(p1).unwrap();
+		// *k1 = k2_clone;
+		// let k2 = self.get_mut_from_layout_position(p2).unwrap();
+		// *k2 = k1_clone;
+		let mut k1 = self.get_mut_from_layout_position(p1).unwrap() as *mut KeycodeKey;
+		let mut k2 = self.get_mut_from_layout_position(p2).unwrap() as *mut KeycodeKey;
+		ptr::swap(k1, k2)
+	}
+
+	pub fn swap(&mut self, p1: &LayoutPosition, p2: &LayoutPosition) -> Option<()> {
+		// todo: make use of optimized keycode to position remapping computation where only the affected keycodes get are remapped
+
+		// Bunch of checks for things that should be set up in whatever calls swap. I think these are easy to do in the calling function so the panic is mainly as a reminder when I'm implementing things.
+		if p1 == p2 {
+			panic!("Don't try to swap the same positions {} and {}, fix in calling function.", p1, p2)
+		}
+		let k1 = self.get_from_layout_position(&p1).unwrap();
+		let k2 = self.get_from_layout_position(&p2).unwrap();
+		if !k1.is_moveable() || !k2.is_moveable() {
+			panic!("I think it would be better to handle moveability in whatever calls this swap function rather than swapping nothing here.")
+		}
+		if let _LS(i) = k2.value() {
+			panic!("For convenience, place layer switches in the first position of the swap and disallow swaps where both keys are layer switches. Fix this in the calling function.");
+		}
+		if !k1.is_symmetric() && k2.is_symmetric() {
+			panic!("For convenience, place symmetric keys in the first position of the swap. Fix this in the calling function.")
+		}
+		if let _LS(i) = k1.value() {
+			if p1.layer_index != p2.layer_index {
+				panic!("Swaps involving layer switches must occur within the same layer otherwise layers could become unreachable, fix this in the calling function. {} vs {}, k1 is {}, layout is {}", p1, p2, k1, self)
+			}
+			if k2.is_symmetric() {
+				panic!("(The first position should already be the layer switch for convenience.) Can't swap a layer switch key with a symmetric key, fix in the callling function.")
+			}
+			if k1.is_symmetric() {
+				panic!("Can't have a layer switch that is also symmetric due to additionaly complexity. Maybe later.")
+			}
+		}
+		// cursed things
+		let self_clone = self.clone();
+		let k1 = self.get_mut_from_layout_position(p1).unwrap();
+		let k1_clone = self_clone.get_from_layout_position(p1).unwrap();
+		let k2_clone = self_clone.get_from_layout_position(p2).unwrap();
+		if let _LS(target_layer) = k1.value() {
+			// Layer switches need to be in the same layer position in the starting layer and the target layer. So, if the first position is a layer switch, its counterpart must be in:
+			let p1_counterpart = &LayoutPosition::for_layout(target_layer, p1.row_index, p1.col_index);
+			let p2_counterpart = &LayoutPosition::for_layout(target_layer, p2.row_index, p2.col_index);
+			let k2_counterpart_clone = self_clone.get_from_layout_position(&p2_counterpart).unwrap();
+			// I think these are harder to handle in the calling function, so just have nothing happen here
+			if !k2_counterpart_clone.is_moveable() {
+				println!("Warning: attempted to swap a layer switch with position x: {} and found that x's corresponding position {} was not moveable. Doing nothing instead.", p2, p2_counterpart);
+				return None;
+			}
+			if k2_counterpart_clone.is_symmetric() {
+				println!("Warning: attempted to swap a layer switch with position x: {} and found that x's corresponding position {} was symmetric, making the swap not valid. Doing nothing instead.", p2, p2_counterpart);
+				return None;
+			}
+			// yeah gonna want to redo this section once I understand more
+			k1.replace_with(&k2_clone);
+			let k2 = self.get_mut_from_layout_position(p2).unwrap();
+			k2.replace_with(&k1_clone);
+
+			let k1_counterpart = self.get_mut_from_layout_position(p1_counterpart).unwrap();
+			k1_counterpart.replace_with(&k2_counterpart_clone);
+			let k2_counterpart = self.get_mut_from_layout_position(p2_counterpart).unwrap();
+			let k1_counterpart_clone = self_clone.get_from_layout_position(p1_counterpart).unwrap();
+			k2_counterpart.replace_with(&k1_counterpart_clone);
+		} else if k1_clone.is_symmetric() {
+			let p1_counterpart = self_clone.symmetric_position(&p1);
+			if p2.col_index as f32 == (C as f32 - 1.0) / 2.0 {
+				println!("Warning: symmetric p1 {} is being swapped into the center column {}, meaning p1's counterpart {} has no where to go, doing nothing instead.", p1, p2, p1_counterpart);
+				return None;
+			}
+			let p2_counterpart = self_clone.symmetric_position(&p2);
+			let k2_counterpart_clone = self_clone.get_from_layout_position(&p2_counterpart).unwrap();
+			if !k2_counterpart_clone.is_moveable() {
+				println!("Warning: attempted to swap a symmetric key with position x: {} and found that x's corresponding position {} was not moveable. Doing nothing instead.", p2, p2_counterpart);
+				return None;
+			}
+			if let _LS(target_layer) = k2_counterpart_clone.value() {
+				println!("Warning: attempted symmetric swap but p2 {}'s counterpart {} is a layer switch. Doing nothing instead.", p2, p2_counterpart);
+				return None;
+			}
+			k1.replace_with(&k2_clone);
+			let k2 = self.get_mut_from_layout_position(p2).unwrap();
+			k2.replace_with(&k1_clone);
+
+			let k1_counterpart = self.get_mut_from_layout_position(&p1_counterpart).unwrap();
+			k1_counterpart.replace_with(&k2_counterpart_clone);
+			let k2_counterpart = self.get_mut_from_layout_position(&p2_counterpart).unwrap();
+			let k1_counterpart_clone = self_clone.get_from_layout_position(&p1_counterpart).unwrap();
+			k2_counterpart.replace_with(&k1_counterpart_clone);
+		} else {
+			k1.replace_with(&k2_clone);
+			let k2 = self.get_mut_from_layout_position(p2).unwrap();
+			k2.replace_with(&k1_clone);
+		}
+		
+		Some(())
+	}
+
+	pub fn replace(&mut self, p: LayoutPosition, value: KeycodeKey) -> Option<()> {
+		// make use of optimized keycode to position remapping computation where only the affected keycodes get are remapped
+		todo!()
 	}
 }
 
@@ -216,6 +339,82 @@ mod tests {
 	fn test_keycode_position_map () {
 		// assert!(false);
 	}
+
+	#[test]
+	fn test_swap_two() {
+		let mut layout = match Layout::<1, 4>::try_from("
+			___Layer 0___
+			A_10 B_10 C_10 LS1_10
+			___Layer 1___
+			D_10 E_10 H_10 LS1_10
+		") {
+			Ok(v) => v,
+			Err(e) => panic!("{}", e),
+		};
+		println!("{}", layout);
+		unsafe { layout.swap_two(&LayoutPosition::for_layout(0, 0, 0), &LayoutPosition::for_layout(0, 0, 2)) };
+		assert_eq!(layout.get(0, 0, 0).unwrap().value(), _C);
+		assert_eq!(layout.get(0, 0, 2).unwrap().value(), _A);
+		
+		unsafe {layout.swap_two(&LayoutPosition::for_layout(0, 0, 1), &LayoutPosition::for_layout(1, 0, 2)) };
+		assert_eq!(layout.get(0, 0, 1).unwrap().value(), _H);
+		assert_eq!(layout.get(1, 0, 2).unwrap().value(), _B);
+		println!("{}", layout);
+	}
+
+	#[test]
+	fn test_swap_for_ls() {
+		let mut layout = match Layout::<1, 4>::try_from("
+			___Layer 0___
+			A_10 B_10 C_10 LS1_10
+			___Layer 1___
+			D_10 E_10 H_10 LS1_10
+		") {
+			Ok(v) => v,
+			Err(e) => panic!("{}", e),
+		};
+		println!("{}", layout);
+		layout.swap(&LayoutPosition::for_layout(0, 0, 0), &LayoutPosition::for_layout(0, 0, 2));
+		assert_eq!(layout.get(0, 0, 0).unwrap().value(), _C);
+		assert_eq!(layout.get(0, 0, 2).unwrap().value(), _A);
+		
+		layout.swap(&LayoutPosition::for_layout(0, 0, 1), &LayoutPosition::for_layout(1, 0, 2));
+		assert_eq!(layout.get(0, 0, 1).unwrap().value(), _H);
+		assert_eq!(layout.get(1, 0, 2).unwrap().value(), _B);
+
+		// layout.swap(&LayoutPosition::for_layout(0, 0, 3), &LayoutPosition::for_layout(1, 0, 1)); // correctly panics
+
+		layout.swap(&LayoutPosition::for_layout(0, 0, 3), &LayoutPosition::for_layout(0, 0, 2));
+		assert_eq!(layout.get(0, 0, 3).unwrap().value(), _A);
+		assert_eq!(layout.get(0, 0, 2).unwrap().value(), _LS(1));
+		assert_eq!(layout.get(1, 0, 3).unwrap().value(), _B);
+		assert_eq!(layout.get(1, 0, 2).unwrap().value(), _LS(1));
+		println!("{}", layout);
+	}
+
+	#[test]
+	fn test_swap_for_symm() {
+		let mut layout = match Layout::<1, 4>::try_from("
+			___Layer 0___
+			A_10 B_11 C_11 LS1_10
+			___Layer 1___
+			D_10 E_10 H_10 LS1_10
+		") {
+			Ok(v) => v,
+			Err(e) => panic!("{}", e),
+		};
+		layout.swap(&LayoutPosition::for_layout(0, 0, 1), &LayoutPosition::for_layout(0, 0, 2));
+		assert_eq!(layout.get(0, 0, 1).unwrap().value(), _C);
+		assert_eq!(layout.get(0, 0, 2).unwrap().value(), _B);
+
+		layout.swap(&LayoutPosition::for_layout(0, 0, 1), &LayoutPosition::for_layout(1, 0, 2));
+		assert_eq!(layout.get(0, 0, 1).unwrap().value(), _H);
+		assert_eq!(layout.get(0, 0, 2).unwrap().value(), _E);
+		assert_eq!(layout.get(1, 0, 1).unwrap().value(), _B);
+		assert_eq!(layout.get(1, 0, 2).unwrap().value(), _C);
+		println!("{}", layout);
+	}
+
 
 	
 }

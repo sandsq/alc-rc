@@ -87,7 +87,7 @@ impl<const R: usize, const C: usize, K: KeyValue + std::clone::Clone> Layer<R, C
 		C
 	}
 	/// Specifically, mirrored left-right
-	pub fn symmetric_position(&self, l: LayoutPosition) -> LayoutPosition {
+	pub fn symmetric_position(&self, l: &LayoutPosition) -> LayoutPosition {
 		let num_rows = self.num_rows();
 		let num_cols = self.num_columns();
 		let orig_row = l.row_index;
@@ -110,7 +110,7 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 				let key = self.get(i, j).unwrap();
 				let lp = LayoutPosition::for_layer(i, j);
 				if key.is_symmetric() {
-					let symm_lp = self.symmetric_position(lp);
+					let symm_lp = self.symmetric_position(&lp);
 					let symm_key = self.get_from_layout_position(&symm_lp).unwrap();
 					if !symm_key.is_symmetric() {
 						return Err(LayerError::SymmetryError(i, j, symm_lp.row_index, symm_lp.col_index));
@@ -334,8 +334,8 @@ mod tests {
 		let layer = Layer::<4, 6, KeycodeKey>::init_blank();
 		let query_layout_pos = LayoutPosition { layer_index: 0, row_index: 2, col_index: 5 };
 		let expected_layout_pos = LayoutPosition { layer_index: 0, row_index: 2, col_index: 0 };
-		assert_eq!(layer.symmetric_position(query_layout_pos.clone()), expected_layout_pos.clone());
-		assert_eq!(layer.symmetric_position(expected_layout_pos.clone()), query_layout_pos.clone());
+		assert_eq!(layer.symmetric_position(&query_layout_pos), expected_layout_pos.clone());
+		assert_eq!(layer.symmetric_position(&expected_layout_pos), query_layout_pos.clone());
 	}
 
 	#[test]

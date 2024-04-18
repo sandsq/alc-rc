@@ -43,6 +43,12 @@ impl KeycodeKey {
 	pub fn set_is_symmetric(&mut self, new_symmetric: bool) -> () {
 		self.is_symmetric = new_symmetric
 	}
+	pub fn replace_with(&mut self, new_key: &KeycodeKey) -> () {
+		self.set_value(new_key.value());
+		self.set_is_moveable(new_key.is_moveable());
+		self.set_is_symmetric(new_key.is_symmetric());
+
+	}
 }
 impl TryFrom<&str> for KeycodeKey {
 	type Error = Box<dyn Error>;
@@ -77,6 +83,13 @@ impl TryFrom<&str> for KeycodeKey {
 			key.set_is_moveable(move_flag);
 			let symm_flag: bool = flags_iter.next().unwrap().to_digit(10).unwrap() != 0;
 			key.set_is_symmetric(symm_flag);
+
+			if symm_flag {
+				if let _LS(layer_num) = key.value() {
+					panic!("Don't try to set symmetric layer switches (e.g., LS1_11) as they are complicated to deal with.");
+				}
+			}
+
 		} else {
 			return Err(Box::new(KeyError::InvalidKeyFromString(String::from(key_string))));
 		}

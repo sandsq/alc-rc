@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::collections::HashMap;
 use tqdm::tqdm;
 
-use super::frequency_holder::SingleGramFrequencies;
+use super::frequency_holder::{SingleGramFrequencies, Frequencies};
 use super::keycode::Keycode::*;
 use super::ngram::*;
 
@@ -21,7 +21,7 @@ pub enum FrequencyDatasetError {
 
 type MultipleNgramFrequencies<T> = HashMap<usize, SingleGramFrequencies<T>>;
 #[derive(Debug, PartialEq, Clone)]
-pub struct FrequencyDataset<T> {
+pub struct FrequencyDataset<T> where T: Frequencies {
 	name: String,
 	ngram_frequencies: MultipleNgramFrequencies<T>,
 }

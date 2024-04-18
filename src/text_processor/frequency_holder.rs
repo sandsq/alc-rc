@@ -9,8 +9,9 @@ use std::path::Path;
 use super::keycode::{string_to_keycode, Keycode, Keycode::*};
 use super::ngram::Ngram;
 
-trait Frequencies {}
+pub trait Frequencies {}
 impl Frequencies for f32 {}
+impl Frequencies for u32 {}
 
 #[derive(Debug, PartialEq, thiserror::Error)]
 pub enum FrequenciesError {
@@ -20,11 +21,11 @@ pub enum FrequenciesError {
 
 /// single as in only holds one length of n-gram
 #[derive(Debug, PartialEq, Clone)]
-pub struct SingleGramFrequencies<T> {
+pub struct SingleGramFrequencies<T> where T: Frequencies {
 	frequencies: HashMap<Ngram, T>,
 	n: usize,
 }
-impl<T>  SingleGramFrequencies<T> {
+impl<T>  SingleGramFrequencies<T> where T: Frequencies {
 	pub fn new(n: usize) -> Self {
 		Self { frequencies:  Default::default(), n: n }
 	}
@@ -34,6 +35,7 @@ impl<T>  SingleGramFrequencies<T> {
 	pub fn get(&self, k: &Ngram) -> Option<&T> {
 		self.frequencies.get(k)
 	}
+	
 }
 /// u32 for raw ngram counts
 impl  SingleGramFrequencies<u32> {
@@ -85,8 +87,12 @@ impl  SingleGramFrequencies<u32> {
 		}
 		Ok(ngram_to_counts)
 	}
+
+	pub fn sum(&self) -> u32 {
+		self.frequencies.values().sum()
+	}
 }
-impl<T> Index<Ngram> for SingleGramFrequencies<T> {
+impl<T> Index<Ngram> for SingleGramFrequencies<T> where T: Frequencies {
 	type Output = T;
 	fn index(&self, ngram: Ngram) -> &Self::Output {
 		&self.frequencies[&ngram]
