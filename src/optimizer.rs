@@ -2,6 +2,8 @@ use std::fmt;
 use rand::prelude::*;
 use rand::Rng;
 use tqdm::tqdm;
+use std::path::PathBuf;
+use rand::rngs::StdRng;
 
 
 use crate::keyboard::{key::*, layout::*, layer::*};
@@ -9,6 +11,7 @@ use crate::text_processor::*;
 use crate::objective::scoring::*;
 
 use self::dataset::FrequencyDataset;
+use self::frequency_holder::SingleGramFrequencies;
 use self::keycode::{Keycode::{self, *}, get_default_keycode_set};
 
 pub struct LayoutOptimizerConfig {
@@ -38,18 +41,38 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		LayoutOptimizer { base_layout, effort_layer, score_function, datasets }
 	}
 
-	pub fn optimize(&self, rng: &mut impl Rng, config: LayoutOptimizerConfig) -> Layout<R, C> {
+	fn score_single_grams(&self, frequencies: SingleGramFrequencies<u32>, config: LayoutOptimizerConfig) -> f32 {
+		let mut score = 0.0;
+		
+		score
+	}
+
+	fn score_dataset(&self, config: LayoutOptimizerConfig) -> f32 {
+		let mut score = 0.0;
+		for dataset in &self.datasets {
+
+		}
+
+		score
+	}
+
+	fn generate_and_score_initial_population(&self, rng: &mut impl Rng, config: LayoutOptimizerConfig) -> Vec<Layout<R, C>> {
 		let initial_population_size = config.initial_population_size;
 		let valid_keycodes = config.valid_keycodes;
-		let mut population: Vec<Layout<R, C>> = vec![];
+		let mut initial_population: Vec<Layout<R, C>> = vec![];
 		let mut scores: Vec<f32> = vec![];
 		for i in tqdm(0..initial_population_size) {
 			let mut initial_layout = self.base_layout.clone();
 			initial_layout.randomize(rng, &valid_keycodes);
 			println!("{}", initial_layout);
-			population.push(initial_layout);
-			
+			initial_population.push(initial_layout);	
 		}
+
+		initial_population
+	}
+
+	pub fn optimize(&self, rng: &mut impl Rng, config: LayoutOptimizerConfig) -> Layout<R, C> {
+		
 
 		
 		// symmetry check
@@ -58,16 +81,24 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		todo!()
 	}
 }
-
+impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
+	fn default() -> Self {
+		let base_layout = Layout::<2, 4>::init_blank(2);
+		let effort_layer = Layer::<2, 4, f32>::try_from("
+			0.1 0.2 0.3 0.4
+			0.5 0.6 0.7 0.8
+		").unwrap();
+		let score_function = SimpleScoreFunction{};
+		let dataset = FrequencyDataset::<u32>::from_dir(PathBuf::from("./data/rust_book_test/"), 4).unwrap();
+		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset])
+	}
+}
 
 
 #[cfg(test)]
 mod tests {
-	use std::path::PathBuf;
 
-use rand::rngs::StdRng;
-
-use super::*;
+	use super::*;
 
 	// #[test]
 	// fn test_initial_layout_generation() {

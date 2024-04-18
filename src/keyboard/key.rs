@@ -81,7 +81,7 @@ impl TryFrom<&str> for KeycodeKey {
 
 			if symm_flag {
 				if let _LS(layer_num) = key.value() {
-					panic!("Don't try to set symmetric layer switches (e.g., LS1_11) as they are complicated to deal with.");
+					return Err(AlcError::InvalidKeycodeKeyFromString(String::from(key_string), String::from("don't set a layer switch key to be symmetric due to the additional complexity; this may change in the future")));
 				}
 			}
 

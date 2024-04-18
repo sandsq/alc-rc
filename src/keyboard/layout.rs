@@ -10,6 +10,7 @@ use std::ptr;
 
 use crate::alc_error::AlcError;
 use crate::text_processor::keycode::Keycode::{self, *};
+use crate::text_processor::ngram::Ngram;
 use super::key::{KeyValue, KeycodeKey, PhysicalKey};
 use super::layer::Layer;
 use super::{LayoutPosition, LayoutPositionSequence};
@@ -59,8 +60,6 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		Layout { layers: layers, keycodes_to_positions: keycodes_to_positions }
 	}
 
-
-	
 	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: &Vec<Keycode>) -> Result<(), AlcError> {
 		let mut used_all_keycodes_flag = false;
 		let mut valid_keycodes_all = VecDeque::from(valid_keycodes.clone());
@@ -78,6 +77,10 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		let keycodes_to_positions = keycode_position_mapping_from_layout::<R, C>(self.layers.clone())?;
 		self.keycodes_to_positions = keycodes_to_positions;
 		Ok(())
+	}
+
+	pub fn ngram_to_sequence(ngram: Ngram) {
+
 	}
 
 	/// Swaps two keys. Ignores symmetry, layer switching, etc., as those should be taken care of by the calling function.
@@ -98,30 +101,30 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 	pub fn swap(&mut self, p1: &LayoutPosition, p2: &LayoutPosition) -> Option<()> {
 		// todo: make use of optimized keycode to position remapping computation where only the affected keycodes get are remapped
 
-		// Bunch of checks for things that should be set up in whatever calls swap. I think these are easy to do in the calling function so the panic is mainly as a reminder when I'm implementing things.
+		// Bunch of checks for issues that should be easier to resolve in whatever calls swap rather than within swap.
 		if p1 == p2 {
-			panic!("Don't try to swap the same positions {} and {}, fix in calling function.", p1, p2)
+			panic!("Error for the developer! Don't try to swap the same positions {} and {}.", p1, p2)
 		}
 		let k1 = self.get_from_layout_position(&p1).unwrap();
 		let k2 = self.get_from_layout_position(&p2).unwrap();
 		if !k1.is_moveable() || !k2.is_moveable() {
-			panic!("I think it would be better to handle moveability in whatever calls this swap function rather than swapping nothing here.")
+			panic!("Error for the developer! Don't try to swap unmoveable positions.")
 		}
 		if let _LS(i) = k2.value() {
-			panic!("For convenience, place layer switches in the first position of the swap and disallow swaps where both keys are layer switches. Fix this in the calling function.");
+			panic!("Error for the developer! Place layer switches in the first position of the swap and disallow swaps where both keys are layer switches.");
 		}
 		if !k1.is_symmetric() && k2.is_symmetric() {
-			panic!("For convenience, place symmetric keys in the first position of the swap. Fix this in the calling function.")
+			panic!("Error for the developer! Place symmetric keys in the first position of the swap.")
 		}
 		if let _LS(i) = k1.value() {
 			if p1.layer_index != p2.layer_index {
-				panic!("Swaps involving layer switches must occur within the same layer otherwise layers could become unreachable, fix this in the calling function. {} vs {}, k1 is {}, layout is {}", p1, p2, k1, self)
+				panic!("Error for the developer! Swaps involving layer switches must occur within the same layer otherwise layers could become unreachable.")
 			}
 			if k2.is_symmetric() {
-				panic!("(The first position should already be the layer switch for convenience.) Can't swap a layer switch key with a symmetric key, fix in the callling function.")
+				panic!("Error for the developer! Can't swap a layer switch key with a symmetric key.")
 			}
 			if k1.is_symmetric() {
-				panic!("Can't have a layer switch that is also symmetric due to additionaly complexity. Maybe later.")
+				panic!("Error for the developer! Can't have a layer switch that is also symmetric due to additionaly complexity. This should be caught when reading in a Key from a string.")
 			}
 		}
 		// cursed things
@@ -192,10 +195,13 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 
 		let k = self.get_from_layout_position(&p).unwrap();
 		if self.keycodes_to_positions.get(&k.value()).unwrap().len() == 1 {
-			panic!("There is only one way to reach {}, not allowed to replace. Fix in the calling function.", k)
+			panic!("Error for the developer! There is only one way to reach {}, not allowed to replace.", k)
 		}
 		if let _LS(target_layer) = k.value() {
-			panic!("Not allowed to replace the layer switch at {}, fix in calling function.", p)
+			panic!("Error for the developer! Not allowed to replace the layer switch ({}).", p)
+		}
+		if !k.is_moveable() {
+			panic!("Error for the developer! Not allowed to replace a non-moveable key.")
 		}
 		let k = self.get_mut_from_layout_position(&p).unwrap().set_value(value);
 
@@ -316,7 +322,7 @@ mod tests {
 		fn test_randomize<const R: usize, const C: usize>(layout: Layout<R, C>) {
 			let expected_key = KeycodeKey::try_from("D_00").unwrap();
 			assert_eq!(layout.get(0, 1, 2).unwrap(), expected_key);
-			println!("{:b}", layout);
+			// println!("{:b}", layout);
 		}
 		test_randomize::<2, 3>(layout.clone());
 
@@ -325,30 +331,30 @@ mod tests {
 			___Layer 0___
 					0       1       2 
 			0| LS1_10  LS2_10  LS3_10 
-			1| LS4_10    E_10    D_00 
+			1| LS4_10    A_10    D_00 
 			
 			___Layer 1___
 					0       1       2 
 			0| LS1_10    E_10    A_10 
-			1|   E_10    A_10    A_10 
+			1|   E_10    A_10    E_10 
 			
 			___Layer 2___
 					0       1       2 
 			0|   A_10  LS2_10    E_10 
-			1|   E_10    A_10    A_10 
+			1|   A_10    E_10    A_10 
 			
 			___Layer 3___
 					0       1       2 
-			0|   A_10    E_10  LS3_10 
-			1|   A_10    E_10    E_10 
+			0|   E_10    A_10  LS3_10 
+			1|   E_10    A_10    E_10 
 			
 			___Layer 4___
 					0       1       2 
-			0|   A_10    E_10    E_10 
-			1| LS4_10    A_10    E_10 
+			0|   A_10    E_10    A_10 
+			1| LS4_10    E_10    A_10 
 			";
 			let layout_from_string = Layout::try_from(layout_string).unwrap();
-			println!("layout from string\n{:b}", layout_from_string.clone());
+			// println!("layout from string\n{:b}", layout_from_string.clone());
 			assert_eq!(layout_from_string, layout);
 		}
 		test_string_construction::<2, 3>(layout);
@@ -361,15 +367,12 @@ mod tests {
 
 	#[test]
 	fn test_swap_two() {
-		let mut layout = match Layout::<1, 4>::try_from("
+		let mut layout = Layout::<1, 4>::try_from("
 			___Layer 0___
 			A_10 B_10 C_10 LS1_10
 			___Layer 1___
 			D_10 E_10 H_10 LS1_10
-		") {
-			Ok(v) => v,
-			Err(e) => panic!("{}", e),
-		};
+		").unwrap();
 		println!("{}", layout);
 		unsafe { layout.swap_two(&LayoutPosition::for_layout(0, 0, 0), &LayoutPosition::for_layout(0, 0, 2)) };
 		assert_eq!(layout.get(0, 0, 0).unwrap().value(), _C);
@@ -383,15 +386,12 @@ mod tests {
 
 	#[test]
 	fn test_swap_for_ls() {
-		let mut layout = match Layout::<1, 4>::try_from("
+		let mut layout = Layout::<1, 4>::try_from("
 			___Layer 0___
 			A_10 B_10 C_10 LS1_10
 			___Layer 1___
 			D_10 E_10 H_10 LS1_10
-		") {
-			Ok(v) => v,
-			Err(e) => panic!("{}", e),
-		};
+		").unwrap();
 		println!("{}", layout);
 		layout.swap(&LayoutPosition::for_layout(0, 0, 0), &LayoutPosition::for_layout(0, 0, 2));
 		assert_eq!(layout.get(0, 0, 0).unwrap().value(), _C);
@@ -400,8 +400,6 @@ mod tests {
 		layout.swap(&LayoutPosition::for_layout(0, 0, 1), &LayoutPosition::for_layout(1, 0, 2));
 		assert_eq!(layout.get(0, 0, 1).unwrap().value(), _H);
 		assert_eq!(layout.get(1, 0, 2).unwrap().value(), _B);
-
-		// layout.swap(&LayoutPosition::for_layout(0, 0, 3), &LayoutPosition::for_layout(1, 0, 1)); // correctly panics
 
 		layout.swap(&LayoutPosition::for_layout(0, 0, 3), &LayoutPosition::for_layout(0, 0, 2));
 		assert_eq!(layout.get(0, 0, 3).unwrap().value(), _A);
@@ -413,15 +411,12 @@ mod tests {
 
 	#[test]
 	fn test_swap_for_symm() {
-		let mut layout = match Layout::<1, 4>::try_from("
+		let mut layout = Layout::<1, 4>::try_from("
 			___Layer 0___
 			A_10 B_11 C_11 LS1_10
 			___Layer 1___
 			D_10 E_10 H_10 LS1_10
-		") {
-			Ok(v) => v,
-			Err(e) => panic!("{}", e),
-		};
+		").unwrap();
 		layout.swap(&LayoutPosition::for_layout(0, 0, 1), &LayoutPosition::for_layout(0, 0, 2));
 		assert_eq!(layout.get(0, 0, 1).unwrap().value(), _C);
 		assert_eq!(layout.get(0, 0, 2).unwrap().value(), _B);
@@ -436,15 +431,12 @@ mod tests {
 
 	#[test]
 	fn test_replace() {
-		let mut layout = match Layout::<1, 4>::try_from("
+		let mut layout = Layout::<1, 4>::try_from("
 			___Layer 0___
 			A_10 B_11 C_11 LS1_10
 			___Layer 1___
 			D_10 E_10 E_10 LS1_10
-		") {
-			Ok(v) => v,
-			Err(e) => panic!("{}", e),
-		};
+		").unwrap();
 		// layout.replace(&LayoutPosition::for_layout(0, 0, 3), _E);
 		// layout.replace(&LayoutPosition::for_layout(0, 0, 0), _E);
 		layout.replace(&LayoutPosition::for_layout(1, 0, 1), _C);

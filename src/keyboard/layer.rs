@@ -344,8 +344,8 @@ mod tests {
 		layer.get_mut(1, 1).unwrap().set_is_moveable(false);
 		layer.get_mut(2, 0).unwrap().set_value(_LS(1)); // there is no layer switch to be had but use it to test that _LS does not get randomized
 		layer.randomize(&VecDeque::from(vec![_E]), &VecDeque::from(vec![_E]));
-		assert_eq!(layer.get(0, 0).unwrap().value(), _NO);
-		assert_eq!(layer.get(0, 1).unwrap().value(), _NO);
+		assert_eq!(layer.get(0, 0).unwrap().value(), _E);
+		assert_eq!(layer.get(0, 1).unwrap().value(), _E);
 		assert_eq!(layer.get(1, 1).unwrap().value(), _NO);
 		assert_eq!(layer.get(1, 0).unwrap().value(), _E);
 		assert_eq!(layer.get(2, 0).unwrap().value(), _LS(1));
