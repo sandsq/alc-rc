@@ -179,9 +179,20 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		Some(())
 	}
 
-	pub fn replace(&mut self, p: LayoutPosition, value: KeycodeKey) -> Option<()> {
+	pub fn replace(&mut self, p: &LayoutPosition, value: Keycode) -> Option<()> {
 		// make use of optimized keycode to position remapping computation where only the affected keycodes get are remapped
-		todo!()
+
+		let k = self.get_from_layout_position(&p).unwrap();
+		if self.keycodes_to_positions.get(&k.value()).unwrap().len() == 1 {
+			panic!("There is only one way to reach {}, not allowed to replace. Fix in the calling function.", k)
+		}
+		if let _LS(target_layer) = k.value() {
+			panic!("Not allowed to replace the layer switch at {}, fix in calling function.", p)
+		}
+		let k = self.get_mut_from_layout_position(&p).unwrap().set_value(value);
+
+		Some(())
+
 	}
 }
 
@@ -415,6 +426,21 @@ mod tests {
 		println!("{}", layout);
 	}
 
-
+	#[test]
+	fn test_replace() {
+		let mut layout = match Layout::<1, 4>::try_from("
+			___Layer 0___
+			A_10 B_11 C_11 LS1_10
+			___Layer 1___
+			D_10 E_10 E_10 LS1_10
+		") {
+			Ok(v) => v,
+			Err(e) => panic!("{}", e),
+		};
+		// layout.replace(&LayoutPosition::for_layout(0, 0, 3), _E);
+		// layout.replace(&LayoutPosition::for_layout(0, 0, 0), _E);
+		layout.replace(&LayoutPosition::for_layout(1, 0, 1), _C);
+		assert_eq!(layout.get(1, 0, 1).unwrap().value(), _C);
+	}
 	
 }
