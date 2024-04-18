@@ -25,13 +25,13 @@ pub struct SingleGramFrequencies<T> {
 	n: usize,
 }
 impl<T>  SingleGramFrequencies<T> {
-	fn new(n: usize) -> Self {
+	pub fn new(n: usize) -> Self {
 		Self { frequencies:  Default::default(), n: n }
 	}
 	fn keys(&self) -> Keys<'_, Ngram, T> {
 		self.frequencies.keys()	
 	}
-	fn get(&self, k: &Ngram) -> Option<&T> {
+	pub fn get(&self, k: &Ngram) -> Option<&T> {
 		self.frequencies.get(k)
 	}
 }
@@ -52,7 +52,7 @@ impl  SingleGramFrequencies<u32> {
 		}
 	}
 	/// This might be faster if the bigger holder is on the left?
-	fn combine_with(&mut self, holder: Self) -> () {
+	pub fn combine_with(&mut self, holder: Self) -> () {
 		for key in holder.keys() {
 			self.add_from_key_value(key.clone(), *holder.get(key).unwrap());
 		}
@@ -73,16 +73,17 @@ impl  SingleGramFrequencies<u32> {
 		Some(SingleGramFrequencies { frequencies: ngram_to_counts, n: n })
 	}
 
-	fn try_from_file<P>(&mut self, filename: P, n: usize) -> Result<(), io::Error> where P: AsRef<Path> {
+	pub fn try_from_file<P>(filename: P, n: usize) -> Result<SingleGramFrequencies<u32>, io::Error> where P: AsRef<Path> {
 		let file = File::open(filename)?;
 		let lines = io::BufReader::new(file).lines();
+		let mut ngram_to_counts = Self::new(n);
 		for line in lines.flatten() {
 			if let Some(holder_from_line) = Self::try_from_string(line.as_str(), n)
 			{
-				self.combine_with(holder_from_line);
+				ngram_to_counts.combine_with(holder_from_line);
 			}
 		}
-		Ok(())
+		Ok(ngram_to_counts)
 	}
 }
 impl<T> Index<Ngram> for SingleGramFrequencies<T> {
@@ -146,8 +147,7 @@ mod tests {
 
 	#[test]
 	fn test_read_from_file() {
-		let mut holder = SingleGramFrequencies::<u32>::new(2);
-		holder.try_from_file("./data/ch04-02-references-and-borrowing.md", 2);
+		let mut holder = SingleGramFrequencies::<u32>::try_from_file("./data/rust_book_test/ch04-02-references-and-borrowing.md", 2).unwrap();
 		println!("{:?}", holder);
 		// this value is found by control + F "he" and seeing how many matches there are
 		assert_eq!(holder[Ngram::new(vec![_H, _E])], 145);

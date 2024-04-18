@@ -13,6 +13,7 @@ pub enum Keycode {
 	_E,
 	_F,
 	_H,
+	_T,
 	_SFT,
 	_ENT,
 	_LS(usize),

@@ -374,6 +374,7 @@ mod tests {
 			A_11 B_10 C_11
 			D_00 __01 LS1_10
 		";
+		
 		let layer = Layer::<2, 3, KeycodeKey>::try_from(layer_string).unwrap();
 		println!("layer from string\n{:b}", layer);
 		println!("layer from string\n{}", layer);
