@@ -8,9 +8,10 @@ use thiserror;
 use regex;
 use std::ptr;
 
+use crate::alc_error::AlcError;
 use crate::text_processor::keycode::Keycode::{self, *};
 use super::key::{KeyValue, KeycodeKey, PhysicalKey};
-use super::layer::{Layer, LayerError};
+use super::layer::Layer;
 use super::{LayoutPosition, LayoutPositionSequence};
 
 type KeycodePositionMap = HashMap<Keycode, Vec<LayoutPositionSequence>>;

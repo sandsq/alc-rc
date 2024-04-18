@@ -1,14 +1,8 @@
 use std::fmt;
-use std::error::Error;
 
+use crate::alc_error::AlcError;
 use crate::text_processor::keycode::Keycode::{self, *};
 
-
-#[derive(Debug, PartialEq, thiserror::Error)]
-pub enum KeyError {
-	#[error("{0} cannot be parsed into a KeycodeKey")]
-	InvalidKeyFromString(String), // add another param to describe what exactly is invalid
-}
 
 pub trait Randomizeable {
 	fn is_randomizeable(&self) -> bool;
@@ -51,7 +45,7 @@ impl KeycodeKey {
 	}
 }
 impl TryFrom<&str> for KeycodeKey {
-	type Error = Box<dyn Error>;
+	type Error = AlcError;
 	fn try_from(key_string: &str) -> Result<Self, Self::Error> {
 		let mut key = KeycodeKey::from_keycode(_NO);
 		let mut key_details = key_string.split("_");
@@ -69,13 +63,13 @@ impl TryFrom<&str> for KeycodeKey {
 				let key_value = Keycode::try_from(format!("_{key_value_string}").as_str())?;
 				key.set_value(key_value);
 			} else {
-				return Err(Box::new(KeyError::InvalidKeyFromString(String::from(key_string))));
+				return Err(AlcError::InvalidKeycodeKeyFromString(String::from(key_string), String::from("keycode not found")));
 			}
 		}
 		if let Some(flags) = key_details.next() {
 			// is_moveable flag and is_symmetric flag
 			if flags.len() != 2 {
-				return Err(Box::new(KeyError::InvalidKeyFromString(String::from(key_string))));	
+				return Err(AlcError::InvalidKeycodeKeyFromString(String::from(key_string), String::from("expected two bit flags")));	
 			}
 			let mut flags_iter = flags.chars();
 			// should handle errors if they aren't 0 or 1, but lazy so skipping for now
@@ -91,7 +85,7 @@ impl TryFrom<&str> for KeycodeKey {
 			}
 
 		} else {
-			return Err(Box::new(KeyError::InvalidKeyFromString(String::from(key_string))));
+			return Err(AlcError::InvalidKeycodeKeyFromString(String::from(key_string), String::from("no bit flags found")));
 		}
 		Ok(key)
 	}

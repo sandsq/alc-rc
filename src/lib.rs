@@ -6,3 +6,5 @@ pub mod keyboard;
 pub mod objective;
 #[allow(unused)]
 pub mod optimizer;
+#[allow(unused)]
+pub mod alc_error;

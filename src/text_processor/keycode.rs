@@ -28,10 +28,6 @@ use Keycode::*;
 // }
 
 
-
-
-struct ParseKeycodeError;
-
 fn char_to_keycode(c: char) -> Vec<Keycode> {
 	let mut keycodes: Vec<Keycode> = vec![];
 	if c.is_uppercase() {

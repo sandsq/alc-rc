@@ -5,22 +5,12 @@ use std::fmt;
 use std::str;
 use thiserror;
 
+use crate::alc_error::AlcError;
 use crate::text_processor::keycode::Keycode::{self, *};
 use super::key::{KeyValue, KeycodeKey, Randomizeable};
 use super::LayoutPosition;
 
 
-#[derive(Debug, PartialEq, thiserror::Error)]
-pub enum LayerError {
-	#[error("position ({0}, {1}) is marked as symmetric but its corresponding symmetric position ({2}, {3}) is not")]
-	SymmetryError(usize, usize, usize, usize),
-	#[error("expected {0} rows but tried to create {1} rows instead")]
-	RowMismatchError(usize, usize),
-	#[error("expected {0} cols but tried to create {1} cols instead")]
-	ColMismatchError(usize, usize),
-	#[error("layer string seems to contain column index header but its format is invalid {0}")]
-	FromStringHeaderError(String),
-}
 // impl fmt::Display for KeyboardError {
 //     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 // 		match self {
@@ -103,7 +93,7 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 		let mut layer_array2d = Array2D::filled_with(default_key.clone(), R, C);
 		Layer::<R, C, KeycodeKey> { layer: layer_array2d }
 	}
-	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: Vec<Keycode>) -> Result<(), LayerError> {
+	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: Vec<Keycode>) -> Result<(), AlcError> {
 		let mut valid_keycodes_to_draw_from = valid_keycodes.clone();
 		for i in 0..R {
 			for j in 0..C {
@@ -113,7 +103,7 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 					let symm_lp = self.symmetric_position(&lp);
 					let symm_key = self.get_from_layout_position(&symm_lp).unwrap();
 					if !symm_key.is_symmetric() {
-						return Err(LayerError::SymmetryError(i, j, symm_lp.row_index, symm_lp.col_index));
+						return Err(AlcError::SymmetryError(i, j, symm_lp.row_index, symm_lp.col_index));
 					} else {
 						continue;
 					}
@@ -177,7 +167,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, f32> {
 }
 
 
-fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, LayerError> {
+fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, AlcError> {
 	let mut rows = input_s.split("\n").filter(|s| s.trim().len() > 0);
 	let rows_vec: Vec<&str> = rows.clone().collect();
 	let mut rows_vec_len = rows_vec.len();
@@ -192,19 +182,19 @@ fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, LayerError> {
 			let current_char = first_row_chars.next().unwrap();
 			if previous_char.is_digit(10) && current_char.is_digit(10) {
 				if previous_char.to_digit(10).unwrap() + 1 != current_char.to_digit(10).unwrap() {
-					return Err(LayerError::FromStringHeaderError(String::from(first_row)));
+					return Err(AlcError::FromStringHeaderError(String::from(first_row)));
 				}
 			}
 		}
 	}
 	if rows_vec_len != r {
-		return Err(LayerError::RowMismatchError(r, rows_vec_len));
+		return Err(AlcError::RowMismatchError(r, rows_vec_len));
 	}
 	else {
 		Ok(rows.collect())
 	}
 }
-fn cols_from_string(input_s: &str, c: usize) -> Result<Vec<&str>, LayerError> {
+fn cols_from_string(input_s: &str, c: usize) -> Result<Vec<&str>, AlcError> {
 	// see note for rows_from_string
 	// | is used as a separator between the row index and the row
 	let mut cols = if input_s.contains("|") {
@@ -216,7 +206,7 @@ fn cols_from_string(input_s: &str, c: usize) -> Result<Vec<&str>, LayerError> {
 	// let mut cols = input_s.split_whitespace();
 	let cols_vec: Vec<&str> = cols.clone().collect();
 	if cols_vec.len() != c {
-		return Err(LayerError::ColMismatchError(c, cols_vec.len()));
+		return Err(AlcError::ColMismatchError(c, cols_vec.len()));
 	} else { 
 		Ok(cols_vec)
 	}
@@ -343,7 +333,7 @@ mod tests {
 		let mut rng = StdRng::seed_from_u64(0);
 		let mut layer = Layer::<3, 2, KeycodeKey>::init_blank();
 		layer.get_mut(0, 0).unwrap().set_is_symmetric(true);
-		assert_eq!(layer.randomize(&mut rng, vec![_E]).unwrap_err(), LayerError::SymmetryError(0, 0, 0, 1));
+		assert_eq!(layer.randomize(&mut rng, vec![_E]).unwrap_err(), AlcError::SymmetryError(0, 0, 0, 1));
 		layer.get_mut(0, 1).unwrap().set_is_symmetric(true); // set the corresponding slot to be symmetric to continue
 
 		layer.get_mut(1, 1).unwrap().set_is_moveable(false);
