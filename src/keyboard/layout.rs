@@ -16,11 +16,6 @@ use super::{LayoutPosition, LayoutPositionSequence};
 
 type KeycodePositionMap = HashMap<Keycode, Vec<LayoutPositionSequence>>;
 
-#[derive(Debug, PartialEq, Clone, thiserror::Error)]
-pub enum LayoutError {
-	#[error("layer {0} is not reachable, check to make sure LS{0} exists in your layout and does not require first accessing a higher layer")]
-	LayerAccessError(usize),
-}
 
 /// A keyboard layout is a collection of layers of KeycodeKeys, plus additional info specifying how to navigate the layout, etc. (fill in later)
 /// Layouts with multiple layers must have a way to access every layer.
@@ -44,6 +39,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		self.layers.get_mut(layer_index).unwrap().get_mut(row_index, col_index)
 	}
 	pub fn get_mut_from_layout_position(&mut self, lp: &LayoutPosition) -> Result<&mut KeycodeKey, Array2DError> {
+		// the first get_mut isn't an Array2DError since it's on a vector, but deal with that later.
 		self.layers.get_mut(lp.layer_index).unwrap().get_mut(lp.row_index, lp.col_index)
 	}
 	pub fn symmetric_position(&self, lp: &LayoutPosition) -> LayoutPosition {
@@ -63,7 +59,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		Layout { layers: layers, keycodes_to_positions: keycodes_to_positions }
 	}
 
-	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: Vec<Keycode>) -> Result<(), LayoutError> {
+	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: Vec<Keycode>) -> Result<(), AlcError> {
 		for layer_num in 0..self.layers.len() {
 			let mut layer = self.layers.get_mut(layer_num).unwrap();
 			layer.randomize(rng, valid_keycodes.clone());
@@ -197,12 +193,12 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 	}
 }
 
-fn keycode_position_mapping_from_layout<const R: usize, const C: usize>(layers: Vec<Layer<R, C, KeycodeKey>>) -> Result<KeycodePositionMap, LayoutError> {
+fn keycode_position_mapping_from_layout<const R: usize, const C: usize>(layers: Vec<Layer<R, C, KeycodeKey>>) -> Result<KeycodePositionMap, AlcError> {
 	let mut keycodes_to_positions: KeycodePositionMap = Default::default();
 	for (layer_num, layer) in layers.iter().enumerate() {
 		for r in 0..R {
 			for c in 0..C {
-				let key = layer.get(r, c).unwrap();
+				let key = layer.get(r, c)?;
 				let key_value = key.value();
 				let layout_position = LayoutPosition::for_layout(layer_num, r, c);
 				let layout_position_sequence = LayoutPositionSequence::from(vec![layout_position.clone()]);
@@ -217,7 +213,7 @@ fn keycode_position_mapping_from_layout<const R: usize, const C: usize>(layers: 
 					// check that layer_num is reachable. If layer is currently not reachable, could pass until after the rest of the layout is processed in case there is a downward layer move, but not going to implement that now since QMK does not recommend having layer switches like that
 					let mut sequences_to_reach_layer = match map_clone.get(&_LS(layer_num)) {
 						Some(v) => v,
-						None => return Err(LayoutError::LayerAccessError(layer_num)),
+						None => return Err(AlcError::LayerAccessError(layer_num)),
 					};
 					// loop through all sequences that can reach _LS(i)
 					for s_index in 0..sequences_to_reach_layer.len() {
@@ -234,17 +230,17 @@ fn keycode_position_mapping_from_layout<const R: usize, const C: usize>(layers: 
 	Ok(keycodes_to_positions)
 }
 impl<const R: usize, const C: usize> TryFrom<&str> for Layout<R, C> {
-	type Error = LayoutError; //Box<dyn Error>;
+	type Error = AlcError; //Box<dyn Error>;
 
 	fn try_from(layout_string: &str) -> Result<Self, Self::Error> {
 		let mut layers: Vec<Layer<R, C, KeycodeKey>> = vec![];
 
-		let re = regex::Regex::new(r"(___)(.*)(___)").unwrap();
+		let re = regex::Regex::new(r"(___)(.*)(___)")?; //.unwrap();
 		for layer_string in re.split(layout_string).collect::<Vec<&str>>() {
 			if layer_string.trim().is_empty() {
 				continue;
 			}
-			layers.push(Layer::try_from(layer_string).unwrap());
+			layers.push(Layer::try_from(layer_string)?);
 		}
 		let keycodes_to_positions = keycode_position_mapping_from_layout::<R, C>(layers.clone())?;
 		Ok(Layout { layers, keycodes_to_positions: keycodes_to_positions})
@@ -340,9 +336,9 @@ mod tests {
 			0|   A_10    E_10    E_10 
 			1| LS4_10    A_10    E_10 
 			";
-			let layout_from_string = Layout::try_from(layout_string);
-			println!("layout from string\n{:b}", layout_from_string.clone().unwrap());
-			assert_eq!(layout_from_string.unwrap(), layout);
+			let layout_from_string = Layout::try_from(layout_string).unwrap();
+			println!("layout from string\n{:b}", layout_from_string.clone());
+			assert_eq!(layout_from_string, layout);
 		}
 		test_string_construction::<2, 3>(layout);
 	}

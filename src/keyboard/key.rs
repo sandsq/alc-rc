@@ -72,7 +72,8 @@ impl TryFrom<&str> for KeycodeKey {
 				return Err(AlcError::InvalidKeycodeKeyFromString(String::from(key_string), String::from("expected two bit flags")));	
 			}
 			let mut flags_iter = flags.chars();
-			// should handle errors if they aren't 0 or 1, but lazy so skipping for now
+			// .next() is guaranteed(?) to work here since we check that there are 2 flags
+			// to_digit returns an option, should handle that somehow
 			let move_flag: bool = flags_iter.next().unwrap().to_digit(10).unwrap() != 0;
 			key.set_is_moveable(move_flag);
 			let symm_flag: bool = flags_iter.next().unwrap().to_digit(10).unwrap() != 0;

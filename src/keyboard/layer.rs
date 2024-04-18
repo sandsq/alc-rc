@@ -97,11 +97,11 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 		let mut valid_keycodes_to_draw_from = valid_keycodes.clone();
 		for i in 0..R {
 			for j in 0..C {
-				let key = self.get(i, j).unwrap();
+				let key = self.get(i, j)?;
 				let lp = LayoutPosition::for_layer(i, j);
 				if key.is_symmetric() {
 					let symm_lp = self.symmetric_position(&lp);
-					let symm_key = self.get_from_layout_position(&symm_lp).unwrap();
+					let symm_key = self.get_from_layout_position(&symm_lp)?;
 					if !symm_key.is_symmetric() {
 						return Err(AlcError::SymmetryError(i, j, symm_lp.row_index, symm_lp.col_index));
 					} else {
@@ -135,7 +135,7 @@ fn choose_and_remove(rng: &mut impl Rng, v: &mut Vec<Keycode>) -> Option<Keycode
 }
 
 impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, KeycodeKey> {
-	type Error = Box<dyn Error>;
+	type Error = AlcError;
 	fn try_from(layer_string: &str) -> Result<Self, Self::Error> {
 		let mut layer = Self::init_blank();
 		let rows = rows_from_string(layer_string, R)?;
