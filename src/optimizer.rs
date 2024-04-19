@@ -44,13 +44,13 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		LayoutOptimizer { base_layout, effort_layer, score_function, datasets }
 	}
 
-	fn score_single_grams(&self, layout: &Layout<R, C>, frequencies: SingleGramFrequencies<u32>, config: LayoutOptimizerConfig) -> f32 {
+	fn score_single_grams(&self, layout: &Layout<R, C>, frequencies: SingleGramFrequencies<u32>, config: &LayoutOptimizerConfig) -> f32 {
 		let mut score = 0.0;
 		let effort_layer = &self.effort_layer;
 		for (ngram, ngram_frequency) in frequencies {
 			let sequences = layout.ngram_to_sequences(&ngram).unwrap().into_iter();		
 			let min_score = sequences
-				.map(|s| self.score_function.score_layout_position_sequence(layout, effort_layer, s.clone()))
+				.map(|s| self.score_function.score_layout_position_sequence(layout, effort_layer, s.clone(), config))
 				.min_by(|x, y| x.partial_cmp(y).unwrap())
 				.unwrap();
 			score += min_score * (ngram_frequency as f32);
@@ -58,12 +58,13 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		score
 	}
 
-	fn score_dataset(&self, config: LayoutOptimizerConfig) -> f32 {
+	fn score_dataset(&self, layout: &Layout<R, C>, config: &LayoutOptimizerConfig) -> f32 {
 		let mut score = 0.0;
 		for dataset in &self.datasets {
-
+			for ngram_size in dataset.ngram_frequencies.keys() {
+				score += self.score_single_grams(layout, dataset.ngram_frequencies.get(ngram_size).unwrap().clone(), config);
+			}
 		}
-
 		score
 	}
 
@@ -112,7 +113,7 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn test_single_ngram_scoring() {
+	fn test_ngram_scoring() {
 		let base_layout = Layout::<1, 4>::init_blank(2);
 		let effort_layer = Layer::<1, 4, f32>::try_from("
 			0.1 0.4 0.3 0.2
@@ -126,15 +127,19 @@ mod tests {
 		").unwrap();
 		let score_function = SimpleScoreFunction{};
 		let text = "hehehebe";
-		let dataset = FrequencyDataset::<u32>::from_dir(PathBuf::from("./data/small_test/"), 4, All).unwrap();
+		let dataset = FrequencyDataset::<u32>::from_dir(PathBuf::from("./data/small_test/"), 2, All).unwrap();
 		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset]);
 		let config = LayoutOptimizerConfig::default();
 		let twogram_frequency = layout_optimizer.datasets[0].ngram_frequencies.get(&(2 as usize)).unwrap();
-		let s = layout_optimizer.score_single_grams(&test_layout, twogram_frequency.clone(), config);
+		let s = layout_optimizer.score_single_grams(&test_layout, twogram_frequency.clone(), &config);
 		// 3 * he + 1 * be + 2 * eh + 1 + eb
-		let expected_s = 3.0 * (0.1 + 0.2 + 0.1) + 1.0 * (0.3 + 0.2 + 0.1) + 2.0 * (0.2 + 0.1 + 0.1) + 1.0 * (0.2 + 0.1 + 0.3);
-		assert_eq!(format!("{s:.3}"), format!("{expected_s:.3}"));
+		let expected_two_score = 3.0 * (0.1 + 0.2 + 0.1) + 1.0 * (0.3 + 0.2 + 0.1) + 2.0 * (0.2 + 0.1 + 0.1) + 1.0 * (0.2 + 0.1 + 0.3);
+		assert_eq!(format!("{s:.3}"), format!("{expected_two_score:.3}"));
 		
+		let full_score = layout_optimizer.score_dataset(&test_layout, &config);
+		let expected_one_score = 3.0 * 0.1 + 4.0 * (0.2 + 0.1) + 1.0 * 0.3;
+		let expected_score = expected_one_score + expected_two_score;
+		assert_eq!(format!("{full_score:.3}"), format!("{expected_score:.3}"));
 		// let mut rng = StdRng::seed_from_u64(0);
 		// layout_optimizer.optimize(&mut rng, config);
 	}
