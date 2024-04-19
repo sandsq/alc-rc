@@ -57,7 +57,7 @@ impl SingleGramFrequencies<u32> {
 			Ok(*self.frequencies.entry(key).or_insert(0) += value)
 		}
 	}
-	pub fn take_top_n(&mut self, amount: TopFrequenciesToTake) -> () {
+	pub fn take_top_frequencies(&mut self, amount: TopFrequenciesToTake) -> () {
 		let mut hash_vec: Vec<(&Ngram, &u32)> = self.frequencies.iter().collect();
     	hash_vec.sort_by(|a, b| b.1.cmp(a.1));
 		let amount_to_take = match amount {
@@ -80,7 +80,7 @@ impl SingleGramFrequencies<u32> {
 			self.add_from_key_value(key.clone(), *holder.get(key).unwrap());
 		}
 	}
-	fn try_from_string(s: &str, n: usize) -> Option<SingleGramFrequencies<u32>> {
+	pub fn try_from_string(s: &str, n: usize) -> Option<SingleGramFrequencies<u32>> {
 		let mut ngram_to_counts: HashMap<Ngram, u32> = HashMap::new();
 		let keycodes = string_to_keycode(s);
 		if keycodes.len() < n {
@@ -188,10 +188,10 @@ mod tests {
 		println!("{:?}", holder);
 		// this value is found by control + F "he" and seeing how many matches there are
 		assert_eq!(holder[Ngram::new(vec![_H, _E])], 145);
-		holder.take_top_n(All);
+		holder.take_top_frequencies(All);
 		assert_eq!(holder, holder_clone);
 
-		holder.take_top_n(Num(10));
+		holder.take_top_frequencies(Num(10));
 		println!("{:?}", holder);
 		assert_eq!(holder.len(), 10);
 	}

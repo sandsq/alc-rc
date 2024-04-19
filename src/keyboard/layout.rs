@@ -85,10 +85,10 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 	}
 
 	/// Within a layout there can be multiple ways to type a keycode, so there can be multiple ways to type an ngram. Keep track of all of these
-	pub fn ngram_to_sequences(&self, ngram: Ngram) -> Option<Vec<LayoutPositionSequence>> {
+	pub fn ngram_to_sequences(&self, ngram: &Ngram) -> Option<Vec<LayoutPositionSequence>> {
 		let mut output_sequences_to_ngram: Vec<LayoutPositionSequence> = vec![];
 
-		let ngram_iter = ngram.into_iter();
+		let ngram_iter = ngram.clone().into_iter();
 		for keycode in ngram_iter {
 			// println!("output sequences {:?} at start,  keycode {}", output_sequences_to_ngram, keycode);
 			let sequences_to_keycode = match self.get_position_sequences_to_keycode(keycode) {
@@ -490,7 +490,7 @@ mod tests {
 			___Layer 1___
 			D_10 E_10 A_10 LS1_10
 		").unwrap();
-		let seqs = layout.ngram_to_sequences(Ngram::new(vec![_A, _E])).unwrap();
+		let seqs = layout.ngram_to_sequences(&Ngram::new(vec![_A, _E])).unwrap();
 		// println!("{:?}", seqs);
 		assert_eq!(seqs.len(), 4);
 		let seq1 = LayoutPositionSequence::from_tuple_vector(vec![(0, 0, 0), (0, 0, 1)]);
@@ -501,7 +501,7 @@ mod tests {
 		assert!(seqs.contains(&seq3));
 		let seq4 = LayoutPositionSequence::from_tuple_vector(vec![(0, 0, 3), (1, 0, 2), (0, 0, 3), (1, 0, 1)]);
 		assert!(seqs.contains(&seq4));
-		let seqs2 = layout.ngram_to_sequences(Ngram::new(vec![_A, _E, _A, _E])).unwrap();
+		let seqs2 = layout.ngram_to_sequences(&Ngram::new(vec![_A, _E, _A, _E])).unwrap();
 		assert_eq!(seqs2.len(), 16);
 
 		let layout2 = Layout::<1, 4>::try_from("
@@ -510,7 +510,7 @@ mod tests {
 			___Layer 1___
 			D_10 E_10 A_10 LS1_10
 		").unwrap();
-		let seqs2 = layout2.ngram_to_sequences(Ngram::new(vec![_A, _B, _C, _D, _E])).unwrap();
+		let seqs2 = layout2.ngram_to_sequences(&Ngram::new(vec![_A, _B, _C, _D, _E])).unwrap();
 		let seq2_1 = LayoutPositionSequence::from_tuple_vector(vec![(0, 0, 0), (0, 0, 1), (0, 0, 2), (0, 0, 3), (1, 0, 0), (0, 0, 3), (1, 0, 1)]);
 		assert!(seqs2.contains(&seq2_1));
 		let seq2_2 = LayoutPositionSequence::from_tuple_vector(vec![(0, 0, 3), (1, 0, 2), (0, 0, 1), (0, 0, 2), (0, 0, 3), (1, 0, 0), (0, 0, 3), (1, 0, 1)]);

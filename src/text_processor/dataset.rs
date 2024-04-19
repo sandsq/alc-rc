@@ -22,8 +22,8 @@ pub enum FrequencyDatasetError {
 type MultipleNgramFrequencies<T> = HashMap<usize, SingleGramFrequencies<T>>;
 #[derive(Debug, PartialEq, Clone)]
 pub struct FrequencyDataset<T> where T: Frequencies {
-	name: String,
-	ngram_frequencies: MultipleNgramFrequencies<T>,
+	pub name: String,
+	pub ngram_frequencies: MultipleNgramFrequencies<T>,
 }
 
 impl FrequencyDataset<u32> {
@@ -31,9 +31,8 @@ impl FrequencyDataset<u32> {
 		Self {name, ngram_frequencies}
 	}
 
-
 	/// Because some ngrams are so infrequent and would only serve to increase computation time without affecting layout score very much, `top_n_to_take` allows you to choose how many of the most frequent ngrams you want to include.
-	pub fn from_dir(dir: PathBuf, max_ngram_size: usize, top_n_to_take: TopFrequenciesToTake) -> Result<Self, FrequencyDatasetError> {
+	pub fn from_dir(dir: PathBuf, max_ngram_size: usize, top_frequencies_to_take: TopFrequenciesToTake) -> Result<Self, FrequencyDatasetError> {
 		let metadata = dir.metadata().unwrap();
 		if !metadata.is_dir() {
 			Err(FrequencyDatasetError::ExpectedDirectoryError(dir))
@@ -49,12 +48,16 @@ impl FrequencyDataset<u32> {
 					let single_gram_frequencies = SingleGramFrequencies::<u32>::try_from_file(file.unwrap().path(), n).unwrap();
 					ngram_frequencies.get_mut(&n).unwrap().combine_with(single_gram_frequencies);
 				}
-				ngram_frequencies.get_mut(&n).unwrap().take_top_n(top_n_to_take.clone());
+				ngram_frequencies.get_mut(&n).unwrap().take_top_frequencies(top_frequencies_to_take.clone());
 			}
 			// do something about this
 			let name = dir.file_name().unwrap().to_str().unwrap().to_string();
 			Ok(FrequencyDataset::new(name, ngram_frequencies))
 		}
+	}
+
+	pub fn get(&self, k: &usize) -> Option<&SingleGramFrequencies<u32>> {
+		self.ngram_frequencies.get(k)
 	}
 }
 

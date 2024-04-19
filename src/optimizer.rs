@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::fmt;
 use rand::prelude::*;
 use rand::Rng;
@@ -43,10 +44,16 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		LayoutOptimizer { base_layout, effort_layer, score_function, datasets }
 	}
 
-	fn score_single_grams(&self, frequencies: SingleGramFrequencies<u32>, config: LayoutOptimizerConfig) -> f32 {
+	fn score_single_grams(&self, layout: &Layout<R, C>, frequencies: SingleGramFrequencies<u32>, config: LayoutOptimizerConfig) -> f32 {
 		let mut score = 0.0;
+		let effort_layer = &self.effort_layer;
 		for (ngram, ngram_frequency) in frequencies {
-
+			let sequences = layout.ngram_to_sequences(&ngram).unwrap().into_iter();		
+			let min_score = sequences
+				.map(|s| self.score_function.score_layout_position_sequence(layout, effort_layer, s.clone()))
+				.min_by(|x, y| x.partial_cmp(y).unwrap())
+				.unwrap();
+			score += min_score * (ngram_frequency as f32);
 		}
 		score
 	}
@@ -104,18 +111,31 @@ mod tests {
 
 	use super::*;
 
-	// #[test]
-	// fn test_initial_layout_generation() {
-	// 	let base_layout = Layout::<2, 4>::init_blank(2);
-	// 	let effort_layer = Layer::<2, 4, f32>::try_from("
-	// 		0.1 0.2 0.3 0.4
-	// 		0.5 0.6 0.7 0.8
-	// 	").unwrap();
-	// 	let score_function = SimpleScoreFunction{};
-	// 	let dataset = FrequencyDataset::<u32>::from_dir(PathBuf::from("./data/rust_book_test/"), 4).unwrap();
-	// 	let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset]);
-	// 	let config = LayoutOptimizerConfig::default();
-	// 	let mut rng = StdRng::seed_from_u64(0);
-	// 	layout_optimizer.optimize(&mut rng, config);
-	// }
+	#[test]
+	fn test_single_ngram_scoring() {
+		let base_layout = Layout::<1, 4>::init_blank(2);
+		let effort_layer = Layer::<1, 4, f32>::try_from("
+			0.1 0.4 0.3 0.2
+		").unwrap();
+		let test_layout = Layout::<1, 4>::try_from("
+			___Layer 0___
+			H_10 E_10 B_10 LS1_10
+			___Layer 1___
+			E_10 A_10 C_10 LS1_10
+		
+		").unwrap();
+		let score_function = SimpleScoreFunction{};
+		let text = "hehehebe";
+		let dataset = FrequencyDataset::<u32>::from_dir(PathBuf::from("./data/small_test/"), 4, All).unwrap();
+		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset]);
+		let config = LayoutOptimizerConfig::default();
+		let twogram_frequency = layout_optimizer.datasets[0].ngram_frequencies.get(&(2 as usize)).unwrap();
+		let s = layout_optimizer.score_single_grams(&test_layout, twogram_frequency.clone(), config);
+		// 3 * he + 1 * be + 2 * eh + 1 + eb
+		let expected_s = 3.0 * (0.1 + 0.2 + 0.1) + 1.0 * (0.3 + 0.2 + 0.1) + 2.0 * (0.2 + 0.1 + 0.1) + 1.0 * (0.2 + 0.1 + 0.3);
+		assert_eq!(format!("{s:.3}"), format!("{expected_s:.3}"));
+		
+		// let mut rng = StdRng::seed_from_u64(0);
+		// layout_optimizer.optimize(&mut rng, config);
+	}
 }
