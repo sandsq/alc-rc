@@ -122,7 +122,8 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 
 		// Bunch of checks for issues that should be easier to resolve in whatever calls swap rather than within swap.
 		if p1 == p2 {
-			panic!("Error for the developer! Don't try to swap the same positions {} and {}.", p1, p2)
+			// panic!("Error for the developer! Don't try to swap the same positions {} and {}.", p1, p2)
+			return None;
 		}
 		let k1 = self.get_from_layout_position(&p1).unwrap();
 		let k2 = self.get_from_layout_position(&p2).unwrap();
@@ -225,8 +226,77 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		let k = self.get_mut_from_layout_position(&p).unwrap().set_value(value);
 
 		Some(())
+	}
+	pub fn gen_random_position(&self, rng: &mut impl Rng) -> LayoutPosition {
+		let layer_limit = self.layers.len();
+		LayoutPosition::for_layout(rng.gen_range(0..layer_limit), rng.gen_range(0..R), rng.gen_range(0..C))
+	}
+
+	fn gen_position_until_moveable(&self, rng: &mut impl Rng) -> Option<LayoutPosition> {
+		let fallback_count = 100;
+		let mut p = self.gen_random_position(rng);
+		let mut k = self.get_from_layout_position(&p).unwrap();
+		let mut count = 0;
+		while !k.is_moveable() {
+			p = self.gen_random_position(rng);
+			k = self.get_from_layout_position(&p).unwrap();
+			count += 1;
+			if count >= fallback_count {
+				return None
+				// return Err(AlcError::SwapFallbackError(fallback_count, String::from("could not find moveable first key")));
+			}
+		}
+		Some(p)
+	}
+
+	pub fn gen_valid_swap(&self, rng: &mut impl Rng) -> Option<(LayoutPosition, LayoutPosition)> {
+		let mut p1 = self.gen_position_until_moveable(rng)?;
+		let mut k1 = match self.get_from_layout_position(&p1) {
+			Ok(v) => v,
+			Err(e) => return None,
+		};
+		let mut p2 = self.gen_position_until_moveable(rng)?;
+		let mut k2 = match self.get_from_layout_position(&p2) {
+			Ok(v) => v,
+			Err(e) => return None,
+		};
+		let mut count = 0;
+		let fallback_count = 100;
+		if let _LS(i) = k1.value() {
+			if k1.is_symmetric() {
+				return panic!("Error for the developer! Can't have a layer switch that is also symmetric due to additionaly complexity. This should be caught when reading in a Key from a string.");
+			}
+			while k2.is_symmetric() || (p1.layer_index != p2.layer_index) || std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LS(1)) {
+				p2 = self.gen_position_until_moveable(rng)?;
+				k2 = match self.get_from_layout_position(&p2) {
+					Ok(v) => v,
+					Err(e) => return None,
+				};
+				count += 1;
+				if count >= fallback_count {
+					return None;
+					// return Err(AlcError::SwapFallbackError(fallback_count, String::from("key 1 was a layer switch and either i) no non-symmetric key 2s could be found or ii) no key 2s could be found in the same layer or iii) not non-layer switch key 2s could be found")));
+				}
+			}
+			return Some((p1, p2));
+		} else {
+			while std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LS(1)) || (!k1.is_symmetric() && k2.is_symmetric()) {
+				p2 = self.gen_position_until_moveable(rng)?;
+				k2 = match self.get_from_layout_position(&p2) {
+					Ok(v) => v,
+					Err(e) => return None,
+				};
+				count += 1;
+				if count >= fallback_count {
+					// return Err(AlcError::SwapFallbackError(fallback_count, String::from("key 1 was not a layer switch but proper k2 could not be found")));
+					return None;
+				}
+			}
+		}
+		Some((p1, p2))
 
 	}
+
 }
 
 fn keycode_path_map_from_layout<const R: usize, const C: usize>(layers: Vec<Layer<R, C, KeycodeKey>>) -> Result<KeycodePathMap, AlcError> {
