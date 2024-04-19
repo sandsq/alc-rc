@@ -112,7 +112,7 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 				// 		continue;
 				// 	}
 				// }
-				if  !key.is_randomizeable() {
+				if  !key.is_randomizeable() || key.value() != _NO {
 					continue;
 				}
 				if valid_keycodes_to_draw_from.len() == 0 {
@@ -349,6 +349,15 @@ mod tests {
 		assert_eq!(layer.get(1, 1).unwrap().value(), _NO);
 		assert_eq!(layer.get(1, 0).unwrap().value(), _E);
 		assert_eq!(layer.get(2, 0).unwrap().value(), _LS(1));
+
+		let layer_string = "
+			A_11 B_10 C_11
+			D_00 __10 LS1_10
+		";
+		let mut layer = Layer::<2, 3, KeycodeKey>::try_from(layer_string).unwrap();
+		layer.randomize(&VecDeque::from(vec![_H]), &VecDeque::from(vec![_H]));
+		assert_eq!(layer.get(0, 1).unwrap().value(), _B);
+		assert_eq!(layer.get(1, 1).unwrap().value(), _H);
 	}
 
 	#[test]

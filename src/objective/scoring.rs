@@ -34,7 +34,7 @@ mod tests {
 			0.4 0.5 0.6
 		").unwrap();
 		let sf = SimpleScoreFunction{};
-		let layout_position_sequence = LayoutPositionSequence::from(vec![LayoutPosition::for_layout(0, 0, 0), LayoutPosition::for_layout(0, 0, 2), LayoutPosition::for_layout(1, 1, 1)]); 
+		let layout_position_sequence = LayoutPositionSequence::from_layout_positions(vec![LayoutPosition::for_layout(0, 0, 0), LayoutPosition::for_layout(0, 0, 2), LayoutPosition::for_layout(1, 1, 1)]); 
 		let score = sf.score_layout_position_sequence(layout, effort_layer, layout_position_sequence);
 		assert_eq!(score, 0.1 + 0.3 + 0.5);
 	}

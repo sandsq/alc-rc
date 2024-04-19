@@ -1,7 +1,10 @@
 use core::num;
+use std::alloc::Layout;
 use std::error::Error;
 use std::num::ParseIntError;
 use thiserror::Error;
+
+use crate::text_processor::ngram::Ngram;
 
 #[derive(Debug, PartialEq, thiserror::Error)]
 pub enum AlcError {
@@ -29,4 +32,6 @@ pub enum AlcError {
 	#[error("layer {0} is not reachable, check to make sure LS{0} exists in your layout and does not require first accessing a higher layer")]
 	LayerAccessError(usize),
 
+	#[error("ngram {0} cannot be typed on the layout")]
+	UntypeableNgramError(Ngram)
 }

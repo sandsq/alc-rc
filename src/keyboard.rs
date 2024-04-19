@@ -21,6 +21,9 @@ impl LayoutPosition {
 	pub fn for_layout(l: usize, r: usize, c: usize) -> LayoutPosition {
 		LayoutPosition { layer_index: l, row_index: r, col_index: c }
 	}
+	pub fn from_tuple(t: (usize, usize, usize)) -> Self {
+		LayoutPosition { layer_index: t.0, row_index: t.1, col_index: t.2 }
+	}
 }
 impl fmt::Display for LayoutPosition {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -37,8 +40,15 @@ impl LayoutPositionSequence {
 	pub fn push(&mut self, lp: LayoutPosition) {
 		self.sequence.push(lp)
 	}
-	pub fn from(lps: Vec<LayoutPosition>) -> Self {
+	pub fn from_layout_positions(lps: Vec<LayoutPosition>) -> Self {
 		LayoutPositionSequence { sequence: lps }
+	}
+	pub fn from_tuple_vector(lps: Vec<(usize, usize, usize)>) -> Self {
+		let lps_vec = lps.into_iter().map(|v| LayoutPosition::from_tuple(v)).collect();
+		LayoutPositionSequence { sequence: lps_vec }
+	}
+	pub fn append(&mut self, other: &mut Self) {
+		self.sequence.append(&mut other.sequence)
 	}
 	
 }
@@ -69,3 +79,4 @@ impl fmt::Display for LayoutPositionSequence {
 		write!(f, "]")
     }
 }
+
