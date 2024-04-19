@@ -11,7 +11,7 @@ use crate::text_processor::*;
 use crate::objective::scoring::*;
 
 use self::dataset::FrequencyDataset;
-use self::frequency_holder::SingleGramFrequencies;
+use self::frequency_holder::{SingleGramFrequencies, TopFrequenciesToTake::*};
 use self::keycode::{Keycode::{self, *}, get_default_keycode_set};
 
 pub struct LayoutOptimizerConfig {
@@ -19,6 +19,7 @@ pub struct LayoutOptimizerConfig {
 	generation_count: u32,
 	dataset_weight: Vec<u8>,
 	valid_keycodes: Vec<Keycode>,
+	top_n_ngrams_to_take: usize,
 }
 impl Default for LayoutOptimizerConfig {
 	fn default() -> Self {
@@ -26,7 +27,8 @@ impl Default for LayoutOptimizerConfig {
 			initial_population_size: 5, 
 			generation_count: 1, 
 			dataset_weight: vec![1],
-			valid_keycodes: get_default_keycode_set(), }
+			valid_keycodes: get_default_keycode_set(),
+			top_n_ngrams_to_take: 50, }
 	}
 }
 
@@ -43,7 +45,9 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 
 	fn score_single_grams(&self, frequencies: SingleGramFrequencies<u32>, config: LayoutOptimizerConfig) -> f32 {
 		let mut score = 0.0;
-		
+		for (ngram, ngram_frequency) in frequencies {
+
+		}
 		score
 	}
 
@@ -89,7 +93,7 @@ impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
 			0.5 0.6 0.7 0.8
 		").unwrap();
 		let score_function = SimpleScoreFunction{};
-		let dataset = FrequencyDataset::<u32>::from_dir(PathBuf::from("./data/rust_book_test/"), 4).unwrap();
+		let dataset = FrequencyDataset::<u32>::from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(50)).unwrap();
 		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset])
 	}
 }

@@ -20,6 +20,9 @@ pub enum AlcError {
 	#[error("{0} cannot be parsed into a KeycodeKey, {1}")]
 	InvalidKeycodeKeyFromString(String, String), // second param tries to describe what is invalid
 
+	#[error("trying to add an ngram of length {0} to a holder with ngrams of length {1}, the ngram lengths must match")]
+	NgramMatchError(usize, usize),
+
 	#[error("position ({0}, {1}) is marked as symmetric but its corresponding symmetric position ({2}, {3}) is not")]
 	SymmetryError(usize, usize, usize, usize),
 	#[error("expected {0} rows but tried to create {1} rows instead")]

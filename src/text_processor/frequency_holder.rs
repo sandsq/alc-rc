@@ -1,10 +1,13 @@
+use std::cmp::min;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::io::{self, BufRead};
 use std::ops::Index;
-use std::collections::hash_map::Keys;
+use std::collections::hash_map::{IntoIter, Keys};
 use std::fs::File;
 use std::path::Path;
+
+use crate::alc_error::AlcError;
 
 use super::keycode::{string_to_keycode, Keycode, Keycode::*};
 use super::ngram::Ngram;
@@ -13,11 +16,12 @@ pub trait Frequencies {}
 impl Frequencies for f32 {}
 impl Frequencies for u32 {}
 
-#[derive(Debug, PartialEq, thiserror::Error)]
-pub enum FrequenciesError {
-	#[error("trying to add an ngram of length {0} to a holder with ngrams of length {1}, the ngram lengths must match")]
-	NgramMatchError(usize, usize),
+#[derive(Debug, PartialEq, Clone)]
+pub enum TopFrequenciesToTake {
+	All,
+	Num(usize),
 }
+use TopFrequenciesToTake::*;
 
 /// single as in only holds one length of n-gram
 #[derive(Debug, PartialEq, Clone)]
@@ -38,20 +42,37 @@ impl<T>  SingleGramFrequencies<T> where T: Frequencies {
 	
 }
 /// u32 for raw ngram counts
-impl  SingleGramFrequencies<u32> {
-	fn increment(&mut self, ngram: Ngram) -> Result<(), FrequenciesError> {
+impl SingleGramFrequencies<u32> {
+	fn increment(&mut self, ngram: Ngram) -> Result<(), AlcError> {
 		if self.n != ngram.clone().len() {
-			Err(FrequenciesError::NgramMatchError(ngram.len(), self.n))
+			Err(AlcError::NgramMatchError(ngram.len(), self.n))
 		} else {
 			Ok(*self.frequencies.entry(ngram).or_insert(0) += 1)
 		}
 	}
-	fn add_from_key_value(&mut self, key: Ngram, value: u32) -> Result<(), FrequenciesError> {
+	fn add_from_key_value(&mut self, key: Ngram, value: u32) -> Result<(), AlcError> {
 		if self.n != key.clone().len() {
-			Err(FrequenciesError::NgramMatchError(key.len(), self.n))
+			Err(AlcError::NgramMatchError(key.len(), self.n))
 		} else {
 			Ok(*self.frequencies.entry(key).or_insert(0) += value)
 		}
+	}
+	pub fn take_top_n(&mut self, amount: TopFrequenciesToTake) -> () {
+		let mut hash_vec: Vec<(&Ngram, &u32)> = self.frequencies.iter().collect();
+    	hash_vec.sort_by(|a, b| b.1.cmp(a.1));
+		let amount_to_take = match amount {
+			All => hash_vec.len(),
+			Num(n) => min(hash_vec.len(), n),
+		};
+		let mut temp_freqs: HashMap<Ngram, u32> = Default::default();
+		for i in 0..amount_to_take {
+			let item = hash_vec[i];
+			// println!("{:?}", item);
+			let k = item.0.clone();
+			let v = item.1.clone();
+			temp_freqs.insert(k, v);
+		}
+		self.frequencies = temp_freqs
 	}
 	/// This might be faster if the bigger holder is on the left?
 	pub fn combine_with(&mut self, holder: Self) -> () {
@@ -59,7 +80,6 @@ impl  SingleGramFrequencies<u32> {
 			self.add_from_key_value(key.clone(), *holder.get(key).unwrap());
 		}
 	}
-	/// might want to rename this since try_from is from TryFrom
 	fn try_from_string(s: &str, n: usize) -> Option<SingleGramFrequencies<u32>> {
 		let mut ngram_to_counts: HashMap<Ngram, u32> = HashMap::new();
 		let keycodes = string_to_keycode(s);
@@ -91,6 +111,10 @@ impl  SingleGramFrequencies<u32> {
 	pub fn sum(&self) -> u32 {
 		self.frequencies.values().sum()
 	}
+
+	pub fn len(&self) -> usize {
+		self.frequencies.len()
+	}
 }
 impl<T> Index<Ngram> for SingleGramFrequencies<T> where T: Frequencies {
 	type Output = T;
@@ -98,7 +122,13 @@ impl<T> Index<Ngram> for SingleGramFrequencies<T> where T: Frequencies {
 		&self.frequencies[&ngram]
 	}
 }
-
+impl<T> IntoIterator for SingleGramFrequencies<T> where T: Frequencies {
+	type Item = (Ngram, T);
+	type IntoIter = IntoIter<Ngram, T>;
+	fn into_iter(self) -> Self::IntoIter {
+		self.frequencies.into_iter()
+	}
+}
 
 #[cfg(test)]
 mod tests {
@@ -154,9 +184,16 @@ mod tests {
 	#[test]
 	fn test_read_from_file() {
 		let mut holder = SingleGramFrequencies::<u32>::try_from_file("./data/rust_book_test/ch04-02-references-and-borrowing.md", 2).unwrap();
+		let holder_clone = holder.clone();
 		println!("{:?}", holder);
 		// this value is found by control + F "he" and seeing how many matches there are
 		assert_eq!(holder[Ngram::new(vec![_H, _E])], 145);
+		holder.take_top_n(All);
+		assert_eq!(holder, holder_clone);
+
+		holder.take_top_n(Num(10));
+		println!("{:?}", holder);
+		assert_eq!(holder.len(), 10);
 	}
 
 }

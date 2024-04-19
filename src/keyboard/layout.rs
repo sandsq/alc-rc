@@ -501,6 +501,20 @@ mod tests {
 		assert!(seqs.contains(&seq3));
 		let seq4 = LayoutPositionSequence::from_tuple_vector(vec![(0, 0, 3), (1, 0, 2), (0, 0, 3), (1, 0, 1)]);
 		assert!(seqs.contains(&seq4));
+		let seqs2 = layout.ngram_to_sequences(Ngram::new(vec![_A, _E, _A, _E])).unwrap();
+		assert_eq!(seqs2.len(), 16);
+
+		let layout2 = Layout::<1, 4>::try_from("
+			___Layer 0___
+			A_10 B_11 C_11 LS1_10
+			___Layer 1___
+			D_10 E_10 A_10 LS1_10
+		").unwrap();
+		let seqs2 = layout2.ngram_to_sequences(Ngram::new(vec![_A, _B, _C, _D, _E])).unwrap();
+		let seq2_1 = LayoutPositionSequence::from_tuple_vector(vec![(0, 0, 0), (0, 0, 1), (0, 0, 2), (0, 0, 3), (1, 0, 0), (0, 0, 3), (1, 0, 1)]);
+		assert!(seqs2.contains(&seq2_1));
+		let seq2_2 = LayoutPositionSequence::from_tuple_vector(vec![(0, 0, 3), (1, 0, 2), (0, 0, 1), (0, 0, 2), (0, 0, 3), (1, 0, 0), (0, 0, 3), (1, 0, 1)]);
+		assert!(seqs2.contains(&seq2_2));
 	}
 	
 }
