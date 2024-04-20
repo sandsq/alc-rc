@@ -9,7 +9,7 @@ use std::path::Path;
 
 use crate::alc_error::AlcError;
 
-use super::keycode::{string_to_keycode, Keycode, Keycode::*};
+use super::keycode::{string_to_keycode, Keycode::{self, *}, KeycodeOptions};
 use super::ngram::Ngram;
 
 pub trait Frequencies {}
@@ -80,9 +80,9 @@ impl SingleGramFrequencies<u32> {
 			self.add_from_key_value(key.clone(), *holder.get(key).unwrap());
 		}
 	}
-	pub fn try_from_string(s: &str, n: usize) -> Option<SingleGramFrequencies<u32>> {
+	pub fn try_from_string(s: &str, n: usize, options: &KeycodeOptions) -> Option<SingleGramFrequencies<u32>> {
 		let mut ngram_to_counts: HashMap<Ngram, u32> = HashMap::new();
-		let keycodes = string_to_keycode(s);
+		let keycodes = string_to_keycode(s, options);
 		if keycodes.len() < n {
 			// this particular string was not long enough to create an N-gram out of
 			return None;
@@ -95,12 +95,12 @@ impl SingleGramFrequencies<u32> {
 		Some(SingleGramFrequencies { frequencies: ngram_to_counts, n: n })
 	}
 
-	pub fn try_from_file<P>(filename: P, n: usize) -> Result<SingleGramFrequencies<u32>, io::Error> where P: AsRef<Path> {
+	pub fn try_from_file<P>(filename: P, n: usize, options: &KeycodeOptions) -> Result<SingleGramFrequencies<u32>, io::Error> where P: AsRef<Path> {
 		let file = File::open(filename)?;
 		let lines = io::BufReader::new(file).lines();
 		let mut ngram_to_counts = Self::new(n);
 		for line in lines.flatten() {
-			if let Some(holder_from_line) = Self::try_from_string(line.as_str(), n)
+			if let Some(holder_from_line) = Self::try_from_string(line.as_str(), n, options)
 			{
 				ngram_to_counts.combine_with(holder_from_line);
 			}
@@ -163,7 +163,7 @@ mod tests {
 		let ngram = Ngram::new(vec![_A, _B]);
 		let mut expected_ngram_to_counts: HashMap<Ngram, u32> = HashMap::new();
 		expected_ngram_to_counts.insert(ngram, 1);
-		assert_eq!(SingleGramFrequencies::try_from_string("ab", 2).unwrap(), SingleGramFrequencies { frequencies: expected_ngram_to_counts, n: 2 });
+		assert_eq!(SingleGramFrequencies::try_from_string("ab", 2, &KeycodeOptions::default()).unwrap(), SingleGramFrequencies { frequencies: expected_ngram_to_counts, n: 2 });
 	}
 
 	#[test]
@@ -171,19 +171,19 @@ mod tests {
 		let ngram = Ngram::new(vec![_A, _B]);
 		// let map: HashMap<Ngram<2>, u32> = HashMap::new();
 		// let holder = NgramFrequencyHolder { frequencies: map };
-		let holder2 = SingleGramFrequencies::<u32>::try_from_string("abab", 2).unwrap();
+		let holder2 = SingleGramFrequencies::<u32>::try_from_string("abab", 2, &KeycodeOptions::default()).unwrap();
 		let holder2_ab = holder2[ngram];
 		assert_eq!(holder2_ab, 2);
 		let holder2_ba = holder2[Ngram::new(vec![_B, _A])];
 		assert_eq!(holder2_ba, 1);
-		let holder4 = SingleGramFrequencies::<u32>::try_from_string("abab", 4).unwrap();
+		let holder4 = SingleGramFrequencies::<u32>::try_from_string("abab", 4, &KeycodeOptions::default()).unwrap();
 		let holder4_val = holder4[Ngram::new(vec![_A, _B, _A, _B])];
 		assert_eq!(holder4_val, 1)
 	}
 
 	#[test]
 	fn test_read_from_file() {
-		let mut holder = SingleGramFrequencies::<u32>::try_from_file("./data/rust_book_test/ch04-02-references-and-borrowing.md", 2).unwrap();
+		let mut holder = SingleGramFrequencies::<u32>::try_from_file("./data/rust_book_test/ch04-02-references-and-borrowing.md", 2, &KeycodeOptions::default()).unwrap();
 		let holder_clone = holder.clone();
 		println!("{:?}", holder);
 		// this value is found by control + F "he" and seeing how many matches there are

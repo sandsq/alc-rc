@@ -1,5 +1,6 @@
 use array2d::{Array2D, Error as Array2DError};
 use rand::prelude::*;
+use std::collections::HashSet;
 use std::error::Error;
 use std::fmt;
 use std::str;

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use tqdm::tqdm;
 
 use super::frequency_holder::{Frequencies, SingleGramFrequencies, TopFrequenciesToTake::{self, *}};
-use super::keycode::Keycode::*;
+use super::keycode::{Keycode::*, KeycodeOptions};
 use super::ngram::*;
 
 #[derive(Debug, PartialEq, thiserror::Error)]
@@ -32,7 +32,7 @@ impl FrequencyDataset<u32> {
 	}
 
 	/// Because some ngrams are so infrequent and would only serve to increase computation time without affecting layout score very much, `top_n_to_take` allows you to choose how many of the most frequent ngrams you want to include.
-	pub fn from_dir(dir: PathBuf, max_ngram_size: usize, top_frequencies_to_take: TopFrequenciesToTake) -> Result<Self, FrequencyDatasetError> {
+	pub fn from_dir(dir: PathBuf, max_ngram_size: usize, top_frequencies_to_take: TopFrequenciesToTake, options: &KeycodeOptions) -> Result<Self, FrequencyDatasetError> {
 		let metadata = dir.metadata().unwrap();
 		if !metadata.is_dir() {
 			Err(FrequencyDatasetError::ExpectedDirectoryError(dir))
@@ -45,7 +45,7 @@ impl FrequencyDataset<u32> {
 			for n in tqdm(1..=max_ngram_size) {
 				let files = read_dir(dir.clone()).unwrap();
 				for file in tqdm(files) {
-					let single_gram_frequencies = SingleGramFrequencies::<u32>::try_from_file(file.unwrap().path(), n).unwrap();
+					let single_gram_frequencies = SingleGramFrequencies::<u32>::try_from_file(file.unwrap().path(), n, options).unwrap();
 					ngram_frequencies.get_mut(&n).unwrap().combine_with(single_gram_frequencies);
 				}
 				ngram_frequencies.get_mut(&n).unwrap().take_top_frequencies(top_frequencies_to_take.clone());
@@ -68,7 +68,7 @@ mod tests {
 
 	#[test]
 	fn test_from_directory() {
-		let frequency_dataset = FrequencyDataset::from_dir(PathBuf::try_from("./data/rust_book_test/").unwrap(), 4, All).unwrap();
+		let frequency_dataset = FrequencyDataset::from_dir(PathBuf::try_from("./data/rust_book_test/").unwrap(), 4, All, &KeycodeOptions::default()).unwrap();
 		let twogram_frequency = frequency_dataset.ngram_frequencies.get(&(2 as usize)).unwrap();
 		assert_eq!(twogram_frequency[Ngram::new(vec![_H, _E])], 145 + 201);
 		assert_eq!(twogram_frequency[Ngram::new(vec![_B, _E])], 34 + 23);
