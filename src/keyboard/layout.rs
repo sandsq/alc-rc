@@ -209,7 +209,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			let k2 = self.get_mut_from_layout_position(p2).unwrap();
 			k2.replace_with(&k1_clone);
 		}
-		
+		self.keycode_path_map = keycode_path_map_from_layout(self.layers.clone()).unwrap();
 		Some(())
 	}
 
@@ -228,6 +228,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		}
 		self.get_mut_from_layout_position(&p).unwrap().set_value(value);
 
+		self.keycode_path_map = keycode_path_map_from_layout(self.layers.clone()).unwrap();
 		Some(())
 	}
 	pub fn gen_random_position(&self, rng: &mut impl Rng) -> LayoutPosition {

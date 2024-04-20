@@ -118,6 +118,8 @@ fn char_to_keycode(c: char) -> Vec<Keycode> {
 			'\'' => keycodes.push(_QUO), 
 			'’' => keycodes.push(_QUO),
 			'"' => keycodes.push(_DQT),
+			'“' => keycodes.push(_DQT),
+			'”' => keycodes.push(_DQT),
 			'\n' => keycodes.push(_ENT),
 			'!' => keycodes.push(_EXL),
 			'#' => keycodes.push(_HSH),
