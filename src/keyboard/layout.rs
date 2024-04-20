@@ -57,7 +57,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		}
 		for j in 0..num_layers - 1 {
 			layers[0].get_mut_row_major(j).unwrap().set_value(_LS(j + 1));
-			layers[j + 1].get_mut_row_major(j).unwrap().set_value(_LS(j + 1));
+			layers[j + 1].get_mut_row_major(j).unwrap().set_value(_LS(0));
 		}
 		let keycodes_to_positions = keycode_path_map_from_layout::<R, C>(layers.clone()).unwrap();
 		Layout { layers: layers, keycode_path_map: keycodes_to_positions }
