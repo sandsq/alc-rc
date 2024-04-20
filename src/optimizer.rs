@@ -10,7 +10,9 @@ use rand::rngs::StdRng;
 
 use crate::alc_error::AlcError;
 use crate::keyboard::LayoutPosition;
+use crate::keyboard::LayoutPositionSequence;
 use crate::keyboard::{key::*, layout::*, layer::*};
+use crate::optimizer::ngram::Ngram;
 use crate::text_processor::*;
 use crate::objective::scoring::*;
 
@@ -58,11 +60,24 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let mut score = 0.0;
 		let effort_layer = &self.effort_layer;
 		for (ngram, ngram_frequency) in frequencies {
-			let sequences = layout.ngram_to_sequences(&ngram).unwrap().into_iter();		
-			let min_score = sequences
-				.map(|s| self.score_function.score_layout_position_sequence(layout, effort_layer, s.clone(), &self.config))
-				.min_by(|x, y| x.partial_cmp(y).unwrap())
-				.unwrap();
+			let sequences = match layout.ngram_to_sequences(&ngram) {
+				Some(v) => v.into_iter(),
+				None => return 0.0, //panic!("unable to create sequence from {}", ngram),
+			};
+			let mut possible_scores: Vec<f32> = vec![];
+			for sequence in sequences {
+				// if ngram == Ngram::new(vec![_T, _H, _E]) {
+				// 	println!("ngram {} with sequence {}", ngram, sequence);
+				// }
+				let sequence_score = self.score_function.score_layout_position_sequence(layout, effort_layer, sequence, &self.config);
+				possible_scores.push(sequence_score);
+			}
+			// println!("possible scores {:?}", possible_scores);
+			let min_score = match possible_scores.iter().min_by(|a, b| a.total_cmp(b)) {
+				Some(v) => v,
+				None => &0.0,
+			};
+				
 			score += min_score * (ngram_frequency as f32);
 		}
 		score
@@ -83,61 +98,111 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		score
 	}
 
+
+	fn score_population(&self, layouts: &Vec<Layout<R, C>>) -> Vec<(Layout<R, C>, f32)> {
+		let mut new_population: Vec<(Layout<R, C>, f32)> = Default::default();
+		for layout in layouts {
+			let score = self.score_dataset(&layout);
+			new_population.push((layout.clone(), score));
+		}
+		new_population
+	}
+	
+
 	fn generate_and_score_initial_population(&self, rng: &mut impl Rng) -> Vec<(Layout<R, C>, f32)> {
 		let initial_population_size = self.config.population_size;
 		let valid_keycodes = &self.config.valid_keycodes;
-		// let mut initial_population: Vec<Layout<R, C>> = vec![];
-		// let mut initial_scores: Vec<f32> = vec![];
 		let mut initial_population: Vec<(Layout<R, C>, f32)> = Default::default();
-		for i in tqdm(0..initial_population_size) {
+		for i in 0..self.config.population_size {
 			let mut initial_layout = self.base_layout.clone();
-			initial_layout.randomize(rng, &valid_keycodes);
+			initial_layout.randomize(rng, valid_keycodes);
 			let initial_score = self.score_dataset(&initial_layout);
-			initial_population.push((initial_layout, initial_score));
+			initial_population.push((initial_layout.clone(), initial_score));
 		}
 		initial_population
 	}
 
-	fn take_best_layouts(&self, mut population: Vec<(Layout<R, C>, f32)>) -> Vec<Layout<R, C>> {
+	fn take_best_layouts(&self, mut population: Vec<(Layout<R, C>, f32)>) -> (Vec<Layout<R, C>>, Vec<f32>) {
     	population.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-		let num_to_take = (self.config.fitness_cutoff * (self.config.population_size as f32)).round() as usize;
-		let (left, right): (Vec<Layout<R, C>>, Vec<f32>) = population.split_off(num_to_take).into_iter().unzip();
-		left
+		let num_to_take = (self.config.fitness_cutoff * (self.config.population_size as f32)).ceil() as usize;
+		population.split_off(num_to_take);
+		let (left, right): (Vec<Layout<R, C>>, Vec<f32>) =  population.into_iter().unzip();
+		// println!("scores {:?}", right);
+		(left, right)
 	}
 
 	fn generate_new_layouts(&self, rng: &mut impl Rng, mut layouts: Vec<Layout<R, C>>) -> Vec<Layout<R, C>> {
 		let population_size = self.config.population_size;
 		let swap_threshold = self.config.swap_weight / (self.config.swap_weight + self.config.replace_weight);
 		let valid_keycodes = &self.config.valid_keycodes;
+		// modify surviving layouts
+		for mut layout in &mut layouts {
+			let roll: f32 = rng.gen();
+			if roll <= swap_threshold {
+				let (p1, p2) = match layout.gen_valid_swap(rng) {
+					Some((x, y)) => (x, y),
+					// None => panic!("no swap found"),
+					None => (LayoutPosition::for_layout(0, 0, 0), LayoutPosition::for_layout(0, 0, 0)), // swapping the same position doesn't change the layout
+				};
+				// println!("swapping {} and {}", p1, p2);
+				layout.swap(&p1, &p2);
+			} else {
+				if let Some(p) = layout.gen_valid_replace(rng) {
+					let keycode = valid_keycodes.choose(rng).unwrap();
+					layout.replace(&p, *keycode);
+					// println!("replaced at {} with {}", p, keycode);
+				}
+			}
+		}
+		// fill up to population size
 		while layouts.len() < (population_size as usize) {
 			let mut new_layout = layouts.choose(rng).unwrap().clone();
 			let roll: f32 = rng.gen();
+			// println!("roll {} vs swap threshold {}", roll, swap_threshold);
 			if roll <= swap_threshold {
 				let (p1, p2) = match new_layout.gen_valid_swap(rng) {
 					Some((x, y)) => (x, y),
-					None => (LayoutPosition::for_layout(0, 0, 0), LayoutPosition::for_layout(0, 0, 0)), // swapping the same position doesn't change the layout
+					None => panic!("no swap found"),
+					//(LayoutPosition::for_layout(0, 0, 0), LayoutPosition::for_layout(0, 0, 0)), // swapping the same position doesn't change the layout
 				};
+				// println!("swapping {} and {}", p1, p2);
 				new_layout.swap(&p1, &p2);
 			} else {
-				// replace
+				if let Some(p) = new_layout.gen_valid_replace(rng) {
+					let keycode = valid_keycodes.choose(rng).unwrap();
+					new_layout.replace(&p, *keycode);
+					// println!("replaced at {} with {}", p, keycode);
+				}
 			}
 			layouts.push(new_layout);
 		}
-
 		layouts
 	}
 
-	pub fn optimize(&self, rng: &mut impl Rng, config: LayoutOptimizerConfig) -> Result<Layout<R, C>, AlcError> {
-		if self.datasets.len() != config.dataset_weight.len() {
-			return Err(AlcError::DatasetWeightsMismatchError(self.datasets.len(), config.dataset_weight.len()));
+	pub fn optimize(&self, rng: &mut impl Rng) -> Result<Layout<R, C>, AlcError> {
+		if self.datasets.len() != self.config.dataset_weight.len() {
+			return Err(AlcError::DatasetWeightsMismatchError(self.datasets.len(), self.config.dataset_weight.len()));
 		}
-		let initial_layouts = self.generate_and_score_initial_population(rng);
-
-		
+		println!("base layout\t{:#}", self.base_layout);
+		let mut layouts_and_scores = self.generate_and_score_initial_population(rng);
+		let (mut best_layouts, mut best_scores) = self.take_best_layouts(layouts_and_scores);
+		let mut layouts = self.generate_new_layouts(rng, best_layouts);
+		for i in 0..self.config.generation_count {
+			layouts_and_scores = self.score_population(&layouts);
+			(best_layouts, best_scores) = self.take_best_layouts(layouts_and_scores);
+			let printclone = best_layouts.clone();
+			layouts = self.generate_new_layouts(rng, best_layouts);
+			// println!("after {} generation(s), layout\n{}\n score: {}", i, printclone[0], best_scores[0]);
+			println!("after {} generation(s), best score: {}, worst score {}", i, best_scores[0], best_scores[best_scores.len()-1]);
+		}
+		layouts_and_scores = self.score_population(&layouts);
+		(best_layouts, best_scores) = self.take_best_layouts(layouts_and_scores);
+		println!("final layout\n{:#}\nscore: {}", best_layouts[0], best_scores[0]);
+		Ok(layouts[0].clone())
 		// symmetry check
 		// layer reachability check
 		// other sanity checks
-		todo!()
+		
 	}
 }
 impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
@@ -147,6 +212,17 @@ impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
 			0.1 0.2 0.3 0.4
 			0.5 0.6 0.7 0.8
 		").unwrap();
+		let score_function = SimpleScoreFunction{};
+		let dataset = FrequencyDataset::<u32>::from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(50)).unwrap();
+		let config = LayoutOptimizerConfig::default();
+		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config)
+	}
+}
+
+impl Default for LayoutOptimizer<4, 12, SimpleScoreFunction> {
+	fn default() -> Self {
+		let base_layout = Layout::<4, 12>::default();
+		let effort_layer = Layer::<4, 12, f32>::default();
 		let score_function = SimpleScoreFunction{};
 		let dataset = FrequencyDataset::<u32>::from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(50)).unwrap();
 		let config = LayoutOptimizerConfig::default();
@@ -190,5 +266,19 @@ mod tests {
 		assert_eq!(format!("{full_score:.3}"), format!("{expected_score:.3}"));
 		// let mut rng = StdRng::seed_from_u64(0);
 		// layout_optimizer.optimize(&mut rng, config);
+	}
+
+	#[test]
+	fn test_optimize() {
+		let mut lo = LayoutOptimizer::<4, 12, SimpleScoreFunction>::default();
+		// let mut config = LayoutOptimizerConfig::default();
+		lo.config.generation_count = 100;
+		lo.config.population_size = 100;
+		let mut rng = StdRng::seed_from_u64(0);
+		let mut test_layout = lo.base_layout.clone();
+		test_layout.randomize(&mut rng, &lo.config.valid_keycodes).unwrap();
+		// println!("initial randomized layout\n{:#}", test_layout);
+		println!("effort layer\n{}", lo.effort_layer);
+		lo.optimize(&mut rng);
 	}
 }

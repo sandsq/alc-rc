@@ -75,6 +75,9 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			let mut layer = self.layers.get_mut(layer_num).unwrap();
 			// we want to fill out all valid keycodes over the entire layout, not just layer by layer
 			(valid_keycodes_to_draw_from, used_all_keycodes_flag) = layer.randomize(&valid_keycodes_all, &valid_keycodes_to_draw_from);
+			if used_all_keycodes_flag {
+				break;
+			}
 		}
 		if !used_all_keycodes_flag {
 			println!("Warning: the keycodes {:?} may not have made it into the layout since they were left over. This could happen if the layout is too small or if you prefilled a lot of immovable spots.", valid_keycodes_to_draw_from)
@@ -94,7 +97,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			let sequences_to_keycode = match self.get_position_sequences_to_keycode(keycode) {
 				Some(p) => p,
 				None => {
-					println!("Warning: keycode {} is not typeable by layout {:#}. If this is unexpected, there is a bug somewhere.", keycode, self);
+					// println!("Warning: keycode {} is not typeable by the layout:\n{:#}\nIf this is unexpected, there is a bug somewhere.", keycode, self);
 					return None;
 				},
 			};
@@ -223,7 +226,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		if !k.is_moveable() {
 			panic!("Error for the developer! Not allowed to replace a non-moveable key.")
 		}
-		let k = self.get_mut_from_layout_position(&p).unwrap().set_value(value);
+		self.get_mut_from_layout_position(&p).unwrap().set_value(value);
 
 		Some(())
 	}
@@ -274,8 +277,9 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 				};
 				count += 1;
 				if count >= fallback_count {
-					return None;
+					// return None;
 					// return Err(AlcError::SwapFallbackError(fallback_count, String::from("key 1 was a layer switch and either i) no non-symmetric key 2s could be found or ii) no key 2s could be found in the same layer or iii) not non-layer switch key 2s could be found")));
+					panic!("key 1 was a layer switch and either i) no non-symmetric key 2s could be found or ii) no key 2s could be found in the same layer or iii) not non-layer switch key 2s could be found");
 				}
 			}
 			return Some((p1, p2));
@@ -289,12 +293,33 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 				count += 1;
 				if count >= fallback_count {
 					// return Err(AlcError::SwapFallbackError(fallback_count, String::from("key 1 was not a layer switch but proper k2 could not be found")));
-					return None;
+					// return None;
+					panic!("key 1 was not a layer switch but proper k2 could not be found");
 				}
 			}
+			return Some((p1, p2))
 		}
-		Some((p1, p2))
+		None
+	}
 
+	pub fn gen_valid_replace(&self, rng: &mut impl Rng) -> Option<LayoutPosition> {
+		let mut p = self.gen_position_until_moveable(rng).unwrap();
+		let mut k = self.get_from_layout_position(&p).unwrap();
+		let fallback_count = 100;
+		let mut count = 0;
+		let paths = match self.keycode_path_map.get(&k.value()) {
+			Some(v) => v,
+			None => return None,
+		};
+		while paths.len() <= 1 || std::mem::discriminant(&k.value()) == std::mem::discriminant(&_LS(1)) || !k.is_moveable() {
+			p = self.gen_position_until_moveable(rng).unwrap();
+			k = self.get_from_layout_position(&p).unwrap();
+			count += 1;
+			if count >= fallback_count {
+				return None;
+			}
+		}
+		Some(p)
 	}
 
 }
@@ -407,6 +432,15 @@ impl<const R: usize, const C: usize> fmt::Binary for Layout<R, C> {
     }
 }
 
+impl Default for Layout<4, 12> {
+	fn default() -> Self {
+		let mut layout = Layout::<4, 12>::init_blank(3);
+		layout.layers[0].set(1, 0, KeycodeKey::try_from("SFT_11").unwrap());
+		layout.layers[0].set(1, 11, KeycodeKey::try_from("SFT_11").unwrap());
+
+		layout
+	}
+}
 
 #[cfg(test)]
 mod tests {
