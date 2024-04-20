@@ -1,4 +1,5 @@
 use array2d::{Array2D, Error as Array2DError};
+use std::char::REPLACEMENT_CHARACTER;
 use std::ops::Index;
 use rand::prelude::*;
 use std::error::Error;
@@ -119,14 +120,15 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 	}
 
 
-
-	pub fn swap(&mut self, p1: &LayoutPosition, p2: &LayoutPosition) -> Option<()> {
+	/// returns true if a swap happened
+	pub fn swap(&mut self, p1: &LayoutPosition, p2: &LayoutPosition) -> bool {
 		// todo: make use of optimized keycode to position remapping computation where only the affected keycodes get are remapped
+		let mut swap_happened = false;
 
 		// Bunch of checks for issues that should be easier to resolve in whatever calls swap rather than within swap.
 		if p1 == p2 {
 			// panic!("Error for the developer! Don't try to swap the same positions {} and {}.", p1, p2)
-			return None;
+			return false;
 		}
 		let k1 = self.get_from_layout_position(&p1).unwrap();
 		let k2 = self.get_from_layout_position(&p2).unwrap();
@@ -169,11 +171,11 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			// I think these are harder to handle in the calling function, so just have nothing happen here
 			if !k2_counterpart_clone.is_moveable() {
 				println!("Warning: attempted to swap a layer switch with position x: {} and found that x's corresponding position {} was not moveable. Doing nothing instead.", p2, p2_counterpart);
-				return None;
+				return false;
 			}
 			if k2_counterpart_clone.is_symmetric() {
 				println!("Warning: attempted to swap a layer switch with position x: {} and found that x's corresponding position {} was symmetric, making the swap not valid. Doing nothing instead.", p2, p2_counterpart);
-				return None;
+				return false;
 			}
 			// yeah gonna want to redo this section once I understand more
 			k1.replace_with(&k2_clone);
@@ -185,21 +187,22 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			let k2_counterpart = self.get_mut_from_layout_position(p2_counterpart).unwrap();
 			let k1_counterpart_clone = self_clone.get_from_layout_position(p1_counterpart).unwrap();
 			k2_counterpart.replace_with(&k1_counterpart_clone);
+			swap_happened = true;
 		} else if k1_clone.is_symmetric() {
 			let p1_counterpart = self_clone.symmetric_position(&p1);
 			if p2.col_index as f32 == (C as f32 - 1.0) / 2.0 {
 				println!("Warning: symmetric p1 {} is being swapped into the center column {}, meaning p1's counterpart {} has no where to go, doing nothing instead.", p1, p2, p1_counterpart);
-				return None;
+				return false;
 			}
 			let p2_counterpart = self_clone.symmetric_position(&p2);
 			let k2_counterpart_clone = self_clone.get_from_layout_position(&p2_counterpart).unwrap();
 			if !k2_counterpart_clone.is_moveable() {
 				println!("Warning: attempted to swap a symmetric key with position x: {} and found that x's corresponding position {} was not moveable. Doing nothing instead.", p2, p2_counterpart);
-				return None;
+				return false;
 			}
 			if let _LS(target_layer) = k2_counterpart_clone.value() {
 				println!("Warning: attempted symmetric swap but p2 {}'s counterpart {} is a layer switch. Doing nothing instead.", p2, p2_counterpart);
-				return None;
+				return false;
 			}
 			k1.replace_with(&k2_clone);
 			let k2 = self.get_mut_from_layout_position(p2).unwrap();
@@ -210,18 +213,20 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			let k2_counterpart = self.get_mut_from_layout_position(&p2_counterpart).unwrap();
 			let k1_counterpart_clone = self_clone.get_from_layout_position(&p1_counterpart).unwrap();
 			k2_counterpart.replace_with(&k1_counterpart_clone);
+			swap_happened = true;
 		} else {
 			k1.replace_with(&k2_clone);
 			let k2 = self.get_mut_from_layout_position(p2).unwrap();
 			k2.replace_with(&k1_clone);
+			swap_happened = true;
 		}
 		self.keycode_path_map = keycode_path_map_from_layout(self.layers.clone()).unwrap();
-		Some(())
+		swap_happened
 	}
 
-	pub fn replace(&mut self, p: &LayoutPosition, value: Keycode) -> Option<()> {
+	pub fn replace(&mut self, p: &LayoutPosition, value: Keycode) -> bool {
 		// make use of optimized keycode to position remapping computation where only the affected keycodes get are remapped
-
+		let mut replace_happened = false;
 		let k = self.get_from_layout_position(&p).unwrap();
 		if self.keycode_path_map.get(&k.value()).unwrap().len() == 1 {
 			panic!("Error for the developer! There is only one way to reach {}, not allowed to replace.", k)
@@ -236,9 +241,10 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			panic!("Error for the developer! Not allowed to replace a non-moveable key.")
 		}
 		self.get_mut_from_layout_position(&p).unwrap().set_value(value);
-
+		replace_happened = true;
 		self.keycode_path_map = keycode_path_map_from_layout(self.layers.clone()).unwrap();
-		Some(())
+		
+		replace_happened
 	}
 	pub fn gen_random_position(&self, rng: &mut impl Rng) -> LayoutPosition {
 		let layer_limit = self.layers.len();

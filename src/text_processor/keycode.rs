@@ -150,7 +150,7 @@ impl Default for KeycodeOptions {
 pub fn get_default_keycode_set(options: &KeycodeOptions) -> HashSet<Keycode> {
 	let mut keycodes: HashSet<Keycode> = Default::default();
 	if options.include_alphas {
-		keycodes.union(&HashSet::from([
+		keycodes.extend(&HashSet::from([
 			_A, _B, _C, _D, _E,
 			_F, _G, _H, _I, _J,
 			_K, _L, _M, _N, _O,
@@ -159,34 +159,34 @@ pub fn get_default_keycode_set(options: &KeycodeOptions) -> HashSet<Keycode> {
 			_Z, _DOT, _COMM,]));
 	}
 	if options.include_numbers {
-		keycodes.union(&HashSet::from([
+		keycodes.extend(&HashSet::from([
 			_1, _2, _3, _4, _5,
 			_6, _7, _8, _9, _ZERO,
 		]));
 	}
 	if options.include_number_symbols {
-		keycodes.union(&HashSet::from([
+		keycodes.extend(&HashSet::from([
 			_EXLM, _AT, _HASH, _DLR, _PERC,
 			_CIRC, _AMPR, _ASTR, _LPRN, _RPRN,
 		]));
 	}
 	if options.include_brackets {
-		keycodes.union(&HashSet::from([
+		keycodes.extend(&HashSet::from([
 			_LPRN, _RPRN, _LBRC, _RBRC, _LCBR, _RCBR, _LT, _GT,
 		]));
 	}
 	if options.include_misc_symbols {
-		keycodes.union(&HashSet::from([
+		keycodes.extend(&HashSet::from([
 			_MINS, _EQL, _BSLS, _SCLN, _QUOT, _GRV, _SLSH,
 		]));
 	}
 	if options.include_misc_symbols_shifted {
-		keycodes.union(&HashSet::from([
+		keycodes.extend(&HashSet::from([
 			_UNDS, _PLUS, _PIPE, _COLN, _DQUO, _TILD, _QUES,
 		]));
 	}
 	if options.explicit_inclusion.len() > 0 {
-		keycodes.union(&options.explicit_inclusion);
+		keycodes.extend(&options.explicit_inclusion);
 	}
 	
 	keycodes
@@ -429,5 +429,11 @@ mod tests {
 		assert_eq!(string_to_keycode("aCb", &KeycodeOptions::default()), res);
 	}
 
+	#[test]
+	fn test_default_keycodes() {
+		let s = get_default_keycode_set(&KeycodeOptions::default());
+		println!("default keycodes {:?}", s);
+		assert!(s.contains(&_SPC));
+	}
 	
 }

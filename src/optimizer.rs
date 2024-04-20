@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::cmp::max;
 use std::collections::HashSet;
 use std::collections::VecDeque;
@@ -39,7 +40,7 @@ impl Default for LayoutOptimizerConfig {
 			population_size: 5, 
 			generation_count: 1,
 			fitness_cutoff: 0.1,
-			swap_weight: 2.0,
+			swap_weight: 9.0,
 			replace_weight: 1.0,
 			dataset_weight: vec![1.0],
 			valid_keycodes: get_default_keycode_set(&KeycodeOptions::default()).into_iter().collect(),
@@ -53,10 +54,11 @@ pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, 
 	score_function: S,
 	datasets: Vec<FrequencyDataset<u32>>,
 	config: LayoutOptimizerConfig,
+	operation_counter: Cell<(u32, u32, u32)>, // swaps, replacements, nothings
 }
 impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> {
-	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f32>, score_function: S, datasets: Vec<FrequencyDataset<u32>>, config: LayoutOptimizerConfig) -> Self {
-		LayoutOptimizer { base_layout, effort_layer, score_function, datasets, config }
+	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f32>, score_function: S, datasets: Vec<FrequencyDataset<u32>>, config: LayoutOptimizerConfig, operation_counter: Cell<(u32, u32, u32)>) -> Self {
+		LayoutOptimizer { base_layout, effort_layer, score_function, datasets, config, operation_counter }
 	}
 
 	fn score_single_grams(&self, layout: &Layout<R, C>, frequencies: SingleGramFrequencies<u32>) -> f32 {
@@ -150,12 +152,24 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 					None => (LayoutPosition::for_layout(0, 0, 0), LayoutPosition::for_layout(0, 0, 0)), // swapping the same position doesn't change the layout
 				};
 				// println!("swapping {} and {}", p1, p2);
-				layout.swap(&p1, &p2);
+				let swap_happened = layout.swap(&p1, &p2);
+				let op_counter = self.operation_counter.get();
+				if swap_happened {
+					self.operation_counter.set((op_counter.0 + 1, op_counter.1, op_counter.2));
+				} else {
+					self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1));
+				}
 			} else {
 				if let Some(p) = layout.gen_valid_replace(rng) {
+					// println!("valid keycodes {:?}", valid_keycodes);
 					let keycode = valid_keycodes.choose(rng).unwrap();
-					layout.replace(&p, *keycode);
-					// println!("replaced at {} with {}", p, keycode);
+					let replace_happened = layout.replace(&p, *keycode);
+					let op_counter = self.operation_counter.get();
+					if replace_happened {
+						self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2));
+					} else {
+						self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1));
+					}
 				}
 			}
 		}
@@ -171,12 +185,23 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 					//(LayoutPosition::for_layout(0, 0, 0), LayoutPosition::for_layout(0, 0, 0)), // swapping the same position doesn't change the layout
 				};
 				// println!("swapping {} and {}", p1, p2);
-				new_layout.swap(&p1, &p2);
+				let swap_happened = new_layout.swap(&p1, &p2);
+				let op_counter = self.operation_counter.get();
+				if swap_happened {
+					self.operation_counter.set((op_counter.0 + 1, op_counter.1, op_counter.2));
+				} else {
+					self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1));
+				}
 			} else {
 				if let Some(p) = new_layout.gen_valid_replace(rng) {
 					let keycode = valid_keycodes.choose(rng).unwrap();
-					new_layout.replace(&p, *keycode);
-					// println!("replaced at {} with {}", p, keycode);
+					let replace_happened = new_layout.replace(&p, *keycode);
+					let op_counter = self.operation_counter.get();
+					if replace_happened {
+						self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2));
+					} else {
+						self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1));
+					}
 				}
 			}
 			layouts.push(new_layout);
@@ -211,6 +236,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		if v2.len() > 0 {
 			println!("issue with symmetric keys")
 		}
+		println!("operations: {:?}", self.operation_counter);
 		Ok(final_layout)
 		// symmetry check
 		// layer reachability check
@@ -228,7 +254,7 @@ impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
 		let score_function = SimpleScoreFunction{};
 		let dataset = FrequencyDataset::<u32>::from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(50), &KeycodeOptions::default()).unwrap();
 		let config = LayoutOptimizerConfig::default();
-		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config)
+		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config, Cell::new((0, 0, 0)))
 	}
 }
 
@@ -239,7 +265,7 @@ impl Default for LayoutOptimizer<4, 12, SimpleScoreFunction> {
 		let score_function = SimpleScoreFunction{};
 		let dataset = FrequencyDataset::<u32>::from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(50), &KeycodeOptions::default()).unwrap();
 		let config = LayoutOptimizerConfig::default();
-		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config)
+		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config, Cell::new((0, 0, 0)))
 	}
 }
 
@@ -266,7 +292,7 @@ mod tests {
 		let text = "hehehebe";
 		let dataset = FrequencyDataset::<u32>::from_dir(PathBuf::from("./data/small_test/"), 2, All, &KeycodeOptions::default()).unwrap();
 		let config = LayoutOptimizerConfig::default();
-		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config);
+		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config, Cell::new((0, 0, 0)));
 		let twogram_frequency = layout_optimizer.datasets[0].ngram_frequencies.get(&(2 as usize)).unwrap();
 		let s = layout_optimizer.score_single_grams(&test_layout, twogram_frequency.clone());
 		// 3 * he + 1 * be + 2 * eh + 1 + eb
@@ -285,8 +311,9 @@ mod tests {
 	fn test_optimize() {
 		let mut lo = LayoutOptimizer::<4, 12, SimpleScoreFunction>::default();
 		// let mut config = LayoutOptimizerConfig::default();
-		lo.config.generation_count = 5;
-		lo.config.population_size = 200;
+		lo.config.generation_count = 100;
+		lo.config.population_size = 100;
+		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = StdRng::seed_from_u64(0);
 		let mut test_layout = lo.base_layout.clone();
 		println!("initial layout\n{}", test_layout);
