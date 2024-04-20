@@ -149,7 +149,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, KeycodeKey> {
 			let cols = cols_from_string(row, C)?;
 			for (j, col) in cols.iter().enumerate() {
 				let mut key = KeycodeKey::try_from(*col)?;
-				println!("reminder: check for symmetry here");
+				// println!("reminder: check for symmetry here");
 				layer.set(i, j, key);
 			}
 		}

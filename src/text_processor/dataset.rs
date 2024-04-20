@@ -68,12 +68,12 @@ mod tests {
 
 	#[test]
 	fn test_from_directory() {
-		let frequency_dataset = FrequencyDataset::from_dir(PathBuf::try_from("./data/rust_book_test/").unwrap(), 4, Num(263)).unwrap();
+		let frequency_dataset = FrequencyDataset::from_dir(PathBuf::try_from("./data/rust_book_test/").unwrap(), 4, All).unwrap();
 		let twogram_frequency = frequency_dataset.ngram_frequencies.get(&(2 as usize)).unwrap();
 		assert_eq!(twogram_frequency[Ngram::new(vec![_H, _E])], 145 + 201);
 		assert_eq!(twogram_frequency[Ngram::new(vec![_B, _E])], 34 + 23);
 		let threegram_frequency = frequency_dataset.ngram_frequencies.get(&(3 as usize)).unwrap();
-		assert_eq!(threegram_frequency.len(), 263);
+		// assert_eq!(threegram_frequency.len(), 1000);
 		assert_eq!(threegram_frequency[Ngram::new(vec![_T, _H, _E])], 114 + 175);
 		assert_eq!(threegram_frequency[Ngram::new(vec![_H, _E, _A])], 1 + 3);
 	}

@@ -4,6 +4,7 @@ use std::error::Error;
 use std::num::ParseIntError;
 use thiserror::Error;
 
+use crate::keyboard::LayoutPosition;
 use crate::text_processor::ngram::Ngram;
 
 #[derive(Debug, PartialEq, thiserror::Error)]
@@ -34,6 +35,11 @@ pub enum AlcError {
 
 	#[error("layer {0} is not reachable, check to make sure LS{0} exists in your layout and does not require first accessing a higher layer")]
 	LayerAccessError(usize),
+	
+	#[error("layer switches are disjointed, they should be above / below each other in the corresponding layers: {0:?}")]
+	LayoutLayerSwitchError(Vec<(LayoutPosition, LayoutPosition)>),
+	#[error("symmetric keys are disjointed: {0:?}")]
+	LayoutSymmetryError(Vec<(LayoutPosition, LayoutPosition)>),
 
 	#[error("ngram {0} cannot be typed on the layout")]
 	UntypeableNgramError(Ngram),

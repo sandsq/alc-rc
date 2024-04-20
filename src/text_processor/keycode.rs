@@ -72,6 +72,7 @@ pub enum Keycode {
 	_LBR,
 	_RBR,
 	_LS(usize),
+	_LST(usize, usize),
 	_PLACEHOLDER,
 	_NO,
 }
@@ -83,6 +84,7 @@ pub fn get_default_keycode_set() -> Vec<Keycode> {
 		// there should be more valid keycodes than invalid ones when it comes to what is allowed to be randomized into a layout
 		match keycode {
 			_LS(i) => (),
+			_LST(i, j) => (),
 			_PLACEHOLDER => (),
 			_NO => (),
 			_ => keycodes.push(keycode),

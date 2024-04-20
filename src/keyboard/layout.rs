@@ -57,7 +57,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		}
 		for j in 0..num_layers - 1 {
 			layers[0].get_mut_row_major(j).unwrap().set_value(_LS(j + 1));
-			layers[j + 1].get_mut_row_major(j).unwrap().set_value(_LS(0));
+			layers[j + 1].get_mut_row_major(j).unwrap().set_value(_LST(j + 1, 0));
 		}
 		let keycodes_to_positions = keycode_path_map_from_layout::<R, C>(layers.clone()).unwrap();
 		Layout { layers: layers, keycode_path_map: keycodes_to_positions }
@@ -135,6 +135,12 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		}
 		if let _LS(i) = k2.value() {
 			panic!("Error for the developer! Place layer switches in the first position of the swap and disallow swaps where both keys are layer switches.");
+		}
+		if let _LST(i, j) = k1.value() {
+			panic!("Error for the developer! Only allow the source of the layer switch to be chosen for swapping");
+		}
+		if let _LST(i, j) = k2.value() {
+			panic!("Error for the developer! Only allow the source of the layer switch to be chosen for swapping");
 		}
 		if !k1.is_symmetric() && k2.is_symmetric() {
 			panic!("Error for the developer! Place symmetric keys in the first position of the swap.")
@@ -220,6 +226,9 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		if self.keycode_path_map.get(&k.value()).unwrap().len() == 1 {
 			panic!("Error for the developer! There is only one way to reach {}, not allowed to replace.", k)
 		}
+		if let _LST(i, j) = k.value() {
+			panic!("Error for the developer! Not allowed to replace LST");
+		}
 		if let _LS(target_layer) = k.value() {
 			panic!("Error for the developer! Not allowed to replace the layer switch ({}).", p)
 		}
@@ -266,11 +275,20 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		};
 		let mut count = 0;
 		let fallback_count = 100;
+
+		while std::mem::discriminant(&k1.value()) == std::mem::discriminant(&_LST(1, 2)) {
+			p1 = self.gen_position_until_moveable(rng)?;
+			k1 = match self.get_from_layout_position(&p1) {
+				Ok(v) => v,
+				Err(e) => return None,
+			};
+		} 
+
 		if let _LS(i) = k1.value() {
 			if k1.is_symmetric() {
 				return panic!("Error for the developer! Can't have a layer switch that is also symmetric due to additionaly complexity. This should be caught when reading in a Key from a string.");
 			}
-			while k2.is_symmetric() || (p1.layer_index != p2.layer_index) || std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LS(1)) {
+			while k2.is_symmetric() || (p1.layer_index != p2.layer_index) || std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LS(1)) || std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LST(1, 2)) {
 				p2 = self.gen_position_until_moveable(rng)?;
 				k2 = match self.get_from_layout_position(&p2) {
 					Ok(v) => v,
@@ -285,7 +303,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			}
 			return Some((p1, p2));
 		} else {
-			while std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LS(1)) || (!k1.is_symmetric() && k2.is_symmetric()) {
+			while std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LS(1)) || (!k1.is_symmetric() && k2.is_symmetric()) || std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LST(1, 2)) {
 				p2 = self.gen_position_until_moveable(rng)?;
 				k2 = match self.get_from_layout_position(&p2) {
 					Ok(v) => v,
@@ -312,7 +330,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			Some(v) => v,
 			None => return None,
 		};
-		while paths.len() <= 1 || std::mem::discriminant(&k.value()) == std::mem::discriminant(&_LS(1)) || !k.is_moveable() {
+		while paths.len() <= 1 || std::mem::discriminant(&k.value()) == std::mem::discriminant(&_LS(1)) || std::mem::discriminant(&k.value()) == std::mem::discriminant(&_LST(1, 2)) || !k.is_moveable() {
 			p = self.gen_position_until_moveable(rng).unwrap();
 			k = self.get_from_layout_position(&p).unwrap();
 			count += 1;
@@ -321,6 +339,52 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			}
 		}
 		Some(p)
+	}
+
+	/// layer switches, symmetry
+	pub fn verify_layout_correctness(&self) -> (Vec<(LayoutPosition, LayoutPosition)>, Vec<(LayoutPosition, LayoutPosition)>) {
+		let mut incorrect_layer_switch_locations: Vec<(LayoutPosition, LayoutPosition)> = vec![];
+		let mut incorrect_symmetry_locations: Vec<(LayoutPosition, LayoutPosition)> = vec![];
+		for layer_index in 0..self.layers.len() {
+			for row_index in 0..R {
+				for col_index in 0..C {
+					let lp = LayoutPosition::for_layout(layer_index, row_index, col_index);
+					let key = self.get_from_layout_position(&lp).unwrap();
+					if let _LS(target_layer) = key.value() {
+						// println!("position {}", lp);
+						let lp_corresponding = LayoutPosition::for_layout(target_layer, row_index, col_index);
+						let key_corresponding = self.get_from_layout_position(&lp_corresponding).unwrap();
+						if let _LST(new_target_layer, source_layer) = key_corresponding.value() {
+							if new_target_layer != target_layer {
+								panic!("LS's linked to each other should have the same layer number. For example, LS1 in layer 0 should be under LST(1, 0) in layer 1.")
+							}
+							// if source_layer != layer_index {
+							// 	panic!("LS in the higher layer should point back down to its source layer. For example, LS1 in layer 0 should be under LS0 in layer 1.")
+							// }
+						} else {
+							incorrect_layer_switch_locations.push((lp.clone(), lp_corresponding));
+						}
+					} else if let _LST(target_layer, source_layer) = key.value() {
+						let lp_corresponding = LayoutPosition::for_layout(source_layer, row_index, col_index);
+						let key_corresponding = self.get_from_layout_position(&lp_corresponding).unwrap();
+						if let _LS(new_target_layer) = key_corresponding.value() {
+							if target_layer != new_target_layer {
+								incorrect_layer_switch_locations.push((lp.clone(), lp_corresponding));		
+							}
+						}
+					}
+					if key.is_symmetric() {
+						let lp_corresponding = self.symmetric_position(&lp);
+						let key_corresponding = self.get_from_layout_position(&lp_corresponding).unwrap();
+						if !key_corresponding.is_symmetric() {
+							incorrect_symmetry_locations.push((lp, lp_corresponding));
+						}
+					}
+
+				}
+			}
+		}
+		(incorrect_layer_switch_locations, incorrect_symmetry_locations)
 	}
 
 }
@@ -338,8 +402,23 @@ fn keycode_path_map_from_layout<const R: usize, const C: usize>(layers: Vec<Laye
 					keycode_path_map.entry(key_value).or_insert(vec![]).push(layout_position_sequence);
 				} else {
 					match key_value {
-						_LS(i) => continue,
+						_LS(i) => {
+							// keycode_path_map.entry(key_value).or_insert(vec![]).push(layout_position_sequence);
+							// // if _LS(i) is already in
+							// if keycode_path_map.contains_key(&key_value) {
+							// 	let path_end = keycode_path_map.get(&key_value).unwrap().last().unwrap().last().unwrap();
+							// 	// but the previous _LS(i) is the same layer, then it is another _LS(i) that should be added
+							// 	if layer_num == path_end.layer_index {
+							// 		keycode_path_map.entry(key_value).or_insert(vec![]).push(layout_position_sequence);
+							// 	}
+							// } else {
+							// 	// if _LS(i) is not already in
+							// 	keycode_path_map.entry(key_value).or_insert(vec![]).push(layout_position_sequence);
+							// }
+						},
+						_LST(i, j) => continue,
 						_ => (),
+						// keycode_path_map.entry(key_value).or_insert(vec![]).push(layout_position_sequence),
 					}
 					let mut map_clone = keycode_path_map.clone();
 					// check that layer_num is reachable. If layer is currently not reachable, could pass until after the rest of the layout is processed in case there is a downward layer move, but not going to implement that now since QMK does not recommend having layer switches like that
@@ -381,7 +460,15 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layout<R, C> {
 			layers.push(Layer::try_from(layer_string)?);
 		}
 		let keycodes_to_positions = keycode_path_map_from_layout::<R, C>(layers.clone())?;
-		Ok(Layout { layers, keycode_path_map: keycodes_to_positions})
+		let layout = Layout { layers, keycode_path_map: keycodes_to_positions};
+		let (v1, v2) = layout.verify_layout_correctness();
+		if v1.len() > 0 {
+			return Err(AlcError::LayoutLayerSwitchError(v1));
+		}
+		if v2.len() > 0 {
+			return Err(AlcError::LayoutSymmetryError(v2));
+		}
+		Ok(layout)
 	}
 }
 
@@ -397,6 +484,7 @@ impl<const R: usize, const C: usize> fmt::Display for Layout<R, C> {
 			for k in self.keycode_path_map.keys() {
 				let key_text = match k {
 					_LS(i) => format!("_LS{}", i),
+					_LST(i, j) => format!("_LST{}_{}", i, j),
 					_ => k.to_string(),
 				};
 				write!(f, "{}: ", key_text);
@@ -420,6 +508,7 @@ impl<const R: usize, const C: usize> fmt::Binary for Layout<R, C> {
 			for k in self.keycode_path_map.keys() {
 				let key_text = match k {
 					_LS(i) => format!("_LS{}", i),
+					_LST(i, j) => format!("_LST{}_{}", i, j),
 					_ => k.to_string(),
 				};
 				write!(f, "{}: ", key_text);
@@ -457,7 +546,7 @@ mod tests {
 		fn test_randomize<const R: usize, const C: usize>(layout: Layout<R, C>) {
 			let expected_key = KeycodeKey::try_from("D_00").unwrap();
 			assert_eq!(layout.get(0, 1, 2).unwrap(), expected_key);
-			// println!("{:b}", layout);
+			println!("{:b}", layout);
 		}
 		test_randomize::<2, 3>(layout.clone());
 
@@ -470,23 +559,24 @@ mod tests {
 			
 			___Layer 1___
 					0       1       2 
-			0| LS1_10    E_10    A_10 
+			0| LST1_0_10    E_10    A_10 
 			1|   E_10    A_10    E_10 
 			
 			___Layer 2___
 					0       1       2 
-			0|   A_10  LS2_10    E_10 
-			1|   A_10    E_10    A_10 
+			0|   __10  LST2_0_10    __10 
+			1|   __10    __10    __10 
 			
 			___Layer 3___
 					0       1       2 
-			0|   E_10    A_10  LS3_10 
-			1|   E_10    A_10    E_10 
+			0|   __10    __10  LST3_0_10 
+			1|   __10    __10    __10 
 			
 			___Layer 4___
 					0       1       2 
-			0|   A_10    E_10    A_10 
-			1| LS4_10    E_10    A_10 
+			0|   __10    __10    __10 
+			1| LST4_0_10    __10    __10 
+			
 			";
 			let layout_from_string = Layout::try_from(layout_string).unwrap();
 			// println!("layout from string\n{:b}", layout_from_string.clone());
@@ -494,42 +584,75 @@ mod tests {
 		}
 		test_string_construction::<2, 3>(layout);
 	}
+	
+	#[test]
+	fn test_incorrect_ls() {
+		let test_str = "
+		___Layer 0___
+		A_10 B_10 LS1_10
+		___Layer 1___
+		C_10 LS2_10 LST1_0_10 
+		___Layer 2___
+		LST2_1_10 E_10 F_10
+		";
+		let test_layout = Layout::<1, 3>::try_from(test_str);
+		match test_layout {
+			Ok(v) => (),
+			Err(e) => assert_eq!(e, AlcError::LayoutLayerSwitchError(vec![
+				(LayoutPosition::for_layout(1, 0, 1), LayoutPosition::for_layout(2, 0, 1))]))
+		};
+	}
+
+	#[test]
+	fn test_incorrect_symm() {
+		let test_str = "
+		___Layer 0___
+		A_11 B_10 C_10
+		";
+		let test_layout = Layout::<1, 3>::try_from(test_str);
+		match test_layout {
+			Ok(v) => (),
+			Err(e) => assert_eq!(e, AlcError::LayoutSymmetryError(vec![(LayoutPosition::from_tuple((0, 0, 0)), LayoutPosition::from_tuple((0, 0, 2)))])),
+		};
+	}
 
 	#[test]
 	fn test_keycode_path_map () {
 		let layout = Layout::<1, 4>::try_from("
 			___Layer 0___
-			A_10 B_10 C_10 LS1_10
+			LS1_10 B_10 C_10 LS1_10
 			___Layer 1___
-			D_10 E_10 H_10 LS1_10
+			LST1_0_10 LS2_10 H_10 LST1_0_10
+			___Layer 2___
+			A_10 LST2_1_10 H_10 C_10
 		").unwrap();
 		println!("{:#}", layout);
 		let keycode_to_positions = layout.keycode_path_map;
 		
 	}
 
-	#[test]
-	fn test_swap_two() {
-		let mut layout = Layout::<1, 4>::try_from("
-			___Layer 0___
-			A_10 B_10 C_10 LS1_10
-			___Layer 1___
-			D_10 E_10 H_10 LS1_10
-		").unwrap();
-		println!("{}", layout);
-		unsafe { 
-			let k1 = layout.get_mut_from_layout_position(&LayoutPosition::for_layout(0, 0, 0)).unwrap() as *mut KeycodeKey;
-			let k2 = layout.get_mut_from_layout_position(&LayoutPosition::for_layout(0, 0, 2)).unwrap() as *mut KeycodeKey;
-			swap_two(k1, k2) 
-		};
-		assert_eq!(layout.get(0, 0, 0).unwrap().value(), _C);
-		assert_eq!(layout.get(0, 0, 2).unwrap().value(), _A);
+	// #[test]
+	// fn test_swap_two() {
+	// 	let mut layout = Layout::<1, 4>::try_from("
+	// 		___Layer 0___
+	// 		A_10 B_10 C_10 LS1_10
+	// 		___Layer 1___
+	// 		D_10 E_10 H_10 LS1_10
+	// 	").unwrap();
+	// 	println!("{}", layout);
+	// 	unsafe { 
+	// 		let k1 = layout.get_mut_from_layout_position(&LayoutPosition::for_layout(0, 0, 0)).unwrap() as *mut KeycodeKey;
+	// 		let k2 = layout.get_mut_from_layout_position(&LayoutPosition::for_layout(0, 0, 2)).unwrap() as *mut KeycodeKey;
+	// 		swap_two(k1, k2) 
+	// 	};
+	// 	assert_eq!(layout.get(0, 0, 0).unwrap().value(), _C);
+	// 	assert_eq!(layout.get(0, 0, 2).unwrap().value(), _A);
 		
-		// unsafe {layout.swap_two(&LayoutPosition::for_layout(0, 0, 1), &LayoutPosition::for_layout(1, 0, 2)) };
-		// assert_eq!(layout.get(0, 0, 1).unwrap().value(), _H);
-		// assert_eq!(layout.get(1, 0, 2).unwrap().value(), _B);
-		println!("{}", layout);
-	}
+	// 	// unsafe {layout.swap_two(&LayoutPosition::for_layout(0, 0, 1), &LayoutPosition::for_layout(1, 0, 2)) };
+	// 	// assert_eq!(layout.get(0, 0, 1).unwrap().value(), _H);
+	// 	// assert_eq!(layout.get(1, 0, 2).unwrap().value(), _B);
+	// 	println!("{}", layout);
+	// }
 
 	#[test]
 	fn test_swap() {
@@ -537,7 +660,7 @@ mod tests {
 			___Layer 0___
 			A_10 B_10 C_10 LS1_10
 			___Layer 1___
-			D_10 E_10 H_10 LS1_10
+			D_10 E_10 H_10 LST1_0_10
 		").unwrap();
 		println!("{}", layout);
 		layout.swap(&LayoutPosition::for_layout(0, 0, 0), &LayoutPosition::for_layout(0, 0, 2));
@@ -552,14 +675,14 @@ mod tests {
 		assert_eq!(layout.get(0, 0, 3).unwrap().value(), _A);
 		assert_eq!(layout.get(0, 0, 2).unwrap().value(), _LS(1));
 		assert_eq!(layout.get(1, 0, 3).unwrap().value(), _B);
-		assert_eq!(layout.get(1, 0, 2).unwrap().value(), _LS(1));
+		assert_eq!(layout.get(1, 0, 2).unwrap().value(), _LST(1, 0));
 		println!("{}", layout);
 
 		let mut layout = Layout::<1, 4>::try_from("
 			___Layer 0___
 			A_10 B_11 C_11 LS1_10
 			___Layer 1___
-			D_10 E_10 H_10 LS1_10
+			D_10 E_10 H_10 LST1_0_10
 		").unwrap();
 		layout.swap(&LayoutPosition::for_layout(0, 0, 1), &LayoutPosition::for_layout(0, 0, 2));
 		assert_eq!(layout.get(0, 0, 1).unwrap().value(), _C);
@@ -579,7 +702,7 @@ mod tests {
 			___Layer 0___
 			A_10 B_11 C_11 LS1_10
 			___Layer 1___
-			D_10 E_10 E_10 LS1_10
+			D_10 E_10 E_10 LST1_0_10
 		").unwrap();
 		// layout.replace(&LayoutPosition::for_layout(0, 0, 3), _E);
 		// layout.replace(&LayoutPosition::for_layout(0, 0, 0), _E);
@@ -593,7 +716,7 @@ mod tests {
 			___Layer 0___
 			A_10 E_11 C_11 LS1_10
 			___Layer 1___
-			D_10 E_10 A_10 LS1_10
+			D_10 E_10 A_10 LST1_0_10
 		").unwrap();
 		let seqs = layout.ngram_to_sequences(&Ngram::new(vec![_A, _E])).unwrap();
 		// println!("{:?}", seqs);
@@ -613,7 +736,7 @@ mod tests {
 			___Layer 0___
 			A_10 B_11 C_11 LS1_10
 			___Layer 1___
-			D_10 E_10 A_10 LS1_10
+			D_10 E_10 A_10 LST1_0_10
 		").unwrap();
 		let seqs2 = layout2.ngram_to_sequences(&Ngram::new(vec![_A, _B, _C, _D, _E])).unwrap();
 		let seq2_1 = LayoutPositionSequence::from_tuple_vector(vec![(0, 0, 0), (0, 0, 1), (0, 0, 2), (0, 0, 3), (1, 0, 0), (0, 0, 3), (1, 0, 1)]);

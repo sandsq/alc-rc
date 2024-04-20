@@ -50,7 +50,10 @@ impl LayoutPositionSequence {
 	pub fn append(&mut self, other: &mut Self) {
 		self.sequence.append(&mut other.sequence)
 	}
-	
+	pub fn last(&self) -> Option<&LayoutPosition> {
+		self.sequence.last()
+	}
+
 }
 impl Index<usize> for LayoutPositionSequence {
 	type Output = LayoutPosition;

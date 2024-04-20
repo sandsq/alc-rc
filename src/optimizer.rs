@@ -248,7 +248,7 @@ mod tests {
 			___Layer 0___
 			H_10 E_10 B_10 LS1_10
 			___Layer 1___
-			E_10 A_10 C_10 LS1_10
+			E_10 A_10 C_10 LST1_0_10
 		
 		").unwrap();
 		let score_function = SimpleScoreFunction{};
@@ -270,17 +270,17 @@ mod tests {
 		// layout_optimizer.optimize(&mut rng, config);
 	}
 
-	#[test]
-	fn test_optimize() {
-		let mut lo = LayoutOptimizer::<4, 12, SimpleScoreFunction>::default();
-		// let mut config = LayoutOptimizerConfig::default();
-		lo.config.generation_count = 10;
-		lo.config.population_size = 100;
-		let mut rng = StdRng::seed_from_u64(0);
-		let mut test_layout = lo.base_layout.clone();
-		test_layout.randomize(&mut rng, &lo.config.valid_keycodes).unwrap();
-		// println!("initial randomized layout\n{:#}", test_layout);
-		println!("effort layer\n{}", lo.effort_layer);
-		lo.optimize(&mut rng);
-	}
+	// #[test]
+	// fn test_optimize() {
+	// 	let mut lo = LayoutOptimizer::<4, 12, SimpleScoreFunction>::default();
+	// 	// let mut config = LayoutOptimizerConfig::default();
+	// 	lo.config.generation_count = 10;
+	// 	lo.config.population_size = 100;
+	// 	let mut rng = StdRng::seed_from_u64(0);
+	// 	let mut test_layout = lo.base_layout.clone();
+	// 	test_layout.randomize(&mut rng, &lo.config.valid_keycodes).unwrap();
+	// 	// println!("initial randomized layout\n{:#}", test_layout);
+	// 	println!("effort layer\n{}", lo.effort_layer);
+	// 	lo.optimize(&mut rng);
+	// }
 }

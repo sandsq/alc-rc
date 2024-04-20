@@ -54,6 +54,12 @@ impl TryFrom<&str> for KeycodeKey {
 		if &key_string[0..1] == "_" {
 			key_details.next();
 			key_details.next();
+		} else if &key_string[0..3] == "LST" {
+			let layer_target = &key_string[3..4].parse::<usize>()?;
+			let layer_source = &key_string[5..6].parse::<usize>()?;
+			key.set_value(_LST(*layer_target, *layer_source));
+			key_details.next();
+			key_details.next();
 		} else if &key_string[0..2] == "LS" {
 			let layer_target = &key_string[2..3].parse::<usize>()?;
 			key.set_value(_LS(*layer_target));
@@ -81,6 +87,9 @@ impl TryFrom<&str> for KeycodeKey {
 
 			if symm_flag {
 				if let _LS(layer_num) = key.value() {
+					return Err(AlcError::InvalidKeycodeKeyFromString(String::from(key_string), String::from("don't set a layer switch key to be symmetric due to the additional complexity; this may change in the future")));
+				}
+				if let _LST(l1, l2) = key.value() {
 					return Err(AlcError::InvalidKeycodeKeyFromString(String::from(key_string), String::from("don't set a layer switch key to be symmetric due to the additional complexity; this may change in the future")));
 				}
 			}
@@ -114,6 +123,7 @@ impl fmt::Display for KeycodeKey {
 		let value_to_display = match self.value {
 			_NO => format!("_"),
 			_LS(i) => format!("LS{}", i),
+			_LST(i, j) => format!("LST{}_{}", i, j),
 			_ => str_to_display,
 		};
 		write!(f, "{:>4}", value_to_display)
@@ -128,6 +138,7 @@ impl fmt::Binary for KeycodeKey {
 		let value_to_display = match self.value {
 			_NO => format!("_"),
 			_LS(i) => format!("LS{}", i),
+			_LST(i, j) => format!("LST{}_{}", i, j),
 			_ => str_to_display,
 		};
         write!(f, "{:>4}_{}{}", value_to_display, m, s)
@@ -137,6 +148,7 @@ impl Randomizeable for KeycodeKey {
 	fn is_randomizeable(&self) -> bool {
 		match self.value {
 			_LS(i) => return false,
+			_LST(i, j) => return false,
 			_ => (),
 		}
 		match self.is_moveable {
