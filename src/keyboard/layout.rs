@@ -354,13 +354,16 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 						// println!("position {}", lp);
 						let lp_corresponding = LayoutPosition::for_layout(target_layer, row_index, col_index);
 						let key_corresponding = self.get_from_layout_position(&lp_corresponding).unwrap();
+						// if key_corresponding.value() != _NO {
+						// 	panic!("For layer switch at {}, it's corresponding position {} should be blank, not {}", lp, lp_corresponding, key_corresponding);
+						
 						if let _LST(new_target_layer, source_layer) = key_corresponding.value() {
 							if new_target_layer != target_layer {
 								panic!("LS's linked to each other should have the same layer number. For example, LS1 in layer 0 should be under LST(1, 0) in layer 1.")
 							}
 							// if source_layer != layer_index {
 							// 	panic!("LS in the higher layer should point back down to its source layer. For example, LS1 in layer 0 should be under LS0 in layer 1.")
-							// }
+						
 						} else {
 							incorrect_layer_switch_locations.push((lp.clone(), lp_corresponding));
 						}
@@ -459,8 +462,23 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layout<R, C> {
 			}
 			layers.push(Layer::try_from(layer_string)?);
 		}
+		// don't show LST when printing out layout, so manually add LST back if LS is detected
+		for layer_index in 0..layers.len() {
+			for row_index in 0..R {
+				for col_index in 0..C {
+					let lp = LayoutPosition::from_tuple((layer_index, row_index, col_index));
+					let k = layers.get(layer_index).unwrap().get(row_index, col_index).unwrap();
+					if let _LS(target_layer) = k.value() {
+						let mut k_counterpart = layers.get_mut(target_layer).unwrap().get_mut(row_index, col_index).unwrap();
+						k_counterpart.set_value(_LST(target_layer, layer_index));
+					}
+				}
+			}
+		}
+
 		let keycodes_to_positions = keycode_path_map_from_layout::<R, C>(layers.clone())?;
 		let layout = Layout { layers, keycode_path_map: keycodes_to_positions};
+		
 		let (v1, v2) = layout.verify_layout_correctness();
 		if v1.len() > 0 {
 			return Err(AlcError::LayoutLayerSwitchError(v1));
@@ -468,6 +486,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layout<R, C> {
 		if v2.len() > 0 {
 			return Err(AlcError::LayoutSymmetryError(v2));
 		}
+		
 		Ok(layout)
 	}
 }
@@ -484,7 +503,6 @@ impl<const R: usize, const C: usize> fmt::Display for Layout<R, C> {
 			for k in self.keycode_path_map.keys() {
 				let key_text = match k {
 					_LS(i) => format!("_LS{}", i),
-					_LST(i, j) => format!("_LST{}_{}", i, j),
 					_ => k.to_string(),
 				};
 				write!(f, "{}: ", key_text);
@@ -508,7 +526,6 @@ impl<const R: usize, const C: usize> fmt::Binary for Layout<R, C> {
 			for k in self.keycode_path_map.keys() {
 				let key_text = match k {
 					_LS(i) => format!("_LS{}", i),
-					_LST(i, j) => format!("_LST{}_{}", i, j),
 					_ => k.to_string(),
 				};
 				write!(f, "{}: ", key_text);
@@ -524,10 +541,32 @@ impl<const R: usize, const C: usize> fmt::Binary for Layout<R, C> {
 
 impl Default for Layout<4, 12> {
 	fn default() -> Self {
-		let mut layout = Layout::<4, 12>::init_blank(3);
-		layout.layers[0].set(1, 0, KeycodeKey::try_from("SFT_11").unwrap());
-		layout.layers[0].set(1, 11, KeycodeKey::try_from("SFT_11").unwrap());
+		let layout_string = "
+		___Layer 0___
+				0       1       2       3       4       5       6       7       8       9      10      11 
+		0| LS1_10  LS2_10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		1| SFT_11    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10  SFT_11 
+		2|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		3|   __10    __10    __10    __10    __10    SPC_00    __00    __10    __10    __10    __10    __10 
 
+		___Layer 1___
+				0       1       2       3       4       5       6       7       8       9      10      11 
+		0|__10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		1|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		2|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		3|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+
+		___Layer 2___
+				0       1       2       3       4       5       6       7       8       9      10      11 
+		0|   __10 __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		1|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		2|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		3|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		
+		";
+
+
+		let mut layout = Layout::try_from(layout_string).unwrap();
 		layout
 	}
 }

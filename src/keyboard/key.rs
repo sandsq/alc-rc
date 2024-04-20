@@ -123,7 +123,7 @@ impl fmt::Display for KeycodeKey {
 		let value_to_display = match self.value {
 			_NO => format!("_"),
 			_LS(i) => format!("LS{}", i),
-			_LST(i, j) => format!("LST{}_{}", i, j),
+			_LST(i, j) => format!("_"), //format!("LST{}_{}", i, j),
 			_ => str_to_display,
 		};
 		write!(f, "{:>4}", value_to_display)
@@ -138,7 +138,7 @@ impl fmt::Binary for KeycodeKey {
 		let value_to_display = match self.value {
 			_NO => format!("_"),
 			_LS(i) => format!("LS{}", i),
-			_LST(i, j) => format!("LST{}_{}", i, j),
+			_LST(i, j) => format!("_"), //format!("LST{}_{}", i, j),
 			_ => str_to_display,
 		};
         write!(f, "{:>4}_{}{}", value_to_display, m, s)

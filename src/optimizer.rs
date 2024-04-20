@@ -185,7 +185,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		if self.datasets.len() != self.config.dataset_weight.len() {
 			return Err(AlcError::DatasetWeightsMismatchError(self.datasets.len(), self.config.dataset_weight.len()));
 		}
-		println!("base layout\t{:#}", self.base_layout);
+		println!("base layout\n{:b}", self.base_layout);
 		let mut layouts_and_scores = self.generate_and_score_initial_population(rng);
 		let (mut best_layouts, mut best_scores) = self.take_best_layouts(layouts_and_scores);
 		let mut layouts = self.generate_new_layouts(rng, best_layouts);
@@ -200,7 +200,15 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		layouts_and_scores = self.score_population(&layouts);
 		(best_layouts, best_scores) = self.take_best_layouts(layouts_and_scores);
 		println!("final layout\n{:#}\nscore: {}", best_layouts[0], best_scores[0]);
-		Ok(layouts[0].clone())
+		let final_layout = best_layouts[0].clone();
+		let (v1, v2) = final_layout.verify_layout_correctness();
+		if v1.len() > 0 {
+			println!("issue with layer switches")
+		}
+		if v2.len() > 0 {
+			println!("issue with symmetric keys")
+		}
+		Ok(final_layout)
 		// symmetry check
 		// layer reachability check
 		// other sanity checks
@@ -270,17 +278,18 @@ mod tests {
 		// layout_optimizer.optimize(&mut rng, config);
 	}
 
-	// #[test]
-	// fn test_optimize() {
-	// 	let mut lo = LayoutOptimizer::<4, 12, SimpleScoreFunction>::default();
-	// 	// let mut config = LayoutOptimizerConfig::default();
-	// 	lo.config.generation_count = 10;
-	// 	lo.config.population_size = 100;
-	// 	let mut rng = StdRng::seed_from_u64(0);
-	// 	let mut test_layout = lo.base_layout.clone();
-	// 	test_layout.randomize(&mut rng, &lo.config.valid_keycodes).unwrap();
-	// 	// println!("initial randomized layout\n{:#}", test_layout);
-	// 	println!("effort layer\n{}", lo.effort_layer);
-	// 	lo.optimize(&mut rng);
-	// }
+	#[test]
+	fn test_optimize() {
+		let mut lo = LayoutOptimizer::<4, 12, SimpleScoreFunction>::default();
+		// let mut config = LayoutOptimizerConfig::default();
+		lo.config.generation_count = 5;
+		lo.config.population_size = 200;
+		let mut rng = StdRng::seed_from_u64(0);
+		let mut test_layout = lo.base_layout.clone();
+		println!("initial layout\n{}", test_layout);
+		test_layout.randomize(&mut rng, &lo.config.valid_keycodes).unwrap();
+		// println!("initial randomized layout\n{:#}", test_layout);
+		println!("effort layer\n{}", lo.effort_layer);
+		lo.optimize(&mut rng);
+	}
 }
