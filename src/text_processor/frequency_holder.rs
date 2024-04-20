@@ -1,15 +1,14 @@
 use std::cmp::min;
 use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::io::{self, BufRead};
 use std::ops::Index;
-use std::collections::hash_map::{IntoIter, Keys};
+use std::collections::hash_map::{IntoIter, IntoKeys};
 use std::fs::File;
 use std::path::Path;
 
 use crate::alc_error::AlcError;
 
-use super::keycode::{string_to_keycode, Keycode::{self, *}, KeycodeOptions};
+use super::keycode::{Keycode, KeycodeOptions};
 use super::ngram::Ngram;
 
 pub trait Frequencies {}
@@ -29,34 +28,47 @@ pub struct SingleGramFrequencies<T> where T: Frequencies {
 	frequencies: HashMap<Ngram, T>,
 	n: usize,
 }
-impl<T>  SingleGramFrequencies<T> where T: Frequencies {
+impl<T> SingleGramFrequencies<T> where T: Frequencies {
 	pub fn new(n: usize) -> Self {
 		Self { frequencies:  Default::default(), n: n }
-	}
-	fn keys(&self) -> Keys<'_, Ngram, T> {
-		self.frequencies.keys()	
 	}
 	pub fn get(&self, k: &Ngram) -> Option<&T> {
 		self.frequencies.get(k)
 	}
+	pub fn into_keys(self) -> IntoKeys<Ngram, T> {
+		self.frequencies.into_keys()
+	}
 	
 }
 /// u32 for raw ngram counts
+/// should only contain one ngram length
 impl SingleGramFrequencies<u32> {
-	fn increment(&mut self, ngram: Ngram) -> Result<(), AlcError> {
-		if self.n != ngram.clone().len() {
-			Err(AlcError::NgramMatchError(ngram.len(), self.n))
-		} else {
-			Ok(*self.frequencies.entry(ngram).or_insert(0) += 1)
-		}
-	}
+	// fn increment(&mut self, ngram: Ngram) -> Result<(), AlcError> {
+	// 	if self.n != ngram.clone().len() {
+	// 		Err(AlcError::NgramMatchError(ngram.len(), self.n))
+	// 	} else {
+	// 		Ok(*self.frequencies.entry(ngram).or_insert(0) += 1)
+	// 	}
+	// }
+
+	/// Error if trying to add an Ngram with a different length
 	fn add_from_key_value(&mut self, key: Ngram, value: u32) -> Result<(), AlcError> {
-		if self.n != key.clone().len() {
+		if self.n != key.len() {
 			Err(AlcError::NgramMatchError(key.len(), self.n))
 		} else {
 			Ok(*self.frequencies.entry(key).or_insert(0) += value)
 		}
 	}
+	/// This might be faster if the bigger holder is on the left?
+	/// consumes other (I think?)
+	/// will give an error if trying to combine containers with different ngram lengths
+	pub fn combine_with(&mut self, other: Self) -> Result<(), AlcError> {
+		for (key, value) in other {			
+			self.add_from_key_value(key, value)?;
+		}
+		Ok(())
+	}
+
 	pub fn take_top_frequencies(&mut self, amount: TopFrequenciesToTake) -> () {
 		let mut hash_vec: Vec<(&Ngram, &u32)> = self.frequencies.iter().collect();
     	hash_vec.sort_by(|a, b| b.1.cmp(a.1));
@@ -74,15 +86,10 @@ impl SingleGramFrequencies<u32> {
 		}
 		self.frequencies = temp_freqs
 	}
-	/// This might be faster if the bigger holder is on the left?
-	pub fn combine_with(&mut self, holder: Self) -> () {
-		for key in holder.keys() {
-			self.add_from_key_value(key.clone(), *holder.get(key).unwrap());
-		}
-	}
+
 	pub fn try_from_string(s: &str, n: usize, options: &KeycodeOptions) -> Option<SingleGramFrequencies<u32>> {
 		let mut ngram_to_counts: HashMap<Ngram, u32> = HashMap::new();
-		let keycodes = string_to_keycode(s, options);
+		let keycodes = Keycode::from_string(s, options);
 		if keycodes.len() < n {
 			// this particular string was not long enough to create an N-gram out of
 			return None;
@@ -100,9 +107,8 @@ impl SingleGramFrequencies<u32> {
 		let lines = io::BufReader::new(file).lines();
 		let mut ngram_to_counts = Self::new(n);
 		for line in lines.flatten() {
-			if let Some(holder_from_line) = Self::try_from_string(line.as_str(), n, options)
-			{
-				ngram_to_counts.combine_with(holder_from_line);
+			if let Some(holder_from_line) = Self::try_from_string(line.as_str(), n, options) {
+				ngram_to_counts.combine_with(holder_from_line).unwrap(); // ngram size is given as input so this should always succeed
 			}
 		}
 		Ok(ngram_to_counts)
@@ -133,26 +139,27 @@ impl<T> IntoIterator for SingleGramFrequencies<T> where T: Frequencies {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use Keycode::*;
 
 	#[test]
 	fn test_frequency_holder_construction () {
 		let ngram = Ngram::new(vec![_A, _B]);
 		let mut freq_holder = SingleGramFrequencies::<u32>::new(2);
-		freq_holder.increment(ngram.clone());
+		freq_holder.add_from_key_value(ngram.clone(), 1).unwrap();
 		assert_eq!(freq_holder[ngram.clone()], 1);
-		freq_holder.increment(ngram.clone());
+		freq_holder.add_from_key_value(ngram.clone(), 1).unwrap();
 		assert_eq!(freq_holder[ngram.clone()], 2);
 
-		freq_holder.add_from_key_value(ngram.clone(), 5);
+		freq_holder.add_from_key_value(ngram.clone(), 5).unwrap();
 		assert_eq!(freq_holder[ngram.clone()], 7);
-		freq_holder.add_from_key_value(Ngram::new(vec![_C, _D]), 3);
+		freq_holder.add_from_key_value(Ngram::new(vec![_C, _D]), 3).unwrap();
 		assert_eq!(freq_holder[Ngram::new(vec![_C, _D])], 3);
 
 		let mut freq_holder2 = SingleGramFrequencies::<u32>::new(2);
-		freq_holder2.add_from_key_value(Ngram::new(vec![_A, _E]), 2);
-		freq_holder2.add_from_key_value(Ngram::new(vec![_C, _D]), 3);
+		freq_holder2.add_from_key_value(Ngram::new(vec![_A, _E]), 2).unwrap();
+		freq_holder2.add_from_key_value(Ngram::new(vec![_C, _D]), 3).unwrap();
 
-		freq_holder.combine_with(freq_holder2);
+		freq_holder.combine_with(freq_holder2).unwrap();
 		assert_eq!(freq_holder[Ngram::new(vec![_A, _B])], 7);
 		assert_eq!(freq_holder[Ngram::new(vec![_C, _D])], 6);
 		assert_eq!(freq_holder[Ngram::new(vec![_A, _E])], 2);

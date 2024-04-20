@@ -1,4 +1,4 @@
-#[allow(unused)]
+// #[allow(unused)]
 pub mod text_processor;
 #[allow(unused)]
 pub mod keyboard;
@@ -6,5 +6,5 @@ pub mod keyboard;
 pub mod objective;
 #[allow(unused)]
 pub mod optimizer;
-#[allow(unused)]
+// #[allow(unused)]
 pub mod alc_error;

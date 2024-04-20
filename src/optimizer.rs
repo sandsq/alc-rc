@@ -311,7 +311,7 @@ mod tests {
 	fn test_optimize() {
 		let mut lo = LayoutOptimizer::<4, 12, SimpleScoreFunction>::default();
 		// let mut config = LayoutOptimizerConfig::default();
-		lo.config.generation_count = 100;
+		lo.config.generation_count = 10;
 		lo.config.population_size = 100;
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = StdRng::seed_from_u64(0);

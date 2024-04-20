@@ -1,8 +1,4 @@
 use core::num;
-use std::alloc::Layout;
-use std::error::Error;
-use std::num::ParseIntError;
-use thiserror::Error;
 
 use crate::keyboard::LayoutPosition;
 use crate::text_processor::ngram::Ngram;
@@ -15,8 +11,8 @@ pub enum AlcError {
 	ParseIntError(#[from] num::ParseIntError),
 	#[error(transparent)]
 	Array2DError(#[from] array2d::Error),
-	#[error{transparent}]
-	Regex(#[from] regex::Error),
+	#[error(transparent)]
+	RegexError(#[from] regex::Error),
 
 	#[error("{0} cannot be parsed into a KeycodeKey, {1}")]
 	InvalidKeycodeKeyFromString(String, String), // second param tries to describe what is invalid
