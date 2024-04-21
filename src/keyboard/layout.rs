@@ -320,15 +320,19 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 	pub fn generate_valid_replace_position(&self, rng: &mut impl Rng) -> Option<LayoutPosition> {
 		let mut p = self.generate_random_moveable_position(rng).unwrap();
 		let mut k = &self[p];
-		let fallback_count = 100;
-		let mut count = 0;
-		let paths = match self.keycode_pathmap.get(&k.value()) {
+		let mut paths = match self.keycode_pathmap.get(&k.value()) {
 			Some(v) => v,
 			None => return None,
 		};
-		while paths.len() <= 1 || std::mem::discriminant(&k.value()) == std::mem::discriminant(&_LS(1)) || std::mem::discriminant(&k.value()) == std::mem::discriminant(&_LST(1, 2)) || !k.is_moveable() {
+		let fallback_count = 100;
+		let mut count = 0;
+		while paths.len() <= 1 || std::mem::discriminant(&k.value()) == std::mem::discriminant(&_LS(1)) || std::mem::discriminant(&k.value()) == std::mem::discriminant(&_LST(1, 2)) || !k.is_moveable() || k.is_symmetric() {
 			p = self.generate_random_moveable_position(rng).unwrap();
 			k = &self[p];
+			paths = match self.keycode_pathmap.get(&k.value()) {
+				Some(v) => v,
+				None => return None,
+			};
 			count += 1;
 			if count >= fallback_count {
 				return None;
@@ -407,6 +411,7 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 					if key.is_symmetric() {
 						let lp_corresponding = self.symmetric_position(lp);
 						let key_corresponding = &self[lp_corresponding];
+						// println!("{:b} at {} is symmetric, corresponding key {:b} at {}", key, lp, key_corresponding, lp_corresponding);
 						if !key_corresponding.is_symmetric() {
 							incorrect_symmetry_locations.push((lp, lp_corresponding));
 						}

@@ -52,7 +52,7 @@ pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, 
 	pub config: LayoutOptimizerConfig,
 	operation_counter: Cell<(u32, u32, u32)>, // swaps, replacements, nothings
 }
-impl<'a, const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> {
+impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> {
 	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f32>, score_function: S, datasets: Vec<FrequencyDataset<u32>>, config: LayoutOptimizerConfig, operation_counter: Cell<(u32, u32, u32)>) -> Self {
 		LayoutOptimizer { base_layout, effort_layer, score_function, datasets, config, operation_counter }
 	}
@@ -264,7 +264,7 @@ impl<'a, const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Sc
 		
 	}
 }
-impl<'a> Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
+impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
 	fn default() -> Self {
 		let base_layout = Layout::<2, 4>::init_blank(2);
 		let effort_layer = Layer::<2, 4, f32>::try_from("
@@ -278,7 +278,7 @@ impl<'a> Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
 	}
 }
 
-impl<'a> Default for LayoutOptimizer<4, 12, SimpleScoreFunction> {
+impl Default for LayoutOptimizer<4, 12, SimpleScoreFunction> {
 	fn default() -> Self {
 		let base_layout = Layout::<4, 12>::default();
 		let effort_layer = Layer::<4, 12, f32>::default();
@@ -343,6 +343,7 @@ mod tests {
 		test_layout.randomize(&mut rng, &lo.config.valid_keycodes).unwrap();
 		// println!("initial randomized layout\n{:#}", test_layout);
 		println!("effort layer\n{}", lo.effort_layer);
-		lo.optimize(&mut rng).unwrap();
+		let _final_layout = lo.optimize(&mut rng).unwrap();
+		// println!("final layout\n{:b}", final_layout);
 	}
 }
