@@ -1,4 +1,5 @@
 use core::num;
+use std::path::PathBuf;
 
 use crate::keyboard::LayoutPosition;
 use crate::text_processor::ngram::Ngram;
@@ -37,11 +38,15 @@ pub enum AlcError {
 	#[error("symmetric keys are disjointed: {0:?}")]
 	LayoutSymmetryError(Vec<(LayoutPosition, LayoutPosition)>),
 
+	#[error("expected {0} to be a directory")]
+	ExpectedDirectoryError(PathBuf),
+
 	#[error("ngram {0} cannot be typed on the layout")]
 	UntypeableNgramError(Ngram),
 	#[error("the number of dataset weights {0} must match the number of datasets {1}")]
 	DatasetWeightsMismatchError(usize, usize),
 
 	#[error("could not find valid swap after {0} tries, {1}")]
-	SwapFallbackError(u32, String)
+	SwapFallbackError(u32, String),
+
 }

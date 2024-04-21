@@ -1,34 +1,13 @@
 use array2d::{Array2D, Error as Array2DError};
-use rand::prelude::*;
-use std::collections::HashSet;
 use std::error::Error;
 use std::fmt;
 use std::str;
 use std::collections::VecDeque;
-use thiserror;
 
 use crate::alc_error::AlcError;
 use crate::text_processor::keycode::Keycode::{self, *};
 use super::key::{KeyValue, KeycodeKey, Randomizeable};
 use super::LayoutPosition;
-
-
-// impl fmt::Display for KeyboardError {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-// 		match self {
-// 			KeyboardError::SymmetryError(r1, c1, r2, c2) =>
-// 					write!(f, "Position ({r1}, {c1}) is marked as symmetric but its corresponding symmetric position ({r2}, {c2}) is not."),
-// 			KeyboardError::RowMismatchError(r1, r2) =>
-// 					write!(f, "Expected {r1} rows but found {:?} rows.", r1),
-// 			KeyboardError::ColMismatchError(c1, c2) =>
-// 					write!(f, "Expected {c1} rows but found {:?} rows.", c2),
-// 			KeyboardError::InvalidKeyFromString(s) =>
-// 					write!(f, "{} cannot be parsed into a KeycodeKey.", s),
-// 			_ => write!(f, "Oops, don't have this error yet.")
-// 		}
-//     }
-// }
-
 
 /// Layers are grids. For non-grid keyboard layouts, create the largest grid that fits and block unused cells with dummy keys. Works for anything implementing [KeyValue]
 #[derive(Debug, PartialEq, Clone)]
@@ -80,7 +59,6 @@ impl<const R: usize, const C: usize, K: KeyValue + std::clone::Clone> Layer<R, C
 	}
 	/// Specifically, mirrored left-right
 	pub fn symmetric_position(&self, l: &LayoutPosition) -> LayoutPosition {
-		let num_rows = self.num_rows();
 		let num_cols = self.num_columns();
 		let orig_row = l.row_index;
 		let orig_col = l.col_index;
@@ -92,7 +70,7 @@ impl<const R: usize, const C: usize, K: KeyValue + std::clone::Clone> Layer<R, C
 impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 	pub fn init_blank() -> Self {
 		let default_key = KeycodeKey::from_keycode(_NO);
-		let mut layer_array2d = Array2D::filled_with(default_key.clone(), R, C);
+		let layer_array2d = Array2D::filled_with(default_key.clone(), R, C);
 		Layer::<R, C, KeycodeKey> { layer: layer_array2d }
 	}
 	/// give layout access to this but not anything else to ensure valid_keycodes is already randomized
@@ -102,17 +80,6 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 		for i in 0..R {
 			for j in 0..C {
 				let key = self.get(i, j).unwrap(); // should be guaranteed to exist
-				let lp = LayoutPosition::for_layer(i, j);
-				// I don't think it makes sense to check valid symmetry here?
-				// if key.is_symmetric() {
-				// 	let symm_lp = self.symmetric_position(&lp);
-				// 	let symm_key = self.get_from_layout_position(&symm_lp)?;
-				// 	if !symm_key.is_symmetric() {
-				// 		return Err(AlcError::SymmetryError(i, j, symm_lp.row_index, symm_lp.col_index));
-				// 	} else {
-				// 		continue;
-				// 	}
-				// }
 				if  !key.is_randomizeable() || key.value() != _NO {
 					continue;
 				}
@@ -123,22 +90,14 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 				
 				if let Some(random_keycode) = valid_keycodes_to_draw_from.pop_front() {
 					let replacement_key = KeycodeKey::from_keycode(random_keycode);
-					self.set(i, j, replacement_key);
+					self.set(i, j, replacement_key).unwrap(); // should always work
 				}
 			}
 		}
 		(valid_keycodes_to_draw_from, used_all_keycodes_flag)
 	}
 }
-fn choose_and_remove(rng: &mut impl Rng, v: &mut Vec<Keycode>) -> Option<Keycode> {
-	match v.iter().enumerate().choose(rng) {
-		Some((i, &out)) => {
-			v.swap_remove(i);
-			Some(out)
-		}
-		None => None,
-	}
-}
+
 
 impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, KeycodeKey> {
 	type Error = AlcError;
@@ -149,9 +108,9 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, KeycodeKey> {
 		for (i, row) in rows.iter().enumerate() {
 			let cols = cols_from_string(row, C)?;
 			for (j, col) in cols.iter().enumerate() {
-				let mut key = KeycodeKey::try_from(*col)?;
+				let key = KeycodeKey::try_from(*col)?;
 				// println!("reminder: check for symmetry here");
-				layer.set(i, j, key);
+				layer.set(i, j, key).unwrap();
 			}
 		}
 		Ok(layer)
@@ -166,7 +125,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, f32> {
 			let cols = cols_from_string(row, C)?;
 			for (j, col) in cols.iter().enumerate() {
 				let effort_value = col.parse::<f32>()?;
-				effort_layer.set(i, j, effort_value);
+				effort_layer.set(i, j, effort_value).unwrap();
 			}
 		}
 		Ok(Layer{ layer: effort_layer })
@@ -214,7 +173,7 @@ fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, AlcError> {
 fn cols_from_string(input_s: &str, c: usize) -> Result<Vec<&str>, AlcError> {
 	// see note for rows_from_string
 	// | is used as a separator between the row index and the row
-	let mut cols = if input_s.contains("|") {
+	let cols = if input_s.contains("|") {
 		let cols_no_index: Vec<&str> = input_s.split("|").collect();
 		cols_no_index[1].split_whitespace()
 	} else {
@@ -232,59 +191,59 @@ fn cols_from_string(input_s: &str, c: usize) -> Result<Vec<&str>, AlcError> {
 
 impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, KeycodeKey> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write_col_indexes(f, C, false);
+		write_col_indexes(f, C, false)?;
 		for (i, row) in self.layer.rows_iter().enumerate() {
-			write!(f, "{}|", i);
+			write!(f, "{}|", i)?;
 			for element in row {
-				write!(f, "{}", element);
-				write!(f, " ");
+				write!(f, "{}", element)?;
+				write!(f, " ")?;
 			}
-			writeln!(f);
+			writeln!(f)?;
 		}
-		write!(f, "")
+		Ok(())
     }
 }
 impl<const R: usize, const C: usize> fmt::Binary for Layer<R, C, KeycodeKey> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write_col_indexes(f, C, true);
+		write_col_indexes(f, C, true)?;
 		for (i, row) in self.layer.rows_iter().enumerate() {
-			write!(f, "{}|", i);
+			write!(f, "{}|", i)?;
 			for element in row {
-				write!(f, "{:b}", element);
-				write!(f, " ");
+				write!(f, "{:b}", element)?;
+				write!(f, " ")?;
 			}
-			writeln!(f);
+			writeln!(f)?;
 		}
-		write!(f, "")
+		Ok(())
     }
 }
 // there should be a smarter way to do this
 impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, f32> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write_col_indexes(f, C, false);
+		write_col_indexes(f, C, false)?;
 		for (i, row) in self.layer.rows_iter().enumerate() {
-			write!(f, "{}|", i);
+			write!(f, "{}|", i)?;
 			for element in row {
-				write!(f, "{:>4.2}", element);
-				write!(f, " ");
+				write!(f, "{:>4.2}", element)?;
+				write!(f, " ")?;
 			}
-			writeln!(f);
+			writeln!(f)?;
 		}
-		write!(f, "")
+		Ok(())
     }
 }
 
 /// Remember 4 is a magic number for keycodes. The moveability and symmetric flags add 3 characters (_00)
-fn write_col_indexes(f: &mut fmt::Formatter, c: usize, is_binary: bool) -> () {
-	write!(f, "  ");
+fn write_col_indexes(f: &mut fmt::Formatter, c: usize, is_binary: bool) -> fmt::Result {
+	write!(f, "  ")?;
 	for k in 0..c {
 		if is_binary {
-			write!(f, "{:>7}", k);
+			write!(f, "{:>7}", k)?;
 		} else {
-			write!(f, "{:>4}", k);
+			write!(f, "{:>4}", k)?;
 		}
 		
-		write!(f, " ");
+		write!(f, " ")?;
 	}
 	// writeln!(f);
 	// write!(f, "  ");
@@ -292,7 +251,8 @@ fn write_col_indexes(f: &mut fmt::Formatter, c: usize, is_binary: bool) -> () {
 	// 	write!(f, "{:>3}", "-");
 	// 	write!(f, " ");
 	// }
-	writeln!(f);
+	writeln!(f)?;
+	Ok(())
 }
 
 
@@ -331,7 +291,6 @@ mod tests {
 
 	#[test]
 	fn test_init_random() {
-		let mut rng = StdRng::seed_from_u64(0);
 		let random_layer = Layer::<2, 3, KeycodeKey>::init_blank();
 		assert_eq!(random_layer.get(0, 0).unwrap().value(), _NO);
 	}
@@ -347,7 +306,6 @@ mod tests {
 
 	#[test]
 	fn test_randomize() {
-		let mut rng = StdRng::seed_from_u64(0);
 		let mut layer = Layer::<3, 2, KeycodeKey>::init_blank();
 		layer.get_mut(0, 0).unwrap().set_is_symmetric(true);
 		layer.get_mut(0, 1).unwrap().set_is_symmetric(true); // set the corresponding slot to be symmetric to continue
@@ -373,7 +331,6 @@ mod tests {
 
 	#[test]
 	fn test_displaying_things() {
-		let mut rng = StdRng::seed_from_u64(0);
 		let mut layer = Layer::<5, 6, KeycodeKey>::init_blank();
 		layer.get_mut(0, 0).unwrap().set_value(_ENT);
 		layer.get_mut(0, 0).unwrap().set_is_moveable(false);

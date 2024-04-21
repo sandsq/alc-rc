@@ -86,10 +86,10 @@ impl TryFrom<&str> for KeycodeKey {
 			key.set_is_symmetric(symm_flag);
 
 			if symm_flag {
-				if let _LS(layer_num) = key.value() {
+				if let _LS(_layer_num) = key.value() {
 					return Err(AlcError::InvalidKeycodeKeyFromString(String::from(key_string), String::from("don't set a layer switch key to be symmetric due to the additional complexity; this may change in the future")));
 				}
-				if let _LST(l1, l2) = key.value() {
+				if let _LST(_l1, _l2) = key.value() {
 					return Err(AlcError::InvalidKeycodeKeyFromString(String::from(key_string), String::from("don't set a layer switch key to be symmetric due to the additional complexity; this may change in the future")));
 				}
 			}
@@ -123,7 +123,7 @@ impl fmt::Display for KeycodeKey {
 		let value_to_display = match self.value {
 			_NO => format!("_"),
 			_LS(i) => format!("LS{}", i),
-			_LST(i, j) => format!("_"), //format!("LST{}_{}", i, j),
+			_LST(_i, _j) => format!("_"), //format!("LST{}_{}", i, j),
 			_ => str_to_display,
 		};
 		write!(f, "{:>4}", value_to_display)
@@ -138,7 +138,7 @@ impl fmt::Binary for KeycodeKey {
 		let value_to_display = match self.value {
 			_NO => format!("_"),
 			_LS(i) => format!("LS{}", i),
-			_LST(i, j) => format!("_"), //format!("LST{}_{}", i, j),
+			_LST(_i, _j) => format!("_"), //format!("LST{}_{}", i, j),
 			_ => str_to_display,
 		};
         write!(f, "{:>4}_{}{}", value_to_display, m, s)
@@ -147,17 +147,17 @@ impl fmt::Binary for KeycodeKey {
 impl Randomizeable for KeycodeKey {
 	fn is_randomizeable(&self) -> bool {
 		match self.value {
-			_LS(i) => return false,
-			_LST(i, j) => return false,
+			_LS(_i) => return false,
+			_LST(_i, _j) => return false,
 			_ => (),
 		}
 		match self.is_moveable {
-			true => return true,
+			true => (),
 			false => return false,
 		}
 		match self.is_symmetric {
-			true => return true,
-			false => return false,
+			true => return false,
+			false => return true,
 		}
 	}
 }
@@ -172,8 +172,8 @@ impl KeyValue for f32 {
 
 pub struct PhysicalKey {
 	text: String,
-	x: f32,
-	y: f32,
+	_x: f32,
+	_y: f32,
 }
 impl KeyValue for PhysicalKey {
 	type Item = String;

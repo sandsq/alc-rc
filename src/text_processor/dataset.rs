@@ -1,17 +1,15 @@
-use std::fmt;
-use std::fs::{metadata, read_dir};
+use std::fs::read_dir;
 use std::path::PathBuf;
 use std::collections::HashMap;
-use tqdm::tqdm;
 
-use super::frequency_holder::{Frequencies, SingleGramFrequencies, TopFrequenciesToTake::{self, *}};
-use super::keycode::{Keycode::*, KeycodeOptions};
-use super::ngram::*;
+use crate::alc_error::AlcError;
+
+use super::frequency_holder::{Frequencies, SingleGramFrequencies, TopFrequenciesToTake};
+use super::keycode::KeycodeOptions;
 
 #[derive(Debug, PartialEq, thiserror::Error)]
 pub enum FrequencyDatasetError {
-	#[error("expected {0} to be a directory")]
-	ExpectedDirectoryError(PathBuf)
+
 }
 
 // #[derive(Debug, PartialEq)]
@@ -32,21 +30,21 @@ impl FrequencyDataset<u32> {
 	}
 
 	/// Because some ngrams are so infrequent and would only serve to increase computation time without affecting layout score very much, `top_n_to_take` allows you to choose how many of the most frequent ngrams you want to include.
-	pub fn from_dir(dir: PathBuf, max_ngram_size: usize, top_frequencies_to_take: TopFrequenciesToTake, options: &KeycodeOptions) -> Result<Self, FrequencyDatasetError> {
+	pub fn from_dir(dir: PathBuf, max_ngram_size: usize, top_frequencies_to_take: TopFrequenciesToTake, options: &KeycodeOptions) -> Result<Self, AlcError> {
 		let metadata = dir.metadata().unwrap();
 		if !metadata.is_dir() {
-			Err(FrequencyDatasetError::ExpectedDirectoryError(dir))
+			Err(AlcError::ExpectedDirectoryError(dir))
 		} else {
 			// be a bit lazy for now and don't check for directories recursively
 			let mut ngram_frequencies: HashMap<usize, SingleGramFrequencies<u32>> = Default::default();
 			for n in 1..=max_ngram_size {
 				ngram_frequencies.insert(n, SingleGramFrequencies::new(n));
 			}
-			for n in tqdm(1..=max_ngram_size) {
+			for n in 1..=max_ngram_size {
 				let files = read_dir(dir.clone()).unwrap();
-				for file in tqdm(files) {
-					let single_gram_frequencies = SingleGramFrequencies::<u32>::try_from_file(file.unwrap().path(), n, options).unwrap();
-					ngram_frequencies.get_mut(&n).unwrap().combine_with(single_gram_frequencies);
+				for file in files {
+					let single_gram_frequencies = SingleGramFrequencies::<u32>::try_from_file(file.unwrap().path(), n, options)?;
+					ngram_frequencies.get_mut(&n).unwrap().combine_with(single_gram_frequencies).unwrap(); // 
 				}
 				ngram_frequencies.get_mut(&n).unwrap().take_top_frequencies(top_frequencies_to_take.clone());
 			}
@@ -64,7 +62,11 @@ impl FrequencyDataset<u32> {
 
 #[cfg(test)]
 mod tests {
+	use crate::text_processor::keycode::Keycode::*;
+	use crate::text_processor::ngram::Ngram;
 	use super::*;
+	use TopFrequenciesToTake::*;
+	
 
 	#[test]
 	fn test_from_directory() {

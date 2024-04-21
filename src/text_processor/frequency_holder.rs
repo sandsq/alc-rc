@@ -102,8 +102,11 @@ impl SingleGramFrequencies<u32> {
 		Some(SingleGramFrequencies { frequencies: ngram_to_counts, n: n })
 	}
 
-	pub fn try_from_file<P>(filename: P, n: usize, options: &KeycodeOptions) -> Result<SingleGramFrequencies<u32>, io::Error> where P: AsRef<Path> {
-		let file = File::open(filename)?;
+	pub fn try_from_file<P>(filename: P, n: usize, options: &KeycodeOptions) -> Result<SingleGramFrequencies<u32>, AlcError> where P: AsRef<Path> {
+		let file = match File::open(filename) {
+			Ok(v) => v,
+			Err(e) => panic!("{}", e)
+		};
 		let lines = io::BufReader::new(file).lines();
 		let mut ngram_to_counts = Self::new(n);
 		for line in lines.flatten() {
