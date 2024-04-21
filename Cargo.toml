@@ -3,6 +3,9 @@ name = "alc"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+debug = true
+
 [dependencies]
 array2d = "0.3.2"
 delegate = "0.12.0"

@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::time::SystemTime;
 use rand::prelude::*;
 use rand::Rng;
 use tqdm::tqdm;
@@ -17,14 +18,14 @@ use self::keycode::KeycodeOptions;
 use self::keycode::{Keycode, generate_default_keycode_set};
 
 pub struct LayoutOptimizerConfig {
-	population_size: u32,
-	generation_count: u32,
-	fitness_cutoff: f32, // keep top x% for the next generation
-	swap_weight: f32,
-	replace_weight: f32,
-	dataset_weight: Vec<f32>, 
-	valid_keycodes: Vec<Keycode>,
-	top_n_ngrams_to_take: usize,
+	pub population_size: u32,
+	pub generation_count: u32,
+	pub fitness_cutoff: f32, // keep top x% for the next generation
+	pub swap_weight: f32,
+	pub replace_weight: f32,
+	pub dataset_weight: Vec<f32>, 
+	pub valid_keycodes: Vec<Keycode>,
+	pub top_n_ngrams_to_take: usize,
 }
 impl Default for LayoutOptimizerConfig {
 	fn default() -> Self {
@@ -41,11 +42,11 @@ impl Default for LayoutOptimizerConfig {
 }
 
 pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, C> {
-	base_layout: Layout<R, C>,
-	effort_layer: Layer<R, C, f32>,
+	pub base_layout: Layout<R, C>,
+	pub effort_layer: Layer<R, C, f32>,
 	score_function: S,
 	datasets: Vec<FrequencyDataset<u32>>,
-	config: LayoutOptimizerConfig,
+	pub config: LayoutOptimizerConfig,
 	operation_counter: Cell<(u32, u32, u32)>, // swaps, replacements, nothings
 }
 impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> {
@@ -205,14 +206,30 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			return Err(AlcError::DatasetWeightsMismatchError(self.datasets.len(), self.config.dataset_weight.len()));
 		}
 		println!("base layout\n{:b}", self.base_layout);
+
+		let mut avg_score_time = 0.0;
+		let mut avg_take_time = 0.0;
+		let mut avg_gen_time = 0.0;
+
+		let mut now = SystemTime::now();
 		let mut layouts_and_scores = self.generate_and_score_initial_population(rng);
 		let (mut best_layouts, mut best_scores) = self.take_best_layouts(layouts_and_scores);
 		println!("initial, best score: {}, worst score {}", best_scores[0], best_scores[best_scores.len()-1]);
 		let mut layouts = self.generate_new_layouts(rng, best_layouts);
+		let initial_time = now.elapsed().unwrap().as_secs_f32();
+	
 		for i in tqdm(0..self.config.generation_count) {
+			now = SystemTime::now();
 			layouts_and_scores = self.score_population(&layouts);
+			avg_score_time += now.elapsed().unwrap().as_secs_f32();
+			
+			now = SystemTime::now();
 			(best_layouts, best_scores) = self.take_best_layouts(layouts_and_scores);
+			avg_take_time +=  now.elapsed().unwrap().as_secs_f32();
+
+			now = SystemTime::now();
 			layouts = self.generate_new_layouts(rng, best_layouts);
+			avg_gen_time +=  now.elapsed().unwrap().as_secs_f32();
 			// println!("after {} generation(s), layout\n{}\n score: {}", i, printclone[0], best_scores[0]);
 			println!("after {} generation(s), best score: {}, worst score {}", i, best_scores[0], best_scores[best_scores.len()-1]);
 		}
@@ -228,6 +245,10 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			println!("issue with symmetric keys")
 		}
 		println!("operations: {:?}", self.operation_counter);
+		println!("initial time: {}", initial_time);
+		println!("avg score time: {}", avg_score_time / self.config.generation_count as f32);
+		println!("avg take top time: {}", avg_take_time / self.config.generation_count as f32);
+		println!("avg gen time: {}", avg_gen_time / self.config.generation_count as f32);
 		Ok(final_layout)
 		// symmetry check
 		// layer reachability check
@@ -299,6 +320,7 @@ mod tests {
 	}
 
 	#[test]
+	#[ignore = "expensive"] // cargo test -- --ignored to run ignored, cargo test -- --include-ignored to run all
 	fn test_optimize() {
 		let mut lo = LayoutOptimizer::<4, 12, SimpleScoreFunction>::default();
 		// let mut config = LayoutOptimizerConfig::default();
