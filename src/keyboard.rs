@@ -4,7 +4,7 @@ use std::fmt;
 pub mod key;
 pub mod layer;
 pub mod layout;
-
+pub mod default_layouts;
 
 
 /// Describes position in a keyboard layout (i.e., a collection of layers). For a single layer, layer_index is ignored.

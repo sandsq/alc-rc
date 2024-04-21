@@ -33,7 +33,7 @@ impl Default for LayoutOptimizerConfig {
 			population_size: 5, 
 			generation_count: 1,
 			fitness_cutoff: 0.1,
-			swap_weight: 9.0,
+			swap_weight: 4.0,
 			replace_weight: 1.0,
 			dataset_weight: vec![1.0],
 			valid_keycodes: generate_default_keycode_set(&KeycodeOptions::default()).into_iter().collect(),

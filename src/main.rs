@@ -1,13 +1,12 @@
 use rand::{rngs::StdRng, SeedableRng};
 
-
 use alc::{objective::scoring::SimpleScoreFunction, optimizer::LayoutOptimizer};
 
 
 
 
 fn main() {
-
+	// cargo flamegraph --bin=alc --palette=rust --output=data/performance/0_1_0.svg
 	let mut lo = LayoutOptimizer::<4, 12, SimpleScoreFunction>::default();
 	// let mut config = LayoutOptimizerConfig::default();
 	lo.config.generation_count = 20;
