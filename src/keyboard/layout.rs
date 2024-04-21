@@ -21,9 +21,9 @@ type KeycodePathMap = HashMap<Keycode, Vec<LayoutPositionSequence>>;
 #[derive(Debug, PartialEq, Clone)]
 pub struct Layout<const R: usize, const C: usize> {
 	layers: Vec<Layer<R, C, KeycodeKey>>,
-	keycode_path_map: KeycodePathMap,
+	keycode_pathmap: KeycodePathMap,
 }
-impl<const R: usize, const C: usize> Layout<R, C> {
+impl<'a, const R: usize, const C: usize> Layout<R, C> {
 	// pub fn get(&self, layer_index: usize, row_index: usize, col_index: usize) -> Option<&KeycodeKey> {
 	// 	self.layers.get(layer_index)?.get(row_index, col_index)
 	// }
@@ -37,7 +37,10 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		self.layers.get_mut(lp.layer_index)?.get_mut(lp.row_index, lp.col_index)
 	}
 	pub fn paths_to_keycode(&self, k: Keycode) -> Option<&Vec<LayoutPositionSequence>> {
-		self.keycode_path_map.get(&k)
+		if self.keycode_pathmap.len() == 0 {
+			panic!("Error for the developer! Somehow created a layout without creating a pathmap.");
+		}
+		self.keycode_pathmap.get(&k)
 	}
 	pub fn symmetric_position(&self, lp: LayoutPosition) -> LayoutPosition {
 		self.layers.get(0).unwrap().symmetric_position(lp) // would panic if layout is empty but that shouldn't normally be possible
@@ -52,8 +55,9 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			layers[0].get_mut_row_major(j).unwrap().set_value(_LS(j + 1));
 			layers[j + 1].get_mut_row_major(j).unwrap().set_value(_LST(j + 1, 0));
 		}
-		let keycodes_to_positions = keycode_path_map_from_layout::<R, C>(layers.clone()).unwrap();
-		Layout { layers: layers, keycode_path_map: keycodes_to_positions }
+		let mut layout = Layout { layers: layers, keycode_pathmap: KeycodePathMap::default() };
+		layout.generate_pathmap().unwrap();
+		layout
 	}
 
 
@@ -75,8 +79,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		if !used_all_keycodes_flag {
 			println!("Warning: the keycodes {:?} may not have made it into the layout since they were left over. This could happen if the layout is too small or if you prefilled a lot of immovable spots.", valid_keycodes_to_draw_from)
 		}
-		let keycodes_to_positions = keycode_path_map_from_layout::<R, C>(self.layers.clone())?;
-		self.keycode_path_map = keycodes_to_positions;
+		self.generate_pathmap()?;
 		Ok(())
 	}
 
@@ -216,7 +219,12 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			k2.replace_with(&k1_clone);
 			swap_happened = true;
 		}
-		self.keycode_path_map = keycode_path_map_from_layout(self.layers.clone()).unwrap();
+		self.generate_pathmap().unwrap();
+		// self.keycode_pathmap = keycode_path_map_from_layout(self.layers.clone()).unwrap();
+		if cfg!(debug_assertions) {
+			// println!("verifying keycode path map during debugging");
+			self.verify_pathmap_correctness().unwrap();
+		}
 		swap_happened
 	}
 
@@ -224,8 +232,8 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		// make use of optimized keycode to position remapping computation where only the affected keycodes get are remapped
 		#[allow(unused_assignments)]
 		let mut replace_happened = false;
-		let k = &self[p];
-		if self.keycode_path_map.get(&k.value()).unwrap().len() == 1 {
+		let k = self[p];
+		if self.keycode_pathmap[&k.value()].len() == 1 {
 			panic!("Error for the developer! There is only one way to reach {}, not allowed to replace.", k)
 		}
 		if let _LST(_i, _j) = k.value() {
@@ -239,7 +247,8 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		}
 		self.get_mut_from_layout_position(p).unwrap().set_value(value);
 		replace_happened = true;
-		self.keycode_path_map = keycode_path_map_from_layout(self.layers.clone()).unwrap();
+		self.generate_pathmap().unwrap();
+		// self.keycode_pathmap = keycode_path_map_from_layout(self.layers.clone()).unwrap();
 		
 		replace_happened
 	}
@@ -308,12 +317,12 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		}
 	}
 
-	pub fn gen_valid_replace(&self, rng: &mut impl Rng) -> Option<LayoutPosition> {
+	pub fn generate_valid_replace_position(&self, rng: &mut impl Rng) -> Option<LayoutPosition> {
 		let mut p = self.generate_random_moveable_position(rng).unwrap();
 		let mut k = &self[p];
 		let fallback_count = 100;
 		let mut count = 0;
-		let paths = match self.keycode_path_map.get(&k.value()) {
+		let paths = match self.keycode_pathmap.get(&k.value()) {
 			Some(v) => v,
 			None => return None,
 		};
@@ -326,6 +335,38 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			}
 		}
 		Some(p)
+	}
+
+	pub fn verify_pathmap_correctness(&self) -> Result<bool, AlcError> {
+		let pathmap = &self.keycode_pathmap;
+		let mut visited_positions: Vec<LayoutPosition> = vec![];
+		for (pathmap_keycode, paths) in pathmap {
+			for path in paths {
+				let last_position = path.last().unwrap();
+				visited_positions.push(*last_position);
+				let found_keycode = &self[*last_position].value();
+				if *pathmap_keycode != *found_keycode {
+					return Err(AlcError::IncorrectPathmapError(*pathmap_keycode, *last_position, *found_keycode));
+				}
+			}
+		}
+		for layer_index in 0..self.layers.len() {
+			for row_index in 0..R {
+				for col_index in 0..C {
+					let current_position = LayoutPosition::new(layer_index, row_index, col_index);
+					let current_key_value = self[current_position].value();
+					if visited_positions.contains(&current_position) {
+						continue;
+					} else if discriminant(&current_key_value) == discriminant(&_LST(0, 0)) {
+						continue;
+					} else {
+						return Err(AlcError::IncompletePathmapError(current_key_value, current_position));
+					}
+				}
+			}
+		}
+
+		Ok(true)
 	}
 
 	/// layer switches, symmetry
@@ -377,58 +418,47 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		(incorrect_layer_switch_locations, incorrect_symmetry_locations)
 	}
 
-}
 
-fn keycode_path_map_from_layout<const R: usize, const C: usize>(layers: Vec<Layer<R, C, KeycodeKey>>) -> Result<KeycodePathMap, AlcError> {
-	let mut keycode_path_map: KeycodePathMap = Default::default();
-	for (layer_num, layer) in layers.iter().enumerate() {
-		for r in 0..R {
-			for c in 0..C {
-				let key = &layer[(r, c)];
-				let key_value = key.value();
-				let layout_position = LayoutPosition::new(layer_num, r, c);
-				let layout_position_sequence = LayoutPositionSequence::from_vector(vec![layout_position.clone()]);
-				if layer_num == 0 {
-					keycode_path_map.entry(key_value).or_insert(vec![]).push(layout_position_sequence);
-				} else {
-					match key_value {
-						_LS(_i) => {
-							// keycode_path_map.entry(key_value).or_insert(vec![]).push(layout_position_sequence);
-							// // if _LS(i) is already in
-							// if keycode_path_map.contains_key(&key_value) {
-							// 	let path_end = keycode_path_map.get(&key_value).unwrap().last().unwrap().last().unwrap();
-							// 	// but the previous _LS(i) is the same layer, then it is another _LS(i) that should be added
-							// 	if layer_num == path_end.layer_index {
-							// 		keycode_path_map.entry(key_value).or_insert(vec![]).push(layout_position_sequence);
-							// 	}
-							// } else {
-							// 	// if _LS(i) is not already in
-							// 	keycode_path_map.entry(key_value).or_insert(vec![]).push(layout_position_sequence);
-							// }
-						},
-						_LST(_i, _j) => continue,
-						_ => (),
-						// keycode_path_map.entry(key_value).or_insert(vec![]).push(layout_position_sequence),
-					}
-					let map_clone = keycode_path_map.clone();
-					// check that layer_num is reachable. If layer is currently not reachable, could pass until after the rest of the layout is processed in case there is a downward layer move, but not going to implement that now since QMK does not recommend having layer switches like that
-					let sequences_to_reach_layer = match map_clone.get(&_LS(layer_num)) {
-						Some(v) => v,
-						None => return Err(AlcError::LayerAccessError(layer_num)),
-					};
-					// loop through all sequences that can reach _LS(i)
-					for s_index in 0..sequences_to_reach_layer.len() {
-						let mut seq_clone = sequences_to_reach_layer.clone();
-						let new_seq = seq_clone.get_mut(s_index).unwrap();
-						// add the position of the current key we are on at the end
-						new_seq.push(layout_position.clone());
-						keycode_path_map.entry(key_value).or_insert(vec![]).push(new_seq.clone());
+
+	fn generate_pathmap(&mut self) -> Result<(), AlcError> {
+		let mut pathmap = KeycodePathMap::default();
+		let mut layer_switch_pathmap =  KeycodePathMap::default();
+		for (layer_num, layer) in self.layers.iter().enumerate() {
+			for r in 0..R {
+				for c in 0..C {
+					let key = &layer[(r, c)];
+					let key_value = key.value();
+					let layout_position = LayoutPosition::new(layer_num, r, c);
+					let layout_position_sequence = LayoutPositionSequence::from_vector(vec![layout_position.clone()]);
+					if layer_num == 0 {
+						match key_value {
+							_LS(_i) => layer_switch_pathmap.entry(key_value).or_insert(vec![]).push(layout_position_sequence),
+							_ => pathmap.entry(key_value).or_insert(vec![]).push(layout_position_sequence),
+						}
+					} else if discriminant(&key_value) == discriminant(&_LST(0, 0)) {
+						continue;
+					} else {
+						// check that layer_num is reachable. If layer is currently not reachable, could pass until after the rest of the layout is processed in case there is a downward layer move, but not going to implement that now since QMK does not recommend having layer switches like that
+						let sequences_to_reach_layer = &layer_switch_pathmap.clone()[&_LS(layer_num)];
+						for sequence in sequences_to_reach_layer {
+							let mut sequence_clone = sequence.clone();
+							sequence_clone.push(layout_position);
+							match key_value {
+								_LS(_i) => layer_switch_pathmap.entry(key_value).or_insert(vec![]).push(sequence_clone),
+								_ => pathmap.entry(key_value).or_insert(vec![]).push(sequence_clone),
+							}
+							
+						}
 					}
 				}
 			}
-		}	
+		}
+		for (key, value) in layer_switch_pathmap {
+			pathmap.insert(key, value);
+		}
+		self.keycode_pathmap = pathmap;
+		Ok(())
 	}
-	Ok(keycode_path_map)
 }
 
 impl<const R: usize, const C: usize> TryFrom<&str> for Layout<R, C> {
@@ -457,9 +487,9 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layout<R, C> {
 			}
 		}
 
-		let keycodes_to_positions = keycode_path_map_from_layout::<R, C>(layers.clone())?;
-		let layout = Layout { layers, keycode_path_map: keycodes_to_positions};
-		
+		let mut layout = Layout { layers, keycode_pathmap: KeycodePathMap::default() };
+		layout.generate_pathmap()?;
+
 		let (v1, v2) = layout.verify_layout_correctness();
 		if v1.len() > 0 {
 			return Err(AlcError::LayoutLayerSwitchError(v1));
@@ -495,13 +525,13 @@ impl<const R: usize, const C: usize> fmt::Display for Layout<R, C> {
 			writeln!(f, "{}", layer)?;
 		}
 		if f.alternate() {
-			for k in self.keycode_path_map.keys() {
+			for k in self.keycode_pathmap.keys() {
 				let key_text = match k {
 					_LS(i) => format!("_LS{}", i),
 					_ => k.to_string(),
 				};
 				write!(f, "{}: ", key_text)?;
-				for seq in self.keycode_path_map.get(k).unwrap().iter() {
+				for seq in self.keycode_pathmap[k].iter() {
 					write!(f, "{}, ", seq)?;
 				}
 				writeln!(f, "")?;
@@ -517,13 +547,13 @@ impl<const R: usize, const C: usize> fmt::Binary for Layout<R, C> {
 			writeln!(f, "{:b}", layer)?;
 		}
 		if f.alternate() {
-			for k in self.keycode_path_map.keys() {
+			for k in self.keycode_pathmap.keys() {
 				let key_text = match k {
 					_LS(i) => format!("_LS{}", i),
 					_ => k.to_string(),
 				};
 				write!(f, "{}: ", key_text)?;
-				for seq in self.keycode_path_map.get(k).unwrap().iter() {
+				for seq in self.keycode_pathmap[k].iter() {
 					write!(f, "{}, ", seq)?;
 				}
 				writeln!(f, "")?;
@@ -631,28 +661,43 @@ mod tests {
 		println!("{:#}", layout);	
 	}
 
-	// #[test]
-	// fn test_swap_two() {
-	// 	let mut layout = Layout::<1, 4>::try_from("
-	// 		___Layer 0___
-	// 		A_10 B_10 C_10 LS1_10
-	// 		___Layer 1___
-	// 		D_10 E_10 H_10 LS1_10
-	// 	").unwrap();
-	// 	println!("{}", layout);
-	// 	unsafe { 
-	// 		let k1 = layout.get_mut_from_layout_position(&LayoutPosition::for_layout(0, 0, 0)).unwrap() as *mut KeycodeKey;
-	// 		let k2 = layout.get_mut_from_layout_position(&LayoutPosition::for_layout(0, 0, 2)).unwrap() as *mut KeycodeKey;
-	// 		swap_two(k1, k2) 
-	// 	};
-	// 	assert_eq!(layout.get(0, 0, 0).unwrap().value(), _C);
-	// 	assert_eq!(layout.get(0, 0, 2).unwrap().value(), _A);
-		
-	// 	// unsafe {layout.swap_two(&LayoutPosition::for_layout(0, 0, 1), &LayoutPosition::for_layout(1, 0, 2)) };
-	// 	// assert_eq!(layout.get(0, 0, 1).unwrap().value(), _H);
-	// 	// assert_eq!(layout.get(1, 0, 2).unwrap().value(), _B);
-	// 	println!("{}", layout);
-	// }
+	#[test]
+	fn test_pathmap_correctness() {
+		let mut layout = Layout::<3, 4>::try_from("
+			___Layer 0___
+			LS1_10 A_10 B_10 C_10
+			E_10 Z_10 H_10 C_10
+			M_10 E_10 B_10 D_10
+			___Layer 1___
+			__10 __10 J_10 L_00
+			SFT_11 K_10 X_10 SFT_11
+			M_10 E_10 B_10 D_10
+			M_10 E_10 B_10 D_10
+		").unwrap();
+		assert!(layout.verify_pathmap_correctness().unwrap());
+		layout.keycode_pathmap.remove(&_A);
+		match layout.verify_pathmap_correctness() {
+			Ok(_v) => panic!("x"),
+			Err(e) => assert_eq!(e, AlcError::IncompletePathmapError(_A, LayoutPosition::new(0, 0, 1))),
+		};
+		let seq = LayoutPositionSequence::from_tuples(vec![(0, 0, 1)]);
+		layout.keycode_pathmap.insert(_A, vec![seq]);
+		layout.verify_pathmap_correctness().unwrap();
+
+		layout.keycode_pathmap.get_mut(&_B).unwrap().pop();
+		match layout.verify_pathmap_correctness() {
+			Ok(_v) => panic!("x"),
+			Err(e) => assert_eq!(e, AlcError::IncompletePathmapError(_B, LayoutPosition::new(1, 2, 2))), // pop removes the last element
+		};
+		layout.keycode_pathmap.get_mut(&_B).unwrap().push(LayoutPositionSequence::from_tuples(vec![(1, 2, 2)]));
+		layout.verify_pathmap_correctness().unwrap();
+
+		layout.get_mut(1, 2, 1).unwrap().set_value(_A);
+		match layout.verify_pathmap_correctness() {
+			Ok(_v) => panic!("x"),
+			Err(e) => assert_eq!(e, AlcError::IncorrectPathmapError(_E, LayoutPosition::new(1, 2, 1), _A)),
+		}
+	}
 
 	#[test]
 	fn test_swap() {

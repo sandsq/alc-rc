@@ -2,6 +2,7 @@ use core::num;
 use std::path::PathBuf;
 
 use crate::keyboard::LayoutPosition;
+use crate::text_processor::keycode::Keycode;
 use crate::text_processor::ngram::Ngram;
 
 #[derive(Debug, PartialEq, thiserror::Error)]
@@ -49,4 +50,8 @@ pub enum AlcError {
 	#[error("could not find valid swap after {0} tries, {1}")]
 	SwapFallbackError(u32, String),
 
+	#[error("pathmap says {0} should be at {1}, but found {2} instead")]
+	IncorrectPathmapError(Keycode, LayoutPosition, Keycode),
+	#[error("found {0} at {1} in the keymap, but path to the location is not present in pathmap")]
+	IncompletePathmapError(Keycode, LayoutPosition),
 }

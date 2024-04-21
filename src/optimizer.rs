@@ -52,7 +52,7 @@ pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, 
 	pub config: LayoutOptimizerConfig,
 	operation_counter: Cell<(u32, u32, u32)>, // swaps, replacements, nothings
 }
-impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> {
+impl<'a, const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> {
 	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f32>, score_function: S, datasets: Vec<FrequencyDataset<u32>>, config: LayoutOptimizerConfig, operation_counter: Cell<(u32, u32, u32)>) -> Self {
 		LayoutOptimizer { base_layout, effort_layer, score_function, datasets, config, operation_counter }
 	}
@@ -156,7 +156,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 					self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1));
 				}
 			} else {
-				if let Some(p) = layout.gen_valid_replace(rng) {
+				if let Some(p) = layout.generate_valid_replace_position(rng) {
 					// println!("valid keycodes {:?}", valid_keycodes);
 					let keycode = valid_keycodes.choose(rng).unwrap();
 					let replace_happened = layout.replace(p, *keycode);
@@ -189,7 +189,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 					self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1));
 				}
 			} else {
-				if let Some(p) = new_layout.gen_valid_replace(rng) {
+				if let Some(p) = new_layout.generate_valid_replace_position(rng) {
 					let keycode = valid_keycodes.choose(rng).unwrap();
 					let replace_happened = new_layout.replace(p, *keycode);
 					let op_counter = self.operation_counter.get();
@@ -260,7 +260,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		
 	}
 }
-impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
+impl<'a> Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
 	fn default() -> Self {
 		let base_layout = Layout::<2, 4>::init_blank(2);
 		let effort_layer = Layer::<2, 4, f32>::try_from("
@@ -274,7 +274,7 @@ impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
 	}
 }
 
-impl Default for LayoutOptimizer<4, 12, SimpleScoreFunction> {
+impl<'a> Default for LayoutOptimizer<4, 12, SimpleScoreFunction> {
 	fn default() -> Self {
 		let base_layout = Layout::<4, 12>::default();
 		let effort_layer = Layer::<4, 12, f32>::default();
