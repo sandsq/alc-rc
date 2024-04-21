@@ -25,22 +25,18 @@ pub struct Layout<const R: usize, const C: usize> {
 }
 impl<const R: usize, const C: usize> Layout<R, C> {
 	pub fn get(&self, layer_index: usize, row_index: usize, col_index: usize) -> Option<&KeycodeKey> {
-		// the first get isn't an Array2DError since it's on a vector, but deal with that later.
 		self.layers.get(layer_index)?.get(row_index, col_index)
 	}
 	pub fn get_from_layout_position(&self, lp: &LayoutPosition) -> Option<&KeycodeKey> {
-		// the first get isn't an Array2DError since it's on a vector, but deal with that later.
 		self.layers.get(lp.layer_index)?.get(lp.row_index, lp.col_index)
 	}
 	pub fn get_mut(&mut self, layer_index: usize, row_index: usize, col_index: usize) -> Option<&mut KeycodeKey> {
-		// the first get_mut isn't an Array2DError since it's on a vector, but deal with that later.
 		self.layers.get_mut(layer_index)?.get_mut(row_index, col_index)
 	}
 	pub fn get_mut_from_layout_position(&mut self, lp: &LayoutPosition) -> Option<&mut KeycodeKey> {
-		// the first get_mut isn't an Array2DError since it's on a vector, but deal with that later.
 		self.layers.get_mut(lp.layer_index)?.get_mut(lp.row_index, lp.col_index)
 	}
-	pub fn get_position_sequences_to_keycode(&self, k: Keycode) -> Option<&Vec<LayoutPositionSequence>> {
+	pub fn paths_to_keycode(&self, k: Keycode) -> Option<&Vec<LayoutPositionSequence>> {
 		self.keycode_path_map.get(&k)
 	}
 	pub fn symmetric_position(&self, lp: &LayoutPosition) -> LayoutPosition {
@@ -91,7 +87,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		let ngram_iter = ngram.clone().into_iter();
 		for keycode in ngram_iter {
 			// println!("output sequences {:?} at start,  keycode {}", output_sequences_to_ngram, keycode);
-			let sequences_to_keycode = match self.get_position_sequences_to_keycode(keycode) {
+			let sequences_to_keycode = match self.paths_to_keycode(keycode) {
 				Some(p) => p,
 				None => {
 					// println!("Warning: keycode {} is not typeable by the layout:\n{:#}\nIf this is unexpected, there is a bug somewhere.", keycode, self);
@@ -127,8 +123,8 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			// panic!("Error for the developer! Don't try to swap the same positions {} and {}.", p1, p2)
 			return false;
 		}
-		let k1 = self.get_from_layout_position(&p1).unwrap();
-		let k2 = self.get_from_layout_position(&p2).unwrap();
+		let k1 = &self[p1.clone()];
+		let k2 = &self[p2.clone()];
 		if !k1.is_moveable() || !k2.is_moveable() {
 			panic!("Error for the developer! Don't try to swap unmoveable positions.")
 		}
@@ -477,6 +473,13 @@ impl<const R: usize, const C: usize> Index<(usize, usize, usize)> for Layout<R, 
 	type Output = KeycodeKey;
 	fn index(&self, index: (usize, usize, usize)) -> &Self::Output {
 		&self.layers[index.0][(index.1, index.2)]
+	}
+}
+
+impl<const R: usize, const C: usize> Index<LayoutPosition> for Layout<R, C> {
+	type Output = KeycodeKey;
+	fn index(&self, index: LayoutPosition) -> &Self::Output {
+		&self.index((index.layer_index, index.row_index, index.col_index))
 	}
 }
 
