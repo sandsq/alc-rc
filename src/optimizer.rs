@@ -52,7 +52,7 @@ pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, 
 	pub config: LayoutOptimizerConfig,
 	operation_counter: Cell<(u32, u32, u32)>, // swaps, replacements, nothings
 }
-impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> {
+impl<'a, const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> {
 	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f32>, score_function: S, datasets: Vec<FrequencyDataset<u32>>, config: LayoutOptimizerConfig, operation_counter: Cell<(u32, u32, u32)>) -> Self {
 		LayoutOptimizer { base_layout, effort_layer, score_function, datasets, config, operation_counter }
 	}
@@ -244,9 +244,13 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let (v1, v2) = final_layout.verify_layout_correctness();
 		if v1.len() > 0 {
 			println!("issue with layer switches")
+		} else {
+			println!("layer switches checks passed")
 		}
 		if v2.len() > 0 {
 			println!("issue with symmetric keys")
+		} else {
+			println!("symmetric keys checks passed")
 		}
 		println!("operations: {:?}", self.operation_counter);
 		println!("initial time: {}", initial_time);
@@ -260,7 +264,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		
 	}
 }
-impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
+impl<'a> Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
 	fn default() -> Self {
 		let base_layout = Layout::<2, 4>::init_blank(2);
 		let effort_layer = Layer::<2, 4, f32>::try_from("
@@ -274,7 +278,7 @@ impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
 	}
 }
 
-impl Default for LayoutOptimizer<4, 12, SimpleScoreFunction> {
+impl<'a> Default for LayoutOptimizer<4, 12, SimpleScoreFunction> {
 	fn default() -> Self {
 		let base_layout = Layout::<4, 12>::default();
 		let effort_layer = Layer::<4, 12, f32>::default();

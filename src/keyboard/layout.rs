@@ -23,7 +23,7 @@ pub struct Layout<const R: usize, const C: usize> {
 	layers: Vec<Layer<R, C, KeycodeKey>>,
 	keycode_pathmap: KeycodePathMap,
 }
-impl<const R: usize, const C: usize> Layout<R, C> {
+impl<'a, const R: usize, const C: usize> Layout<R, C> {
 	// pub fn get(&self, layer_index: usize, row_index: usize, col_index: usize) -> Option<&KeycodeKey> {
 	// 	self.layers.get(layer_index)?.get(row_index, col_index)
 	// }
