@@ -119,6 +119,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 	/// returns true if a swap happened
 	pub fn swap(&mut self, p1: &LayoutPosition, p2: &LayoutPosition) -> bool {
 		// todo: make use of optimized keycode to position remapping computation where only the affected keycodes get are remapped
+		#[allow(unused_assignments)]
 		let mut swap_happened = false;
 
 		// Bunch of checks for issues that should be easier to resolve in whatever calls swap rather than within swap.
@@ -222,6 +223,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 
 	pub fn replace(&mut self, p: &LayoutPosition, value: Keycode) -> bool {
 		// make use of optimized keycode to position remapping computation where only the affected keycodes get are remapped
+		#[allow(unused_assignments)]
 		let mut replace_happened = false;
 		let k = self.get_from_layout_position(&p).unwrap();
 		if self.keycode_path_map.get(&k.value()).unwrap().len() == 1 {

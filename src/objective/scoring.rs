@@ -1,8 +1,6 @@
-use std::fmt::{self, Arguments};
 
-use crate::keyboard::{LayoutPosition, LayoutPositionSequence, layer::Layer, layout::Layout};
+use crate::keyboard::{LayoutPositionSequence, layer::Layer, layout::Layout};
 use crate::optimizer::LayoutOptimizerConfig;
-use crate:: text_processor::frequency_holder::SingleGramFrequencies;
 
 
 
@@ -13,8 +11,7 @@ pub trait Score<const R: usize, const C: usize> {
 pub struct SimpleScoreFunction {}
 
 impl<const R: usize, const C: usize> Score<R, C> for SimpleScoreFunction {
-	fn score_layout_position_sequence(&self, _layout: &Layout<R, C>, effort_layer: &Layer<R, C, f32>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> f32 {
-		let placeholder = config;
+	fn score_layout_position_sequence(&self, _layout: &Layout<R, C>, effort_layer: &Layer<R, C, f32>, layout_position_sequence: LayoutPositionSequence, _config: &LayoutOptimizerConfig) -> f32 {
 		let mut score = 0.0;
 		for layout_position in layout_position_sequence {
 			let effort_value = effort_layer.get_from_layout_position(&layout_position).unwrap(); // might need to deal with accessing invalid location
@@ -26,7 +23,9 @@ impl<const R: usize, const C: usize> Score<R, C> for SimpleScoreFunction {
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+	use crate::keyboard::LayoutPosition;
+
+use super::*;
 
 	#[test]
 	fn test_simple_score() {

@@ -1,28 +1,20 @@
 use std::cell::Cell;
-use std::cmp::max;
-use std::collections::HashSet;
-use std::collections::VecDeque;
-use std::fmt;
-use std::iter::zip;
 use rand::prelude::*;
 use rand::Rng;
 use tqdm::tqdm;
 use std::path::PathBuf;
-use rand::rngs::StdRng;
 
 
 use crate::alc_error::AlcError;
 use crate::keyboard::LayoutPosition;
-use crate::keyboard::LayoutPositionSequence;
-use crate::keyboard::{key::*, layout::*, layer::*};
-use crate::optimizer::ngram::Ngram;
+use crate::keyboard::{layout::*, layer::*};
 use crate::text_processor::*;
 use crate::objective::scoring::*;
 
 use self::dataset::FrequencyDataset;
 use self::frequency_holder::{SingleGramFrequencies, TopFrequenciesToTake::*};
 use self::keycode::KeycodeOptions;
-use self::keycode::{Keycode::{self, *}, generate_default_keycode_set};
+use self::keycode::{Keycode, generate_default_keycode_set};
 
 pub struct LayoutOptimizerConfig {
 	population_size: u32,
@@ -117,12 +109,11 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	
 
 	fn generate_and_score_initial_population(&self, rng: &mut impl Rng) -> Vec<(Layout<R, C>, f32)> {
-		let initial_population_size = self.config.population_size;
 		let valid_keycodes = &self.config.valid_keycodes;
 		let mut initial_population: Vec<(Layout<R, C>, f32)> = Default::default();
-		for i in 0..self.config.population_size {
+		for _i in 0..self.config.population_size {
 			let mut initial_layout = self.base_layout.clone();
-			initial_layout.randomize(rng, valid_keycodes);
+			initial_layout.randomize(rng, valid_keycodes).unwrap();
 			let initial_score = self.score_dataset(&initial_layout);
 			initial_population.push((initial_layout.clone(), initial_score));
 		}
@@ -132,7 +123,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	fn take_best_layouts(&self, mut population: Vec<(Layout<R, C>, f32)>) -> (Vec<Layout<R, C>>, Vec<f32>) {
     	population.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 		let num_to_take = (self.config.fitness_cutoff * (self.config.population_size as f32)).ceil() as usize;
-		population.split_off(num_to_take);
+		let _ = population.split_off(num_to_take); // the returned value is the low score ones
 		let (left, right): (Vec<Layout<R, C>>, Vec<f32>) =  population.into_iter().unzip();
 		// println!("scores {:?}", right);
 		(left, right)
@@ -143,7 +134,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let swap_threshold = self.config.swap_weight / (self.config.swap_weight + self.config.replace_weight);
 		let valid_keycodes = &self.config.valid_keycodes;
 		// modify surviving layouts
-		for mut layout in &mut layouts {
+		for layout in &mut layouts {
 			let roll: f32 = rng.gen();
 			if roll <= swap_threshold {
 				let (p1, p2) = match layout.generate_random_valid_swap(rng) {
@@ -216,11 +207,11 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		println!("base layout\n{:b}", self.base_layout);
 		let mut layouts_and_scores = self.generate_and_score_initial_population(rng);
 		let (mut best_layouts, mut best_scores) = self.take_best_layouts(layouts_and_scores);
+		println!("initial, best score: {}, worst score {}", best_scores[0], best_scores[best_scores.len()-1]);
 		let mut layouts = self.generate_new_layouts(rng, best_layouts);
-		for i in 0..self.config.generation_count {
+		for i in tqdm(0..self.config.generation_count) {
 			layouts_and_scores = self.score_population(&layouts);
 			(best_layouts, best_scores) = self.take_best_layouts(layouts_and_scores);
-			let printclone = best_layouts.clone();
 			layouts = self.generate_new_layouts(rng, best_layouts);
 			// println!("after {} generation(s), layout\n{}\n score: {}", i, printclone[0], best_scores[0]);
 			println!("after {} generation(s), best score: {}, worst score {}", i, best_scores[0], best_scores[best_scores.len()-1]);
@@ -252,8 +243,8 @@ impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
 			0.5 0.6 0.7 0.8
 		").unwrap();
 		let score_function = SimpleScoreFunction{};
-		let dataset = FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(50), &KeycodeOptions::default()).unwrap();
 		let config = LayoutOptimizerConfig::default();
+		let dataset = FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(config.top_n_ngrams_to_take), &KeycodeOptions::default()).unwrap();
 		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config, Cell::new((0, 0, 0)))
 	}
 }
@@ -263,8 +254,9 @@ impl Default for LayoutOptimizer<4, 12, SimpleScoreFunction> {
 		let base_layout = Layout::<4, 12>::default();
 		let effort_layer = Layer::<4, 12, f32>::default();
 		let score_function = SimpleScoreFunction{};
-		let dataset = FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(50), &KeycodeOptions::default()).unwrap();
 		let config = LayoutOptimizerConfig::default();
+		let dataset = FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(config.top_n_ngrams_to_take), &KeycodeOptions::default()).unwrap();
+		
 		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config, Cell::new((0, 0, 0)))
 	}
 }
@@ -289,7 +281,6 @@ mod tests {
 		
 		").unwrap();
 		let score_function = SimpleScoreFunction{};
-		let text = "hehehebe";
 		let dataset = FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/small_test/"), 2, All, &KeycodeOptions::default()).unwrap();
 		let config = LayoutOptimizerConfig::default();
 		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config, Cell::new((0, 0, 0)));
@@ -320,6 +311,6 @@ mod tests {
 		test_layout.randomize(&mut rng, &lo.config.valid_keycodes).unwrap();
 		// println!("initial randomized layout\n{:#}", test_layout);
 		println!("effort layer\n{}", lo.effort_layer);
-		lo.optimize(&mut rng);
+		lo.optimize(&mut rng).unwrap();
 	}
 }

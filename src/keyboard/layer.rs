@@ -161,7 +161,7 @@ fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, AlcError> {
 		rows_vec_len -= 1;
 		let mut first_row_chars = first_row.chars();
 		let previous_char = first_row_chars.next().unwrap();
-		for c_ind in 0..first_row.len() - 1 {
+		for _c_ind in 0..first_row.len() - 1 {
 			let current_char = first_row_chars.next().unwrap();
 			if previous_char.is_digit(10) && current_char.is_digit(10) {
 				if previous_char.to_digit(10).unwrap() + 1 != current_char.to_digit(10).unwrap() {
@@ -319,9 +319,10 @@ mod tests {
 
 		layer.get_mut(1, 1).unwrap().set_is_moveable(false);
 		layer.get_mut(2, 0).unwrap().set_value(_LS(1)); // there is no layer switch to be had but use it to test that _LS does not get randomized
-		layer.randomize(&VecDeque::from(vec![_E]), &VecDeque::from(vec![_E]));
-		assert_eq!(layer[(0, 0)].value(), _E);
-		assert_eq!(layer[(0, 1)].value(), _E);
+		layer.randomize(&VecDeque::from(vec![_E, _E, _E]), &VecDeque::from(vec![_E, _E, _E]));
+		// println!("layer\n{}", layer);
+		assert_eq!(layer[(0, 0)].value(), _NO);
+		assert_eq!(layer[(0, 1)].value(), _NO);
 		assert_eq!(layer[(1, 1)].value(), _NO);
 		assert_eq!(layer[(1, 0)].value(), _E);
 		assert_eq!(layer[(2, 0)].value(), _LS(1));
