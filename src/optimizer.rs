@@ -143,7 +143,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 					None => (LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 0)), // swapping the same position doesn't change the layout
 				};
 				// println!("swapping {} and {}", p1, p2);
-				let swap_happened = layout.swap(&p1, &p2);
+				let swap_happened = layout.swap(p1, p2);
 				let op_counter = self.operation_counter.get();
 				if swap_happened {
 					self.operation_counter.set((op_counter.0 + 1, op_counter.1, op_counter.2));
@@ -154,7 +154,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				if let Some(p) = layout.gen_valid_replace(rng) {
 					// println!("valid keycodes {:?}", valid_keycodes);
 					let keycode = valid_keycodes.choose(rng).unwrap();
-					let replace_happened = layout.replace(&p, *keycode);
+					let replace_happened = layout.replace(p, *keycode);
 					let op_counter = self.operation_counter.get();
 					if replace_happened {
 						self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2));
@@ -176,7 +176,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 					//(LayoutPosition::for_layout(0, 0, 0), LayoutPosition::for_layout(0, 0, 0)), // swapping the same position doesn't change the layout
 				};
 				// println!("swapping {} and {}", p1, p2);
-				let swap_happened = new_layout.swap(&p1, &p2);
+				let swap_happened = new_layout.swap(p1, p2);
 				let op_counter = self.operation_counter.get();
 				if swap_happened {
 					self.operation_counter.set((op_counter.0 + 1, op_counter.1, op_counter.2));
@@ -186,7 +186,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			} else {
 				if let Some(p) = new_layout.gen_valid_replace(rng) {
 					let keycode = valid_keycodes.choose(rng).unwrap();
-					let replace_happened = new_layout.replace(&p, *keycode);
+					let replace_happened = new_layout.replace(p, *keycode);
 					let op_counter = self.operation_counter.get();
 					if replace_happened {
 						self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2));

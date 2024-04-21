@@ -14,7 +14,7 @@ impl<const R: usize, const C: usize> Score<R, C> for SimpleScoreFunction {
 	fn score_layout_position_sequence(&self, _layout: &Layout<R, C>, effort_layer: &Layer<R, C, f32>, layout_position_sequence: LayoutPositionSequence, _config: &LayoutOptimizerConfig) -> f32 {
 		let mut score = 0.0;
 		for layout_position in layout_position_sequence {
-			let effort_value = effort_layer.get_from_layout_position(&layout_position).unwrap(); // might need to deal with accessing invalid location
+			let effort_value = effort_layer[layout_position];
 			score += effort_value;
 		}
 		score

@@ -21,9 +21,9 @@ impl<const R: usize, const C: usize, K: KeyValue + std::clone::Clone> Layer<R, C
 	// 	Ok(Layer::<R, C, K> { layer: layer_array2d })
 	// }
 	// maybe just return Option like Array2D?
-	pub fn get(&self, r: usize, c: usize) -> Option<&K> {
-		self.layer.get(r, c)
-	}
+	// pub fn get(&self, r: usize, c: usize) -> Option<&K> {
+	// 	self.layer.get(r, c)
+	// }
 	pub fn get_mut(&mut self, r: usize, c: usize) -> Option<&mut K> {
 		self.layer.get_mut(r, c)
 	}
@@ -36,10 +36,10 @@ impl<const R: usize, const C: usize, K: KeyValue + std::clone::Clone> Layer<R, C
 	pub fn set(&mut self, row: usize, col: usize, element: K) -> Result<(), Array2DError> {
 		self.layer.set(row, col, element)
 	}
-	pub fn get_from_layout_position(&self, l: &LayoutPosition) -> 
-			Option<&K> {
-		self.get(l.row_index, l.col_index)
-	}
+	// pub fn get_from_layout_position(&self, l: LayoutPosition) -> 
+	// 		Option<&K> {
+	// 	self.get(l.row_index, l.col_index)
+	// }
 	pub fn num_rows(&self) -> usize {
 		R
 	}
@@ -47,7 +47,7 @@ impl<const R: usize, const C: usize, K: KeyValue + std::clone::Clone> Layer<R, C
 		C
 	}
 	/// Specifically, mirrored left-right
-	pub fn symmetric_position(&self, l: &LayoutPosition) -> LayoutPosition {
+	pub fn symmetric_position(&self, l: LayoutPosition) -> LayoutPosition {
 		let num_cols = self.num_columns();
 		let orig_row = l.row_index;
 		let orig_col = l.col_index;
@@ -285,7 +285,7 @@ mod tests {
 		// }
 		// from_rows_test(vec_vec_layer, expected_layer);
 		fn access_test(e: Layer<2, 3, KeycodeKey>, l: LayoutPosition, k: KeycodeKey) {
-			assert_eq!(*e.get_from_layout_position(&l).unwrap(), k);
+			assert_eq!(e[l], k);
 		}
 		access_test(expected_layer_again, l, KeycodeKey::default_from_keycode(_B));
 	}
@@ -307,8 +307,8 @@ mod tests {
 		let layer = Layer::<4, 6, KeycodeKey>::init_blank();
 		let query_layout_pos = LayoutPosition { layer_index: 0, row_index: 2, col_index: 5 };
 		let expected_layout_pos = LayoutPosition { layer_index: 0, row_index: 2, col_index: 0 };
-		assert_eq!(layer.symmetric_position(&query_layout_pos), expected_layout_pos.clone());
-		assert_eq!(layer.symmetric_position(&expected_layout_pos), query_layout_pos.clone());
+		assert_eq!(layer.symmetric_position(query_layout_pos), expected_layout_pos.clone());
+		assert_eq!(layer.symmetric_position(expected_layout_pos), query_layout_pos.clone());
 	}
 
 	#[test]

@@ -24,23 +24,23 @@ pub struct Layout<const R: usize, const C: usize> {
 	keycode_path_map: KeycodePathMap,
 }
 impl<const R: usize, const C: usize> Layout<R, C> {
-	pub fn get(&self, layer_index: usize, row_index: usize, col_index: usize) -> Option<&KeycodeKey> {
-		self.layers.get(layer_index)?.get(row_index, col_index)
-	}
-	pub fn get_from_layout_position(&self, lp: &LayoutPosition) -> Option<&KeycodeKey> {
-		self.layers.get(lp.layer_index)?.get(lp.row_index, lp.col_index)
-	}
+	// pub fn get(&self, layer_index: usize, row_index: usize, col_index: usize) -> Option<&KeycodeKey> {
+	// 	self.layers.get(layer_index)?.get(row_index, col_index)
+	// }
+	// pub fn get_from_layout_position(&self, lp: LayoutPosition) -> Option<&KeycodeKey> {
+	// 	self.layers.get(lp.layer_index)?.get(lp.row_index, lp.col_index)
+	// }
 	pub fn get_mut(&mut self, layer_index: usize, row_index: usize, col_index: usize) -> Option<&mut KeycodeKey> {
 		self.layers.get_mut(layer_index)?.get_mut(row_index, col_index)
 	}
-	pub fn get_mut_from_layout_position(&mut self, lp: &LayoutPosition) -> Option<&mut KeycodeKey> {
+	pub fn get_mut_from_layout_position(&mut self, lp: LayoutPosition) -> Option<&mut KeycodeKey> {
 		self.layers.get_mut(lp.layer_index)?.get_mut(lp.row_index, lp.col_index)
 	}
 	pub fn paths_to_keycode(&self, k: Keycode) -> Option<&Vec<LayoutPositionSequence>> {
 		self.keycode_path_map.get(&k)
 	}
-	pub fn symmetric_position(&self, lp: &LayoutPosition) -> LayoutPosition {
-		self.layers.get(0).unwrap().symmetric_position(&lp) // would panic if layout is empty but that shouldn't normally be possible
+	pub fn symmetric_position(&self, lp: LayoutPosition) -> LayoutPosition {
+		self.layers.get(0).unwrap().symmetric_position(lp) // would panic if layout is empty but that shouldn't normally be possible
 	}
 	pub fn init_blank(num_layers: usize) -> Self {
 		let mut layers: Vec<Layer<R, C, KeycodeKey>> = vec![];
@@ -113,7 +113,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 
 
 	/// returns true if a swap happened
-	pub fn swap(&mut self, p1: &LayoutPosition, p2: &LayoutPosition) -> bool {
+	pub fn swap(&mut self, p1: LayoutPosition, p2: LayoutPosition) -> bool {
 		// todo: make use of optimized keycode to position remapping computation where only the affected keycodes get are remapped
 		#[allow(unused_assignments)]
 		let mut swap_happened = false;
@@ -154,13 +154,13 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		// cursed things
 		let self_clone = self.clone();
 		let k1 = self.get_mut_from_layout_position(p1).unwrap();
-		let k1_clone = self_clone.get_from_layout_position(p1).unwrap();
-		let k2_clone = self_clone.get_from_layout_position(p2).unwrap();
+		let k1_clone = &self_clone[p1];
+		let k2_clone = &self_clone[p2];
 		if let _LS(target_layer) = k1.value() {
 			// Layer switches need to be in the same layer position in the starting layer and the target layer. So, if the first position is a layer switch, its counterpart must be in:
-			let p1_counterpart = &LayoutPosition::new(target_layer, p1.row_index, p1.col_index);
-			let p2_counterpart = &LayoutPosition::new(target_layer, p2.row_index, p2.col_index);
-			let k2_counterpart_clone = self_clone.get_from_layout_position(&p2_counterpart).unwrap();
+			let p1_counterpart = LayoutPosition::new(target_layer, p1.row_index, p1.col_index);
+			let p2_counterpart = LayoutPosition::new(target_layer, p2.row_index, p2.col_index);
+			let k2_counterpart_clone = &self_clone[p2_counterpart];
 			// I think these are harder to handle in the calling function, so just have nothing happen here
 			if !k2_counterpart_clone.is_moveable() {
 				println!("Warning: attempted to swap a layer switch with position x: {} and found that x's corresponding position {} was not moveable. Doing nothing instead.", p2, p2_counterpart);
@@ -178,17 +178,17 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			let k1_counterpart = self.get_mut_from_layout_position(p1_counterpart).unwrap();
 			k1_counterpart.replace_with(&k2_counterpart_clone);
 			let k2_counterpart = self.get_mut_from_layout_position(p2_counterpart).unwrap();
-			let k1_counterpart_clone = self_clone.get_from_layout_position(p1_counterpart).unwrap();
+			let k1_counterpart_clone = &self_clone[p1_counterpart];
 			k2_counterpart.replace_with(&k1_counterpart_clone);
 			swap_happened = true;
 		} else if k1_clone.is_symmetric() {
-			let p1_counterpart = self_clone.symmetric_position(&p1);
+			let p1_counterpart = self_clone.symmetric_position(p1);
 			if p2.col_index as f32 == (C as f32 - 1.0) / 2.0 {
 				println!("Warning: symmetric p1 {} is being swapped into the center column {}, meaning p1's counterpart {} has no where to go, doing nothing instead.", p1, p2, p1_counterpart);
 				return false;
 			}
-			let p2_counterpart = self_clone.symmetric_position(&p2);
-			let k2_counterpart_clone = self_clone.get_from_layout_position(&p2_counterpart).unwrap();
+			let p2_counterpart = self_clone.symmetric_position(p2);
+			let k2_counterpart_clone = &self_clone[p2_counterpart];
 			if !k2_counterpart_clone.is_moveable() {
 				println!("Warning: attempted to swap a symmetric key with position x: {} and found that x's corresponding position {} was not moveable. Doing nothing instead.", p2, p2_counterpart);
 				return false;
@@ -201,10 +201,10 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			let k2 = self.get_mut_from_layout_position(p2).unwrap();
 			k2.replace_with(&k1_clone);
 
-			let k1_counterpart = self.get_mut_from_layout_position(&p1_counterpart).unwrap();
+			let k1_counterpart = self.get_mut_from_layout_position(p1_counterpart).unwrap();
 			k1_counterpart.replace_with(&k2_counterpart_clone);
-			let k2_counterpart = self.get_mut_from_layout_position(&p2_counterpart).unwrap();
-			let k1_counterpart_clone = self_clone.get_from_layout_position(&p1_counterpart).unwrap();
+			let k2_counterpart = self.get_mut_from_layout_position(p2_counterpart).unwrap();
+			let k1_counterpart_clone = &self_clone[p1_counterpart];
 			k2_counterpart.replace_with(&k1_counterpart_clone);
 			swap_happened = true;
 		} else {
@@ -217,11 +217,11 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		swap_happened
 	}
 
-	pub fn replace(&mut self, p: &LayoutPosition, value: Keycode) -> bool {
+	pub fn replace(&mut self, p: LayoutPosition, value: Keycode) -> bool {
 		// make use of optimized keycode to position remapping computation where only the affected keycodes get are remapped
 		#[allow(unused_assignments)]
 		let mut replace_happened = false;
-		let k = self.get_from_layout_position(&p).unwrap();
+		let k = &self[p];
 		if self.keycode_path_map.get(&k.value()).unwrap().len() == 1 {
 			panic!("Error for the developer! There is only one way to reach {}, not allowed to replace.", k)
 		}
@@ -234,25 +234,25 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		if !k.is_moveable() {
 			panic!("Error for the developer! Not allowed to replace a non-moveable key.")
 		}
-		self.get_mut_from_layout_position(&p).unwrap().set_value(value);
+		self.get_mut_from_layout_position(p).unwrap().set_value(value);
 		replace_happened = true;
 		self.keycode_path_map = keycode_path_map_from_layout(self.layers.clone()).unwrap();
 		
 		replace_happened
 	}
-	pub fn gen_random_position(&self, rng: &mut impl Rng) -> LayoutPosition {
+	pub fn generate_random_position(&self, rng: &mut impl Rng) -> LayoutPosition {
 		let layer_limit = self.layers.len();
 		LayoutPosition::new(rng.gen_range(0..layer_limit), rng.gen_range(0..R), rng.gen_range(0..C))
 	}
 
 	fn generate_random_moveable_position(&self, rng: &mut impl Rng) -> Option<LayoutPosition> {
 		let fallback_count = 100;
-		let mut p = self.gen_random_position(rng);
-		let mut k = self.get_from_layout_position(&p).unwrap();
+		let mut p = self.generate_random_position(rng);
+		let mut k = &self[p];
 		let mut count = 0;
 		while !k.is_moveable() {
-			p = self.gen_random_position(rng);
-			k = self.get_from_layout_position(&p).unwrap();
+			p = self.generate_random_position(rng);
+			k = &self[p];
 			count += 1;
 			if count >= fallback_count {
 				return None
@@ -264,15 +264,15 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 
 	pub fn generate_random_valid_swap(&self, rng: &mut impl Rng) -> Option<(LayoutPosition, LayoutPosition)> {
 		let mut p1 = self.generate_random_moveable_position(rng)?;
-		let mut k1 = self.get_from_layout_position(&p1)?;
+		let mut k1 = &self[p1];
 		let mut p2 = self.generate_random_moveable_position(rng)?;
-		let mut k2 = self.get_from_layout_position(&p2)?;
+		let mut k2 = &self[p2];
 		let mut count = 0;
 		let fallback_count = 100;
 
 		while discriminant(&k1.value()) == discriminant(&_LST(1, 2)) {
 			p1 = self.generate_random_moveable_position(rng)?;
-			k1 = self.get_from_layout_position(&p1)?;
+			k1 = &self[p1];
 		}
 
 		if let _LS(_i) = k1.value() {
@@ -281,7 +281,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			}
 			while k2.is_symmetric() || (p1.layer_index != p2.layer_index) || std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LS(1)) || std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LST(1, 2)) {
 				p2 = self.generate_random_moveable_position(rng)?;
-				k2 = self.get_from_layout_position(&p2)?;
+				k2 = &self[p2];
 				count += 1;
 				if count >= fallback_count {
 					// return None;
@@ -293,7 +293,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		} else {
 			while std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LS(1)) || (!k1.is_symmetric() && k2.is_symmetric()) || std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LST(1, 2)) {
 				p2 = self.generate_random_moveable_position(rng)?;
-				k2 = self.get_from_layout_position(&p2)?;
+				k2 = &self[p2];
 				count += 1;
 				if count >= fallback_count {
 					// return Err(AlcError::SwapFallbackError(fallback_count, String::from("key 1 was not a layer switch but proper k2 could not be found")));
@@ -307,7 +307,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 
 	pub fn gen_valid_replace(&self, rng: &mut impl Rng) -> Option<LayoutPosition> {
 		let mut p = self.generate_random_moveable_position(rng).unwrap();
-		let mut k = self.get_from_layout_position(&p).unwrap();
+		let mut k = &self[p];
 		let fallback_count = 100;
 		let mut count = 0;
 		let paths = match self.keycode_path_map.get(&k.value()) {
@@ -316,7 +316,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		};
 		while paths.len() <= 1 || std::mem::discriminant(&k.value()) == std::mem::discriminant(&_LS(1)) || std::mem::discriminant(&k.value()) == std::mem::discriminant(&_LST(1, 2)) || !k.is_moveable() {
 			p = self.generate_random_moveable_position(rng).unwrap();
-			k = self.get_from_layout_position(&p).unwrap();
+			k = &self[p];
 			count += 1;
 			if count >= fallback_count {
 				return None;
@@ -333,11 +333,11 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			for row_index in 0..R {
 				for col_index in 0..C {
 					let lp = LayoutPosition::new(layer_index, row_index, col_index);
-					let key = self.get_from_layout_position(&lp).unwrap();
+					let key = &self[lp];
 					if let _LS(target_layer) = key.value() {
 						// println!("position {}", lp);
 						let lp_corresponding = LayoutPosition::new(target_layer, row_index, col_index);
-						let key_corresponding = self.get_from_layout_position(&lp_corresponding).unwrap();
+						let key_corresponding = &self[lp_corresponding];
 						// if key_corresponding.value() != _NO {
 						// 	panic!("For layer switch at {}, it's corresponding position {} should be blank, not {}", lp, lp_corresponding, key_corresponding);
 						
@@ -353,7 +353,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 						}
 					} else if let _LST(target_layer, source_layer) = key.value() {
 						let lp_corresponding = LayoutPosition::new(source_layer, row_index, col_index);
-						let key_corresponding = self.get_from_layout_position(&lp_corresponding).unwrap();
+						let key_corresponding = &self[lp_corresponding];
 						if let _LS(new_target_layer) = key_corresponding.value() {
 							if target_layer != new_target_layer {
 								incorrect_layer_switch_locations.push((lp.clone(), lp_corresponding));		
@@ -361,8 +361,8 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 						}
 					}
 					if key.is_symmetric() {
-						let lp_corresponding = self.symmetric_position(&lp);
-						let key_corresponding = self.get_from_layout_position(&lp_corresponding).unwrap();
+						let lp_corresponding = self.symmetric_position(lp);
+						let key_corresponding = &self[lp_corresponding];
 						if !key_corresponding.is_symmetric() {
 							incorrect_symmetry_locations.push((lp, lp_corresponding));
 						}
@@ -575,7 +575,7 @@ mod tests {
 		layout.randomize(&mut rng, &vec![_A, _E]).unwrap();
 		fn test_randomize<const R: usize, const C: usize>(layout: Layout<R, C>) {
 			let expected_key = KeycodeKey::try_from("D_00").unwrap();
-			assert_eq!(*layout.get(0, 1, 2).unwrap(), expected_key);
+			assert_eq!(layout[(0, 1, 2)], expected_key);
 			println!("{:b}", layout);
 		}
 		test_randomize::<2, 3>(layout.clone());
@@ -691,19 +691,19 @@ mod tests {
 			D_10 E_10 H_10 LST1_0_10
 		").unwrap();
 		println!("{}", layout);
-		layout.swap(&LayoutPosition::new(0, 0, 0), &LayoutPosition::new(0, 0, 2));
-		assert_eq!(layout.get(0, 0, 0).unwrap().value(), _C);
-		assert_eq!(layout.get(0, 0, 2).unwrap().value(), _A);
+		layout.swap(LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 2));
+		assert_eq!(layout[(0, 0, 0)].value(), _C);
+		assert_eq!(layout[(0, 0, 2)].value(), _A);
 		
-		layout.swap(&LayoutPosition::new(0, 0, 1), &LayoutPosition::new(1, 0, 2));
-		assert_eq!(layout.get(0, 0, 1).unwrap().value(), _H);
-		assert_eq!(layout.get(1, 0, 2).unwrap().value(), _B);
+		layout.swap(LayoutPosition::new(0, 0, 1), LayoutPosition::new(1, 0, 2));
+		assert_eq!(layout[(0, 0, 1)].value(), _H);
+		assert_eq!(layout[(1, 0, 2)].value(), _B);
 
-		layout.swap(&LayoutPosition::new(0, 0, 3), &LayoutPosition::new(0, 0, 2));
-		assert_eq!(layout.get(0, 0, 3).unwrap().value(), _A);
-		assert_eq!(layout.get(0, 0, 2).unwrap().value(), _LS(1));
-		assert_eq!(layout.get(1, 0, 3).unwrap().value(), _B);
-		assert_eq!(layout.get(1, 0, 2).unwrap().value(), _LST(1, 0));
+		layout.swap(LayoutPosition::new(0, 0, 3), LayoutPosition::new(0, 0, 2));
+		assert_eq!(layout[(0, 0, 3)].value(), _A);
+		assert_eq!(layout[(0, 0, 2)].value(), _LS(1));
+		assert_eq!(layout[(1, 0, 3)].value(), _B);
+		assert_eq!(layout[(1, 0, 2)].value(), _LST(1, 0));
 		println!("{}", layout);
 
 		let mut layout = Layout::<1, 4>::try_from("
@@ -712,15 +712,15 @@ mod tests {
 			___Layer 1___
 			D_10 E_10 H_10 LST1_0_10
 		").unwrap();
-		layout.swap(&LayoutPosition::new(0, 0, 1), &LayoutPosition::new(0, 0, 2));
-		assert_eq!(layout.get(0, 0, 1).unwrap().value(), _C);
-		assert_eq!(layout.get(0, 0, 2).unwrap().value(), _B);
+		layout.swap(LayoutPosition::new(0, 0, 1), LayoutPosition::new(0, 0, 2));
+		assert_eq!(layout[(0, 0, 1)].value(), _C);
+		assert_eq!(layout[(0, 0, 2)].value(), _B);
 
-		layout.swap(&LayoutPosition::new(0, 0, 1), &LayoutPosition::new(1, 0, 2));
-		assert_eq!(layout.get(0, 0, 1).unwrap().value(), _H);
-		assert_eq!(layout.get(0, 0, 2).unwrap().value(), _E);
-		assert_eq!(layout.get(1, 0, 1).unwrap().value(), _B);
-		assert_eq!(layout.get(1, 0, 2).unwrap().value(), _C);
+		layout.swap(LayoutPosition::new(0, 0, 1), LayoutPosition::new(1, 0, 2));
+		assert_eq!(layout[(0, 0, 1)].value(), _H);
+		assert_eq!(layout[(0, 0, 2)].value(), _E);
+		assert_eq!(layout[(1, 0, 1)].value(), _B);
+		assert_eq!(layout[(1, 0, 2)].value(), _C);
 		println!("{}", layout);
 	}
 
@@ -734,8 +734,8 @@ mod tests {
 		").unwrap();
 		// layout.replace(&LayoutPosition::for_layout(0, 0, 3), _E);
 		// layout.replace(&LayoutPosition::for_layout(0, 0, 0), _E);
-		layout.replace(&LayoutPosition::new(1, 0, 1), _C);
-		assert_eq!(layout.get(1, 0, 1).unwrap().value(), _C);
+		layout.replace(LayoutPosition::new(1, 0, 1), _C);
+		assert_eq!(layout[(1, 0, 1)].value(), _C);
 	}
 
 	#[test]

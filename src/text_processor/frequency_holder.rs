@@ -87,6 +87,7 @@ impl SingleGramFrequencies<u32> {
 		self.frequencies = temp_freqs
 	}
 
+	/// might want to rename because it isn't really a conversion, once something turns into frequencies it can't be turned back
 	pub fn try_from_string(s: &str, n: usize, options: &KeycodeOptions) -> Option<SingleGramFrequencies<u32>> {
 		let mut ngram_to_counts: HashMap<Ngram, u32> = HashMap::new();
 		let keycodes = Keycode::from_string(s, options);
