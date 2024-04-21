@@ -90,7 +90,7 @@ pub enum Keycode {
 }
 use Keycode::*;
 
-pub fn get_default_keycode_set(options: &KeycodeOptions) -> HashSet<Keycode> {
+pub fn generate_default_keycode_set(options: &KeycodeOptions) -> HashSet<Keycode> {
 	let mut keycodes: HashSet<Keycode> = Default::default();
 	if options.include_alphas {
 		keycodes.extend(&HashSet::from([
@@ -378,7 +378,7 @@ mod tests {
 
 	#[test]
 	fn test_default_keycodes() {
-		let s = get_default_keycode_set(&KeycodeOptions::default());
+		let s = generate_default_keycode_set(&KeycodeOptions::default());
 		println!("default keycodes {:?}", s);
 		assert!(s.contains(&_SPC));
 	}

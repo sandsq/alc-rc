@@ -19,7 +19,7 @@ pub struct KeycodeKey {
 	is_symmetric: bool,
 }
 impl KeycodeKey {
-	pub fn from_keycode(k: Keycode) -> Self {
+	pub fn default_from_keycode(k: Keycode) -> Self {
 		Self { value: k, is_moveable: true, is_symmetric: false }
 	}
 	pub fn set_value(&mut self, new_value: Keycode) -> () {
@@ -47,7 +47,7 @@ impl KeycodeKey {
 impl TryFrom<&str> for KeycodeKey {
 	type Error = AlcError;
 	fn try_from(key_string: &str) -> Result<Self, Self::Error> {
-		let mut key = KeycodeKey::from_keycode(_NO);
+		let mut key = KeycodeKey::default_from_keycode(_NO);
 		let mut key_details = key_string.split("_");
 		// should check to make sure the string can actually be sliced
 		// _NO displays as _ for less clutter, so account for that
@@ -195,7 +195,7 @@ mod tests {
 		assert_eq!(k.is_moveable, true);
 		assert_eq!(k.is_symmetric, false);
 
-		let b = KeycodeKey::from_keycode(_B);
+		let b = KeycodeKey::default_from_keycode(_B);
 		assert_eq!(b.value, _B);
 		assert_eq!(b.is_moveable, true);
 		assert_eq!(b.is_symmetric, false);

@@ -403,7 +403,7 @@ fn keycode_path_map_from_layout<const R: usize, const C: usize>(layers: Vec<Laye
 	for (layer_num, layer) in layers.iter().enumerate() {
 		for r in 0..R {
 			for c in 0..C {
-				let key = layer.get(r, c)?;
+				let key = layer[(r, c)];
 				let key_value = key.value();
 				let layout_position = LayoutPosition::for_layout(layer_num, r, c);
 				let layout_position_sequence = LayoutPositionSequence::from_layout_positions(vec![layout_position.clone()]);
@@ -473,7 +473,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layout<R, C> {
 			for row_index in 0..R {
 				for col_index in 0..C {
 					let lp = LayoutPosition::from_tuple((layer_index, row_index, col_index));
-					let k = layers.get(layer_index).unwrap().get(row_index, col_index).unwrap();
+					let k = layers.get(layer_index).unwrap()[(row_index, col_index)];
 					if let _LS(target_layer) = k.value() {
 						let mut k_counterpart = layers.get_mut(target_layer).unwrap().get_mut(row_index, col_index).unwrap();
 						k_counterpart.set_value(_LST(target_layer, layer_index));

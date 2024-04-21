@@ -22,7 +22,7 @@ use crate::objective::scoring::*;
 use self::dataset::FrequencyDataset;
 use self::frequency_holder::{SingleGramFrequencies, TopFrequenciesToTake::*};
 use self::keycode::KeycodeOptions;
-use self::keycode::{Keycode::{self, *}, get_default_keycode_set};
+use self::keycode::{Keycode::{self, *}, generate_default_keycode_set};
 
 pub struct LayoutOptimizerConfig {
 	population_size: u32,
@@ -43,7 +43,7 @@ impl Default for LayoutOptimizerConfig {
 			swap_weight: 9.0,
 			replace_weight: 1.0,
 			dataset_weight: vec![1.0],
-			valid_keycodes: get_default_keycode_set(&KeycodeOptions::default()).into_iter().collect(),
+			valid_keycodes: generate_default_keycode_set(&KeycodeOptions::default()).into_iter().collect(),
 			top_n_ngrams_to_take: 50, }
 	}
 }
@@ -252,7 +252,7 @@ impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
 			0.5 0.6 0.7 0.8
 		").unwrap();
 		let score_function = SimpleScoreFunction{};
-		let dataset = FrequencyDataset::<u32>::from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(50), &KeycodeOptions::default()).unwrap();
+		let dataset = FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(50), &KeycodeOptions::default()).unwrap();
 		let config = LayoutOptimizerConfig::default();
 		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config, Cell::new((0, 0, 0)))
 	}
@@ -263,7 +263,7 @@ impl Default for LayoutOptimizer<4, 12, SimpleScoreFunction> {
 		let base_layout = Layout::<4, 12>::default();
 		let effort_layer = Layer::<4, 12, f32>::default();
 		let score_function = SimpleScoreFunction{};
-		let dataset = FrequencyDataset::<u32>::from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(50), &KeycodeOptions::default()).unwrap();
+		let dataset = FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(50), &KeycodeOptions::default()).unwrap();
 		let config = LayoutOptimizerConfig::default();
 		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config, Cell::new((0, 0, 0)))
 	}
@@ -290,7 +290,7 @@ mod tests {
 		").unwrap();
 		let score_function = SimpleScoreFunction{};
 		let text = "hehehebe";
-		let dataset = FrequencyDataset::<u32>::from_dir(PathBuf::from("./data/small_test/"), 2, All, &KeycodeOptions::default()).unwrap();
+		let dataset = FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/small_test/"), 2, All, &KeycodeOptions::default()).unwrap();
 		let config = LayoutOptimizerConfig::default();
 		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config, Cell::new((0, 0, 0)));
 		let twogram_frequency = layout_optimizer.datasets[0].ngram_frequencies.get(&(2 as usize)).unwrap();

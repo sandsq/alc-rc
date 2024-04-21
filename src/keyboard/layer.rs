@@ -1,6 +1,7 @@
 use array2d::{Array2D, Error as Array2DError};
 use std::error::Error;
 use std::fmt;
+use std::ops::Index;
 use std::str;
 use std::collections::VecDeque;
 
@@ -15,16 +16,13 @@ pub struct Layer<const R: usize, const C: usize, K: KeyValue> {
 	layer: Array2D<K>
 }
 impl<const R: usize, const C: usize, K: KeyValue + std::clone::Clone> Layer<R, C, K> {
-	pub fn from_rows(elements: &[Vec<K>]) -> Result<Self, Array2DError> {
-		let layer_array2d = Array2D::from_rows(elements)?;
-		Ok(Layer::<R, C, K> { layer: layer_array2d })
-	}
+	// pub fn from_rows(elements: &[Vec<K>]) -> Result<Self, Array2DError> {
+	// 	let layer_array2d = Array2D::from_rows(elements)?;
+	// 	Ok(Layer::<R, C, K> { layer: layer_array2d })
+	// }
 	// maybe just return Option like Array2D?
-	pub fn get(&self, r: usize, c: usize) -> Result<K, Array2DError> {
-		match self.layer.get(r, c) {
-			Some(v) => Ok(v.clone()),
-			None => Err(Array2DError::IndicesOutOfBounds(r, c)),
-		}
+	pub fn get(&self, r: usize, c: usize) -> Option<&K> {
+		self.layer.get(r, c)
 	}
 	pub fn get_mut(&mut self, r: usize, c: usize) -> Result<&mut K, Array2DError> {
 		match self.layer.get_mut(r, c) {
@@ -64,12 +62,19 @@ impl<const R: usize, const C: usize, K: KeyValue + std::clone::Clone> Layer<R, C
 		let orig_col = l.col_index;
 		let symm_col = (num_cols - 1) - orig_col;
 		LayoutPosition { layer_index: l.layer_index, row_index: orig_row, col_index: symm_col }
-	}
-	
+	}	
 }
+
+impl<const R: usize, const C: usize, T> Index<(usize, usize)> for Layer<R, C, T> where T: KeyValue{
+	type Output = T;
+	fn index(&self, index: (usize, usize)) -> &Self::Output {
+		&self.layer[index]
+	}
+}
+
 impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 	pub fn init_blank() -> Self {
-		let default_key = KeycodeKey::from_keycode(_NO);
+		let default_key = KeycodeKey::default_from_keycode(_NO);
 		let layer_array2d = Array2D::filled_with(default_key.clone(), R, C);
 		Layer::<R, C, KeycodeKey> { layer: layer_array2d }
 	}
@@ -79,7 +84,7 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 		let mut valid_keycodes_to_draw_from = valid_keycodes.clone();
 		for i in 0..R {
 			for j in 0..C {
-				let key = self.get(i, j).unwrap(); // should be guaranteed to exist
+				let key = self[(i, j)];
 				if  !key.is_randomizeable() || key.value() != _NO {
 					continue;
 				}
@@ -89,7 +94,7 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 				}
 				
 				if let Some(random_keycode) = valid_keycodes_to_draw_from.pop_front() {
-					let replacement_key = KeycodeKey::from_keycode(random_keycode);
+					let replacement_key = KeycodeKey::default_from_keycode(random_keycode);
 					self.set(i, j, replacement_key).unwrap(); // should always work
 				}
 			}
@@ -97,6 +102,8 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 		(valid_keycodes_to_draw_from, used_all_keycodes_flag)
 	}
 }
+
+
 
 
 impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, KeycodeKey> {
@@ -131,6 +138,8 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, f32> {
 		Ok(Layer{ layer: effort_layer })
 	}
 }
+
+
 
 impl Default for Layer<4, 12, f32> {
 	fn default() -> Self {
@@ -264,23 +273,23 @@ mod tests {
 	#[test]
 	fn test_keycode_key_layer() {
 		let l = LayoutPosition::for_layer(0, 1);
-		let key1: KeycodeKey = KeycodeKey::from_keycode(_A);
-		let key2: KeycodeKey = KeycodeKey::from_keycode(_B);
-		let key3: KeycodeKey = KeycodeKey::from_keycode(_C);
-		let key4: KeycodeKey = KeycodeKey::from_keycode(_D);
-		let key5: KeycodeKey = KeycodeKey::from_keycode(_E);
+		let key1: KeycodeKey = KeycodeKey::default_from_keycode(_A);
+		let key2: KeycodeKey = KeycodeKey::default_from_keycode(_B);
+		let key3: KeycodeKey = KeycodeKey::default_from_keycode(_C);
+		let key4: KeycodeKey = KeycodeKey::default_from_keycode(_D);
+		let key5: KeycodeKey = KeycodeKey::default_from_keycode(_E);
 		let key1again = key1.clone();
 		let vec_vec_layer: Vec<Vec<KeycodeKey>> = vec![vec![key1, key2, key3], vec![key5, key4, key1again]];
 		let expected_layer: Layer::<2, 3, KeycodeKey> = Layer::<2, 3, KeycodeKey> { layer: Array2D::from_rows(&vec_vec_layer).unwrap() };
 		let expected_layer_again = expected_layer.clone();
-		fn from_rows_test(l: Vec<Vec<KeycodeKey>>, e: Layer<2, 3, KeycodeKey>) {
-			assert_eq!(Layer::<2, 3, KeycodeKey>::from_rows(&l).unwrap(), e);
-		}
-		from_rows_test(vec_vec_layer, expected_layer);
+		// fn from_rows_test(l: Vec<Vec<KeycodeKey>>, e: Layer<2, 3, KeycodeKey>) {
+		// 	assert_eq!(Layer::<2, 3, KeycodeKey>::from_rows(&l).unwrap(), e);
+		// }
+		// from_rows_test(vec_vec_layer, expected_layer);
 		fn access_test(e: Layer<2, 3, KeycodeKey>, l: LayoutPosition, k: KeycodeKey) {
 			assert_eq!(e.get_from_layout_position(&l).unwrap(), k);
 		}
-		access_test(expected_layer_again, l, KeycodeKey::from_keycode(_B));
+		access_test(expected_layer_again, l, KeycodeKey::default_from_keycode(_B));
 	}
 
 	#[test]
@@ -292,7 +301,7 @@ mod tests {
 	#[test]
 	fn test_init_random() {
 		let random_layer = Layer::<2, 3, KeycodeKey>::init_blank();
-		assert_eq!(random_layer.get(0, 0).unwrap().value(), _NO);
+		assert_eq!(random_layer[(0, 0)].value(), _NO);
 	}
 
 	#[test]
@@ -313,11 +322,11 @@ mod tests {
 		layer.get_mut(1, 1).unwrap().set_is_moveable(false);
 		layer.get_mut(2, 0).unwrap().set_value(_LS(1)); // there is no layer switch to be had but use it to test that _LS does not get randomized
 		layer.randomize(&VecDeque::from(vec![_E]), &VecDeque::from(vec![_E]));
-		assert_eq!(layer.get(0, 0).unwrap().value(), _E);
-		assert_eq!(layer.get(0, 1).unwrap().value(), _E);
-		assert_eq!(layer.get(1, 1).unwrap().value(), _NO);
-		assert_eq!(layer.get(1, 0).unwrap().value(), _E);
-		assert_eq!(layer.get(2, 0).unwrap().value(), _LS(1));
+		assert_eq!(layer[(0, 0)].value(), _E);
+		assert_eq!(layer[(0, 1)].value(), _E);
+		assert_eq!(layer[(1, 1)].value(), _NO);
+		assert_eq!(layer[(1, 0)].value(), _E);
+		assert_eq!(layer[(2, 0)].value(), _LS(1));
 
 		let layer_string = "
 			A_11 B_10 C_11
@@ -325,8 +334,8 @@ mod tests {
 		";
 		let mut layer = Layer::<2, 3, KeycodeKey>::try_from(layer_string).unwrap();
 		layer.randomize(&VecDeque::from(vec![_H]), &VecDeque::from(vec![_H]));
-		assert_eq!(layer.get(0, 1).unwrap().value(), _B);
-		assert_eq!(layer.get(1, 1).unwrap().value(), _H);
+		assert_eq!(layer[(0, 1)].value(), _B);
+		assert_eq!(layer[(1, 1)].value(), _H);
 	}
 
 	#[test]
@@ -350,7 +359,7 @@ mod tests {
 		let layer = Layer::<2, 3, KeycodeKey>::try_from(layer_string).unwrap();
 		println!("layer from string\n{:b}", layer);
 		println!("layer from string\n{}", layer);
-		assert_eq!(layer.get(1, 2).unwrap(), KeycodeKey::from_keycode(_LS(1)));
+		assert_eq!(layer[(1, 2)], KeycodeKey::default_from_keycode(_LS(1)));
 
 		let layer_string_with_indexes = "
 			0       1       2 
@@ -358,7 +367,7 @@ mod tests {
 			1| LS4_10    E_10    D_00 
 		";
 		let layer_from_string_with_indexes = Layer::<2, 3, KeycodeKey>::try_from(layer_string_with_indexes).unwrap();
-		assert_eq!(layer_from_string_with_indexes.get(1, 2).unwrap().value(), _D);
+		assert_eq!(layer_from_string_with_indexes[(1, 2)].value(), _D);
 		println!("layer from string that had indexes\n{}", layer_from_string_with_indexes);
 
 		let effort_string = "

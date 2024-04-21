@@ -1,4 +1,5 @@
 use std::fs::read_dir;
+use std::ops::Index;
 use std::path::PathBuf;
 use std::collections::HashMap;
 
@@ -30,7 +31,7 @@ impl FrequencyDataset<u32> {
 	}
 
 	/// Because some ngrams are so infrequent and would only serve to increase computation time without affecting layout score very much, `top_n_to_take` allows you to choose how many of the most frequent ngrams you want to include.
-	pub fn from_dir(dir: PathBuf, max_ngram_size: usize, top_frequencies_to_take: TopFrequenciesToTake, options: &KeycodeOptions) -> Result<Self, AlcError> {
+	pub fn try_from_dir(dir: PathBuf, max_ngram_size: usize, top_frequencies_to_take: TopFrequenciesToTake, options: &KeycodeOptions) -> Result<Self, AlcError> {
 		let metadata = dir.metadata().unwrap();
 		if !metadata.is_dir() {
 			Err(AlcError::ExpectedDirectoryError(dir))
@@ -59,6 +60,13 @@ impl FrequencyDataset<u32> {
 	}
 }
 
+impl Index<usize> for FrequencyDataset<u32> {
+	type Output = SingleGramFrequencies<u32>;
+	fn index(&self, index: usize) -> &Self::Output {
+		&self.ngram_frequencies[&index]
+	}
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -70,11 +78,11 @@ mod tests {
 
 	#[test]
 	fn test_from_directory() {
-		let frequency_dataset = FrequencyDataset::from_dir(PathBuf::try_from("./data/rust_book_test/").unwrap(), 4, All, &KeycodeOptions::default()).unwrap();
-		let twogram_frequency = frequency_dataset.ngram_frequencies.get(&(2 as usize)).unwrap();
+		let frequency_dataset = FrequencyDataset::try_from_dir(PathBuf::try_from("./data/rust_book_test/").unwrap(), 4, All, &KeycodeOptions::default()).unwrap();
+		let twogram_frequency = &frequency_dataset.ngram_frequencies[&2];
 		assert_eq!(twogram_frequency[Ngram::new(vec![_H, _E])], 145 + 201);
 		assert_eq!(twogram_frequency[Ngram::new(vec![_B, _E])], 34 + 23);
-		let threegram_frequency = frequency_dataset.ngram_frequencies.get(&(3 as usize)).unwrap();
+		let threegram_frequency = &frequency_dataset.ngram_frequencies[&3];
 		// assert_eq!(threegram_frequency.len(), 1000);
 		assert_eq!(threegram_frequency[Ngram::new(vec![_T, _H, _E])], 114 + 175);
 		assert_eq!(threegram_frequency[Ngram::new(vec![_H, _E, _A])], 1 + 3);
