@@ -10,7 +10,7 @@ fn main() {
 	let mut lo = LayoutOptimizer::<4, 12, SimpleScoreFunction>::default();
 	// let mut config = LayoutOptimizerConfig::default();
 	lo.config.generation_count = 20;
-	lo.config.population_size = 200;
+	lo.config.population_size = 1000;
 	println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 	let mut rng = StdRng::seed_from_u64(0);
 	println!("initial layout\n{}", lo.base_layout);
