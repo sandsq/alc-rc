@@ -244,9 +244,13 @@ impl<'a, const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Sc
 		let (v1, v2) = final_layout.verify_layout_correctness();
 		if v1.len() > 0 {
 			println!("issue with layer switches")
+		} else {
+			println!("layer switches checks passed")
 		}
 		if v2.len() > 0 {
 			println!("issue with symmetric keys")
+		} else {
+			println!("symmetric keys checks passed")
 		}
 		println!("operations: {:?}", self.operation_counter);
 		println!("initial time: {}", initial_time);
@@ -330,7 +334,7 @@ mod tests {
 		// lo.config.keycode_options.include_number_symbols = true;
 		lo.datasets = vec![FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(lo.config.top_n_ngrams_to_take), &lo.config.keycode_options).unwrap()];
 		lo.config.valid_keycodes = generate_default_keycode_set(&lo.config.keycode_options).into_iter().collect();
-		lo.config.generation_count = 10;
+		lo.config.generation_count = 100;
 		lo.config.population_size = 100;
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = StdRng::seed_from_u64(0);
