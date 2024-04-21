@@ -86,6 +86,9 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 
 		let ngram_iter = ngram.clone().into_iter();
 		for keycode in ngram_iter {
+			// if keycode == _AMPR {
+			// 	panic!("found &");
+			// }
 			// println!("output sequences {:?} at start,  keycode {}", output_sequences_to_ngram, keycode);
 			let sequences_to_keycode = match self.paths_to_keycode(keycode) {
 				Some(p) => p,

@@ -2,15 +2,15 @@ use strum_macros;
 use std::collections::HashSet;
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct KeycodeOptions {
-	include_alphas: bool,
-	include_numbers: bool,
-	include_number_symbols: bool, // !@#$%^&*()
-	include_brackets: bool, // ()[]{}
-	include_misc_symbols: bool, // -/ etc.
-	include_misc_symbols_shifted: bool, // _? etc.
-	explicit_inclusion: HashSet<Keycode>,
+	pub include_alphas: bool,
+	pub include_numbers: bool,
+	pub include_number_symbols: bool, // !@#$%^&*()
+	pub include_brackets: bool, // ()[]{}
+	pub include_misc_symbols: bool, // -/ etc.
+	pub include_misc_symbols_shifted: bool, // _? etc.
+	pub explicit_inclusion: HashSet<Keycode>,
 }
 impl Default for KeycodeOptions {
 	fn default() -> Self {

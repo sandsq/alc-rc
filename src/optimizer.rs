@@ -23,12 +23,14 @@ pub struct LayoutOptimizerConfig {
 	pub fitness_cutoff: f32, // keep top x% for the next generation
 	pub swap_weight: f32,
 	pub replace_weight: f32,
-	pub dataset_weight: Vec<f32>, 
+	pub dataset_weight: Vec<f32>,
+	pub keycode_options: KeycodeOptions,
 	pub valid_keycodes: Vec<Keycode>,
 	pub top_n_ngrams_to_take: usize,
 }
 impl Default for LayoutOptimizerConfig {
 	fn default() -> Self {
+		let keycode_options = KeycodeOptions::default();
 		LayoutOptimizerConfig { 
 			population_size: 5, 
 			generation_count: 1,
@@ -36,7 +38,8 @@ impl Default for LayoutOptimizerConfig {
 			swap_weight: 4.0,
 			replace_weight: 1.0,
 			dataset_weight: vec![1.0],
-			valid_keycodes: generate_default_keycode_set(&KeycodeOptions::default()).into_iter().collect(),
+			keycode_options: keycode_options.clone(),
+			valid_keycodes: generate_default_keycode_set(&keycode_options).into_iter().collect(),
 			top_n_ngrams_to_take: 50, }
 	}
 }
@@ -60,7 +63,8 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		for (ngram, ngram_frequency) in frequencies {
 			let sequences = match layout.ngram_to_sequences(&ngram) {
 				Some(v) => v.into_iter(),
-				None => return 0.0, //panic!("unable to create sequence from {}", ngram),
+				None => panic!("unable to create sequence from {}", ngram),
+				// return 0.0
 			};
 			let mut possible_scores: Vec<f32> = vec![];
 			for sequence in sequences {
@@ -323,7 +327,9 @@ mod tests {
 	#[ignore = "expensive"] // cargo test -- --ignored to run ignored, cargo test -- --include-ignored to run all
 	fn test_optimize() {
 		let mut lo = LayoutOptimizer::<4, 12, SimpleScoreFunction>::default();
-		// let mut config = LayoutOptimizerConfig::default();
+		// lo.config.keycode_options.include_number_symbols = true;
+		lo.datasets = vec![FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(lo.config.top_n_ngrams_to_take), &lo.config.keycode_options).unwrap()];
+		lo.config.valid_keycodes = generate_default_keycode_set(&lo.config.keycode_options).into_iter().collect();
 		lo.config.generation_count = 10;
 		lo.config.population_size = 100;
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
