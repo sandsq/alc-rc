@@ -12,7 +12,7 @@ pub trait KeyValue {
 	type Item;
 	fn value(&self) -> Self::Item;
 }
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct KeycodeKey {
 	value: Keycode,
 	is_moveable: bool,
