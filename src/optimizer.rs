@@ -146,10 +146,10 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		for mut layout in &mut layouts {
 			let roll: f32 = rng.gen();
 			if roll <= swap_threshold {
-				let (p1, p2) = match layout.gen_valid_swap(rng) {
+				let (p1, p2) = match layout.generate_random_valid_swap(rng) {
 					Some((x, y)) => (x, y),
 					// None => panic!("no swap found"),
-					None => (LayoutPosition::for_layout(0, 0, 0), LayoutPosition::for_layout(0, 0, 0)), // swapping the same position doesn't change the layout
+					None => (LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 0)), // swapping the same position doesn't change the layout
 				};
 				// println!("swapping {} and {}", p1, p2);
 				let swap_happened = layout.swap(&p1, &p2);
@@ -179,7 +179,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			let roll: f32 = rng.gen();
 			// println!("roll {} vs swap threshold {}", roll, swap_threshold);
 			if roll <= swap_threshold {
-				let (p1, p2) = match new_layout.gen_valid_swap(rng) {
+				let (p1, p2) = match new_layout.generate_random_valid_swap(rng) {
 					Some((x, y)) => (x, y),
 					None => panic!("no swap found"),
 					//(LayoutPosition::for_layout(0, 0, 0), LayoutPosition::for_layout(0, 0, 0)), // swapping the same position doesn't change the layout

@@ -24,29 +24,20 @@ impl<const R: usize, const C: usize, K: KeyValue + std::clone::Clone> Layer<R, C
 	pub fn get(&self, r: usize, c: usize) -> Option<&K> {
 		self.layer.get(r, c)
 	}
-	pub fn get_mut(&mut self, r: usize, c: usize) -> Result<&mut K, Array2DError> {
-		match self.layer.get_mut(r, c) {
-			Some(v) => Ok(v),
-			None => Err(Array2DError::IndicesOutOfBounds(r, c)),
-		}
+	pub fn get_mut(&mut self, r: usize, c: usize) -> Option<&mut K> {
+		self.layer.get_mut(r, c)
 	}
-	pub fn get_row_major(&self, index: usize) -> Result<K, Array2DError> {
-		match self.layer.get_row_major(index) {
-			Some(v) => Ok(v.clone()),
-			None => Err(Array2DError::IndexOutOfBounds(index)),
-		}
+	pub fn get_row_major(&self, index: usize) -> Option<&K> {
+		self.layer.get_row_major(index)
 	}
-	pub fn get_mut_row_major(&mut self, index: usize) -> Result<&mut K, Array2DError> {
-		match self.layer.get_mut_row_major(index) {
-			Some(v) => Ok(v),
-			None => Err(Array2DError::IndexOutOfBounds(index)),
-		}
+	pub fn get_mut_row_major(&mut self, index: usize) -> Option<&mut K> {
+		self.layer.get_mut_row_major(index)
 	}
 	pub fn set(&mut self, row: usize, col: usize, element: K) -> Result<(), Array2DError> {
 		self.layer.set(row, col, element)
 	}
 	pub fn get_from_layout_position(&self, l: &LayoutPosition) -> 
-			Result<K, Array2DError> {
+			Option<&K> {
 		self.get(l.row_index, l.col_index)
 	}
 	pub fn num_rows(&self) -> usize {
@@ -71,6 +62,13 @@ impl<const R: usize, const C: usize, T> Index<(usize, usize)> for Layer<R, C, T>
 		&self.layer[index]
 	}
 }
+impl<const R: usize, const C: usize, T> Index<LayoutPosition> for Layer<R, C, T> where T: KeyValue{
+	type Output = T;
+	fn index(&self, index: LayoutPosition) -> &Self::Output {
+		&self.layer[(index.row_index, index.col_index)]
+	}
+}
+
 
 impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 	pub fn init_blank() -> Self {
@@ -84,7 +82,7 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 		let mut valid_keycodes_to_draw_from = valid_keycodes.clone();
 		for i in 0..R {
 			for j in 0..C {
-				let key = self[(i, j)];
+				let key = &self[(i, j)];
 				if  !key.is_randomizeable() || key.value() != _NO {
 					continue;
 				}
@@ -272,7 +270,7 @@ mod tests {
 	// don't test things with square dimensions as doing so makes it easier for incorrect logic to still give the expected outcome
 	#[test]
 	fn test_keycode_key_layer() {
-		let l = LayoutPosition::for_layer(0, 1);
+		let l = LayoutPosition::new(0, 0, 1);
 		let key1: KeycodeKey = KeycodeKey::default_from_keycode(_A);
 		let key2: KeycodeKey = KeycodeKey::default_from_keycode(_B);
 		let key3: KeycodeKey = KeycodeKey::default_from_keycode(_C);
@@ -287,7 +285,7 @@ mod tests {
 		// }
 		// from_rows_test(vec_vec_layer, expected_layer);
 		fn access_test(e: Layer<2, 3, KeycodeKey>, l: LayoutPosition, k: KeycodeKey) {
-			assert_eq!(e.get_from_layout_position(&l).unwrap(), k);
+			assert_eq!(*e.get_from_layout_position(&l).unwrap(), k);
 		}
 		access_test(expected_layer_again, l, KeycodeKey::default_from_keycode(_B));
 	}
@@ -295,7 +293,7 @@ mod tests {
 	#[test]
 	fn test_float_layer() {
 		let expected_layer = Layer::<1, 2, f32> { layer: Array2D::from_rows(&vec![vec![0.4, 0.5]]).unwrap() };
-		assert_eq!(expected_layer.get_from_layout_position(&LayoutPosition::for_layer(0, 0)).unwrap(), 0.4);
+		assert_eq!(expected_layer[LayoutPosition::new(0, 0, 0)], 0.4);
 	}
 
 	#[test]

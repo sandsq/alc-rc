@@ -15,14 +15,11 @@ pub struct LayoutPosition {
 	col_index: usize,
 }
 impl LayoutPosition {
-	pub fn for_layer(r: usize, c: usize) -> LayoutPosition {
-		LayoutPosition { layer_index: 0, row_index: r, col_index: c }
-	}
-	pub fn for_layout(l: usize, r: usize, c: usize) -> LayoutPosition {
-		LayoutPosition { layer_index: l, row_index: r, col_index: c }
+	pub fn new(layer_index: usize, row_index: usize, col_index: usize) -> Self {
+		LayoutPosition { layer_index, row_index, col_index }
 	}
 	pub fn from_tuple(t: (usize, usize, usize)) -> Self {
-		LayoutPosition { layer_index: t.0, row_index: t.1, col_index: t.2 }
+		LayoutPosition::new(t.0, t.1, t.2)
 	}
 }
 impl fmt::Display for LayoutPosition {
@@ -40,10 +37,10 @@ impl LayoutPositionSequence {
 	pub fn push(&mut self, lp: LayoutPosition) {
 		self.sequence.push(lp)
 	}
-	pub fn from_layout_positions(lps: Vec<LayoutPosition>) -> Self {
+	pub fn from_vector(lps: Vec<LayoutPosition>) -> Self {
 		LayoutPositionSequence { sequence: lps }
 	}
-	pub fn from_tuple_vector(lps: Vec<(usize, usize, usize)>) -> Self {
+	pub fn from_tuples(lps: Vec<(usize, usize, usize)>) -> Self {
 		let lps_vec = lps.into_iter().map(|v| LayoutPosition::from_tuple(v)).collect();
 		LayoutPositionSequence { sequence: lps_vec }
 	}
