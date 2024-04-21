@@ -1,0 +1,6 @@
+score: 151024
+operations: Cell { value: (3310, 597, 66) }
+initial time: 0.14013124
+avg score time: 0.01673682
+avg take top time: 0.000778135
+avg gen time: 0.06101381
