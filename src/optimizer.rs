@@ -84,7 +84,6 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			};
 			let mut possible_scores: Vec<f32> = vec![];
 			for sequence in sequences {
-				// let s2 = sequence.clone();
 				let sequence_score = self.score_function.score_layout_position_sequence(layout, effort_layer, sequence, &self.config);
 				possible_scores.push(sequence_score);
 				// if ngram == Ngram::new(vec![_T, _H, _E]) {
