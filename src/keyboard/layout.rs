@@ -426,7 +426,7 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 
 
 
-	fn generate_pathmap(&mut self) -> Result<(), AlcError> {
+	pub fn generate_pathmap(&mut self) -> Result<(), AlcError> {
 		let mut pathmap = KeycodePathMap::default();
 		let mut layer_switch_pathmap =  KeycodePathMap::default();
 		for (layer_num, layer) in self.layers.iter().enumerate() {
@@ -464,6 +464,10 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 		}
 		self.keycode_pathmap = pathmap;
 		Ok(())
+	}
+
+	pub fn len(&self) -> usize {
+		self.layers.len()
 	}
 }
 

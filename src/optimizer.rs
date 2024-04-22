@@ -1,4 +1,7 @@
+
 use std::cell::Cell;
+use std::collections::HashSet;
+use std::mem::discriminant;
 use std::time::SystemTime;
 use rand::prelude::*;
 use rand::Rng;
@@ -7,7 +10,9 @@ use std::path::PathBuf;
 
 
 use crate::alc_error::AlcError;
+use crate::keyboard::key::KeyValue;
 use crate::keyboard::LayoutPosition;
+use crate::keyboard::LayoutPositionSequence;
 use crate::keyboard::{layout::*, layer::*};
 use crate::text_processor::*;
 use crate::objective::scoring::*;
@@ -70,8 +75,9 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		self.config.valid_keycodes = generate_default_keycode_set(&self.config.keycode_options).into_iter().collect();
 	}
 
-	fn score_single_grams(&self, layout: &Layout<R, C>, frequencies: SingleGramFrequencies<u32>) -> f32 {
+	fn score_single_grams(&self, layout: &Layout<R, C>, frequencies: SingleGramFrequencies<u32>, save_positions: bool) -> (f32, HashSet<LayoutPosition>) {
 		let mut score = 0.0;
+		let mut visited_positions: HashSet<LayoutPosition> = HashSet::default();
 		let effort_layer = &self.effort_layer;
 		for (ngram, ngram_frequency) in frequencies {
 			let sequences = match layout.ngram_to_sequences(&ngram) {
@@ -80,45 +86,62 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				// return 0.0
 			};
 			let mut possible_scores: Vec<f32> = vec![];
+			let mut possible_sequences: Vec<LayoutPositionSequence> = vec![];
 			for sequence in sequences {
+				if save_positions {
+					possible_sequences.push(sequence.clone());
+				}
 				let sequence_score = self.score_function.score_layout_position_sequence(layout, effort_layer, sequence, &self.config);
 				possible_scores.push(sequence_score);
-				// if ngram == Ngram::new(vec![_T, _H, _E]) {
-				// 	println!("ngram {} with sequence {} and score {}", ngram, s2, sequence_score);
-				// }
 			}
 			
-			// println!("possible scores {:?}", possible_scores);
-			let min_score = match possible_scores.iter().min_by(|a, b| a.total_cmp(b)) {
-				Some(v) => v,
-				None => &0.0,
-			};
+			let min_index = arg_min(&possible_scores);
+			// let min_index = match possible_scores.iter().enumerate().min_by(|(_, a), (_, b)| a.total_cmp(b)).map(|(idx, _)| idx) {
+			// 	Some(v) => v,
+			// 	None => 0,
+			// };
+			let min_score = possible_scores[min_index];
+			if save_positions {
+				let min_sequence = &possible_sequences[min_index];
+				for pos in min_sequence.clone() {
+					visited_positions.insert(pos);
+				}
+			}
+			// let min_score = match possible_scores.iter().min_by(|a, b| a.total_cmp(b)) {
+			// 	Some(v) => v,
+			// 	None => &0.0,
+			// };
 				
 			score += min_score * (ngram_frequency as f32);
 		}
-		score
+		(score, visited_positions)
 	}
 
-	fn score_dataset(&self, layout: &Layout<R, C>, datasets: &Vec<FrequencyDataset<u32>>) -> f32 {
+	fn score_datasets(&self, layout: &Layout<R, C>, datasets: &Vec<FrequencyDataset<u32>>, save_positions: bool) -> (f32, HashSet<LayoutPosition>) {
 		let mut score = 0.0;
+		let mut visited_positions: HashSet<LayoutPosition> = HashSet::default();
 		let mut d_ind: usize = 0;
 		for dataset in datasets {
 			let mut dataset_score = 0.0;
 			for ngram_size in dataset.ngram_frequencies.keys() {
-				dataset_score += self.score_single_grams(layout, dataset.ngram_frequencies.get(ngram_size).unwrap().clone());
+				let (calculated_score, calculated_positions) = self.score_single_grams(layout, dataset.ngram_frequencies[ngram_size].clone(), save_positions); // this clone might be expensive
+				dataset_score += calculated_score;
+				if save_positions {
+					visited_positions.extend(calculated_positions);
+				}
 			}
 			dataset_score *= self.config.dataset_weight[d_ind];
 			d_ind += 1;
 			score += dataset_score;
 		}
-		score
+		(score, visited_positions)
 	}
 
 
 	fn score_population(&self, layouts: &Vec<Layout<R, C>>, datasets: &Vec<FrequencyDataset<u32>>) -> Vec<(Layout<R, C>, f32)> {
 		let mut new_population: Vec<(Layout<R, C>, f32)> = Default::default();
 		for layout in layouts {
-			let score = self.score_dataset(layout, datasets);
+			let (score, _) = self.score_datasets(layout, datasets, false);
 			new_population.push((layout.clone(), score));
 		}
 		new_population
@@ -131,7 +154,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		for _i in 0..self.config.population_size {
 			let mut initial_layout = self.base_layout.clone();
 			initial_layout.randomize(rng, valid_keycodes).unwrap();
-			let initial_score = self.score_dataset(&initial_layout, datasets);
+			let (initial_score, _) = self.score_datasets(&initial_layout, datasets, false);
 			initial_population.push((initial_layout.clone(), initial_score));
 		}
 		initial_population
@@ -260,16 +283,44 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		}
 		layouts_and_scores = self.score_population(&layouts, datasets);
 		(best_layouts, best_scores) = self.take_best_layouts(layouts_and_scores);
-		println!("final layout\n{:#}\nscore: {}", best_layouts[0], best_scores[0]);
-		let final_layout = best_layouts[0].clone();
+		let mut final_layout = best_layouts[0].clone();
+		println!("final layout pre removal\n{}\nscore: {}", final_layout, best_scores[0]);
+
+		let (score, visited) = self.score_datasets(&final_layout, datasets, true);
+		assert_eq!(score, best_scores[0]);
+		for layer_index in 0..final_layout.len() {
+			for row_index in 0..R {
+				for col_index in 0..C {
+					let current_pos = LayoutPosition::new(layer_index, row_index, col_index);
+					let k = final_layout[current_pos];
+					if visited.contains(&current_pos) {
+						continue;
+					} else if !k.is_moveable() || k.is_symmetric() || discriminant(&k.value()) == discriminant(&Keycode::_LS(0)) || discriminant(&k.value()) == discriminant(&Keycode::_LST(0, 0,)) {
+						continue;
+					} else {
+						final_layout.get_mut(layer_index, row_index, col_index).unwrap().set_value(Keycode::_NO);
+					}
+				}
+			}
+		}
+		final_layout.generate_pathmap().unwrap();
+		let (score, _) = self.score_datasets(&final_layout, datasets, false);
+		println!("final layout post removal\n{:#}\nscore: {}", final_layout, score);
+
+		
+		if score != best_scores[0] {
+			println!("removing unused key positions gave a different score, something went wrong")
+		} else {
+			println!("verified that removing unused positions has the same score")
+		}
 		let (v1, v2) = final_layout.verify_layout_correctness();
 		if v1.len() > 0 {
-			println!("issue with layer switches")
+			println!("issue with layer switches {:?}", v1)
 		} else {
 			println!("layer switches checks passed")
 		}
 		if v2.len() > 0 {
-			println!("issue with symmetric keys")
+			println!("issue with symmetric keys {:?}", v2)
 		} else {
 			println!("symmetric keys checks passed")
 		}
@@ -308,11 +359,25 @@ impl Default for LayoutOptimizer<4, 12, SimpleScoreFunction> {
 	}
 }
 
+fn arg_min(scores: &Vec<f32>) -> usize {
+	let min_index = match scores.iter().enumerate().min_by(|(_, a), (_, b)| a.total_cmp(b)).map(|(idx, _)| idx) {
+		Some(v) => v,
+		None => panic!("Error for the developer, couldn't find a min score index"),
+	};
+	min_index
+}
+
 
 #[cfg(test)]
 mod tests {
 
 	use super::*;
+
+	#[test]
+	fn test_arg_min () {
+		let v = vec![1.0, 5.5, 10.0, 0.5, 8.0];
+		assert_eq!(arg_min(&v), 3);
+	}
 
 	#[test]
 	fn test_ngram_scoring() {
@@ -335,12 +400,17 @@ mod tests {
 		let datasets = layout_optimizer.compute_datasets();
 		let twogram_frequency = datasets[0].ngram_frequencies.get(&(2 as usize)).unwrap();
 		println!("{:?}", twogram_frequency);
-		let s = layout_optimizer.score_single_grams(&test_layout, twogram_frequency.clone());
+		let (s, poss) = layout_optimizer.score_single_grams(&test_layout, twogram_frequency.clone(), true);
 		// 3 * he + 1 * be + 2 * eh + 1 + eb
 		let expected_two_score = 3.0 * (0.1 + 0.2 + 0.1) + 1.0 * (0.3 + 0.2 + 0.1) + 2.0 * (0.2 + 0.1 + 0.1) + 1.0 * (0.2 + 0.1 + 0.3);
 		assert_eq!(format!("{s:.3}"), format!("{expected_two_score:.3}"));
+		let expected_poss: HashSet<LayoutPosition> = HashSet::from_iter(vec![
+			LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 2),
+			LayoutPosition::new(0, 0, 3), LayoutPosition::new(1, 0, 0),
+		]);
+		assert_eq!(poss, expected_poss);
 		
-		let full_score = layout_optimizer.score_dataset(&test_layout, &datasets);
+		let (full_score, _) = layout_optimizer.score_datasets(&test_layout, &datasets, true);
 		let expected_one_score = 3.0 * 0.1 + 4.0 * (0.2 + 0.1) + 1.0 * 0.3;
 		let expected_score = expected_one_score + expected_two_score;
 		assert_eq!(format!("{full_score:.3}"), format!("{expected_score:.3}"));

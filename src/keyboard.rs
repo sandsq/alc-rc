@@ -8,7 +8,7 @@ pub mod default_layouts;
 
 
 /// Describes position in a keyboard layout (i.e., a collection of layers). For a single layer, layer_index is ignored.
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
 pub struct LayoutPosition {
 	layer_index: usize,
 	row_index: usize,
