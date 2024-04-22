@@ -227,6 +227,12 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		}
 		self.activate();
 		println!("base layout\n{:b}", self.base_layout);
+		for dataset in &self.datasets {
+			let onegram = dataset.get(&1).unwrap().clone();
+			for (gram, count) in onegram.into_iter() {
+				println!("{}: {}", gram, count);
+			}
+		}
 
 		let mut avg_score_time = 0.0;
 		let mut avg_take_time = 0.0;
@@ -349,7 +355,7 @@ mod tests {
 		// lo.config.keycode_options.include_number_symbols = true;
 		// lo.datasets = vec![FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(lo.config.top_n_ngrams_to_take), &lo.config.keycode_options).unwrap()];
 		// lo.config.valid_keycodes = generate_default_keycode_set(&lo.config.keycode_options).into_iter().collect();
-		lo.config.generation_count = 100;
+		lo.config.generation_count = 10;
 		lo.config.population_size = 100;
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = StdRng::seed_from_u64(0);

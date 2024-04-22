@@ -68,6 +68,7 @@ impl Index<usize> for FrequencyDataset<u32> {
 }
 
 
+
 #[cfg(test)]
 mod tests {
 	use crate::text_processor::keycode::Keycode::*;
