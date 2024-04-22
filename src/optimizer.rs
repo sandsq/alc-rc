@@ -73,10 +73,13 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		self.config.valid_keycodes = generate_default_keycode_set(&self.config.keycode_options).into_iter().collect();
 	}
 
-	fn score_single_grams(&self, layout: &Layout<R, C>, frequencies: SingleGramFrequencies<u32>) -> f32 {
+	fn score_single_grams(&self, layout: &Layout<R, C>, frequencies: &SingleGramFrequencies<u32>) -> f32 {
 		let mut score = 0.0;
 		let effort_layer = &self.effort_layer;
-		for (ngram, ngram_frequency) in frequencies {
+
+		for ngram in frequencies.keys() {
+			let ngram_frequency = frequencies[ngram.clone()];
+		// for (ngram, ngram_frequency) in frequencies {
 			let sequences = match layout.ngram_to_sequences(&ngram) {
 				Some(v) => v.into_iter(),
 				None => panic!("unable to create sequence from {}", ngram),
@@ -108,7 +111,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		for dataset in &self.datasets {
 			let mut dataset_score = 0.0;
 			for ngram_size in dataset.ngram_frequencies.keys() {
-				dataset_score += self.score_single_grams(layout, dataset.ngram_frequencies.get(ngram_size).unwrap().clone());
+				dataset_score += self.score_single_grams(layout, &dataset.ngram_frequencies[ngram_size]);
 			}
 			dataset_score *= self.config.dataset_weight[d_ind];
 			d_ind += 1;
@@ -121,7 +124,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	fn score_population(&self, layouts: &Vec<Layout<R, C>>) -> Vec<(Layout<R, C>, f32)> {
 		let mut new_population: Vec<(Layout<R, C>, f32)> = Default::default();
 		for layout in layouts {
-			let score = self.score_dataset(&layout);
+			let score = self.score_dataset(layout);
 			new_population.push((layout.clone(), score));
 		}
 		new_population
@@ -256,7 +259,6 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			now = SystemTime::now();
 			layouts = self.generate_new_layouts(rng, best_layouts);
 			avg_gen_time +=  now.elapsed().unwrap().as_secs_f32();
-			// println!("after {} generation(s), layout\n{}\n score: {}", i, printclone[0], best_scores[0]);
 			println!("after {} generation(s), best score: {}, worst score {}", i, best_scores[0], best_scores[best_scores.len()-1]);
 		}
 		layouts_and_scores = self.score_population(&layouts);
@@ -334,7 +336,7 @@ mod tests {
 		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![String::from("./data/small_test/")], vec![], config, Cell::new((0, 0, 0)));
 		let twogram_frequency = layout_optimizer.datasets[0].ngram_frequencies.get(&(2 as usize)).unwrap();
 		println!("{:?}", twogram_frequency);
-		let s = layout_optimizer.score_single_grams(&test_layout, twogram_frequency.clone());
+		let s = layout_optimizer.score_single_grams(&test_layout, &twogram_frequency);
 		// 3 * he + 1 * be + 2 * eh + 1 + eb
 		let expected_two_score = 3.0 * (0.1 + 0.2 + 0.1) + 1.0 * (0.3 + 0.2 + 0.1) + 2.0 * (0.2 + 0.1 + 0.1) + 1.0 * (0.2 + 0.1 + 0.3);
 		assert_eq!(format!("{s:.3}"), format!("{expected_two_score:.3}"));

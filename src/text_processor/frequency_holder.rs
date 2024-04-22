@@ -2,7 +2,7 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::io::{self, BufRead};
 use std::ops::Index;
-use std::collections::hash_map::{IntoIter, IntoKeys};
+use std::collections::hash_map::{IntoIter, IntoKeys, Keys};
 use std::fs::File;
 use std::path::Path;
 
@@ -34,6 +34,9 @@ impl<T> SingleGramFrequencies<T> where T: Frequencies {
 	}
 	pub fn get(&self, k: &Ngram) -> Option<&T> {
 		self.frequencies.get(k)
+	}
+	pub fn keys(&self) -> Keys<'_, Ngram, T> {
+		self.frequencies.keys()
 	}
 	pub fn into_keys(self) -> IntoKeys<Ngram, T> {
 		self.frequencies.into_keys()
