@@ -6,3 +6,4 @@ initial time: 0.112205945
 avg score time: 0.066919796
 avg take top time: 0.0043886853
 avg gen time: 0.031590518
+

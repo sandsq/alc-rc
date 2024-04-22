@@ -101,8 +101,8 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 				},
 			};
 			if output_sequences_to_ngram.len() == 0 {
-				// output_sequences_to_ngram = sequences_to_keycode.to_vec();
-				output_sequences_to_ngram = sequences_to_keycode.clone();
+				output_sequences_to_ngram = sequences_to_keycode.to_vec();
+				// output_sequences_to_ngram = sequences_to_keycode.clone();
 			} else {
 				let mut temp_sequences_to_ngram: Vec<LayoutPositionSequence> = vec![];
 				for sequence in sequences_to_keycode {

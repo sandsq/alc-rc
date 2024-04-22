@@ -24,6 +24,7 @@ pub struct LayoutOptimizerConfig {
 	pub fitness_cutoff: f32, // keep top x% for the next generation
 	pub swap_weight: f32,
 	pub replace_weight: f32,
+	pub dataset_paths: Vec<String>,
 	pub dataset_weight: Vec<f32>,
 	pub keycode_options: KeycodeOptions,
 	pub valid_keycodes: Vec<Keycode>,
@@ -40,6 +41,7 @@ impl Default for LayoutOptimizerConfig {
 			swap_weight: 4.0,
 			replace_weight: 1.0,
 			dataset_weight: vec![1.0],
+			dataset_paths: vec![String::from("./data/rust_book_test/")],
 			keycode_options: keycode_options.clone(),
 			valid_keycodes: generate_default_keycode_set(&keycode_options).into_iter().collect(),
 			max_ngram_size: 5,
@@ -51,25 +53,20 @@ pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, 
 	pub base_layout: Layout<R, C>,
 	pub effort_layer: Layer<R, C, f32>,
 	score_function: S,
-	dataset_paths: Vec<String>,
-	datasets: Vec<FrequencyDataset<u32>>,
 	pub config: LayoutOptimizerConfig,
 	operation_counter: Cell<(u32, u32, u32)>, // swaps, replacements, nothings
 }
 impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> {
-	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f32>, score_function: S, dataset_paths: Vec<String>, _datasets: Vec<FrequencyDataset<u32>>, config: LayoutOptimizerConfig, operation_counter: Cell<(u32, u32, u32)>) -> Self {
-		let datasets = Self::compute_dataset(&dataset_paths, &config);
-		LayoutOptimizer { base_layout, effort_layer, score_function, dataset_paths, datasets: datasets, config, operation_counter }
+	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f32>, score_function: S, config: LayoutOptimizerConfig, operation_counter: Cell<(u32, u32, u32)>) -> Self {
+		LayoutOptimizer { base_layout, effort_layer, score_function, config, operation_counter }
 	}
 
-	pub fn compute_dataset(dataset_paths: &Vec<String>, config: &LayoutOptimizerConfig) -> Vec<FrequencyDataset<u32>> {
-		dataset_paths.iter()
-			.map(|x| FrequencyDataset::<u32>::try_from_dir(PathBuf::from(x), config.max_ngram_size, Num(config.top_n_ngrams_to_take), &config.keycode_options).unwrap()).collect::<Vec<FrequencyDataset<u32>>>()
+	pub fn compute_datasets(&self) -> Vec<FrequencyDataset<u32>> {
+		self.config.dataset_paths.iter()
+			.map(|x| FrequencyDataset::<u32>::try_from_dir(PathBuf::from(x), self.config.max_ngram_size, Num(self.config.top_n_ngrams_to_take), &self.config.keycode_options).unwrap()).collect::<Vec<FrequencyDataset<u32>>>()
 	}
 
 	pub fn activate(&mut self) -> () {
-		let datasets = Self::compute_dataset(&self.dataset_paths, &self.config);
-		self.datasets = datasets;
 		self.config.valid_keycodes = generate_default_keycode_set(&self.config.keycode_options).into_iter().collect();
 	}
 
@@ -102,10 +99,10 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		score
 	}
 
-	fn score_dataset(&self, layout: &Layout<R, C>) -> f32 {
+	fn score_dataset(&self, layout: &Layout<R, C>, datasets: &Vec<FrequencyDataset<u32>>) -> f32 {
 		let mut score = 0.0;
 		let mut d_ind: usize = 0;
-		for dataset in &self.datasets {
+		for dataset in datasets {
 			let mut dataset_score = 0.0;
 			for ngram_size in dataset.ngram_frequencies.keys() {
 				dataset_score += self.score_single_grams(layout, dataset.ngram_frequencies.get(ngram_size).unwrap().clone());
@@ -118,23 +115,23 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 
 
-	fn score_population(&self, layouts: &Vec<Layout<R, C>>) -> Vec<(Layout<R, C>, f32)> {
+	fn score_population(&self, layouts: &Vec<Layout<R, C>>, datasets: &Vec<FrequencyDataset<u32>>) -> Vec<(Layout<R, C>, f32)> {
 		let mut new_population: Vec<(Layout<R, C>, f32)> = Default::default();
 		for layout in layouts {
-			let score = self.score_dataset(&layout);
+			let score = self.score_dataset(layout, datasets);
 			new_population.push((layout.clone(), score));
 		}
 		new_population
 	}
 	
 
-	fn generate_and_score_initial_population(&self, rng: &mut impl Rng) -> Vec<(Layout<R, C>, f32)> {
+	fn generate_and_score_initial_population(&self, rng: &mut impl Rng, datasets: &Vec<FrequencyDataset<u32>>) -> Vec<(Layout<R, C>, f32)> {
 		let valid_keycodes = &self.config.valid_keycodes;
 		let mut initial_population: Vec<(Layout<R, C>, f32)> = Default::default();
 		for _i in 0..self.config.population_size {
 			let mut initial_layout = self.base_layout.clone();
 			initial_layout.randomize(rng, valid_keycodes).unwrap();
-			let initial_score = self.score_dataset(&initial_layout);
+			let initial_score = self.score_dataset(&initial_layout, datasets);
 			initial_population.push((initial_layout.clone(), initial_score));
 		}
 		initial_population
@@ -221,12 +218,14 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 
 	pub fn optimize(&mut self, rng: &mut impl Rng) -> Result<Layout<R, C>, AlcError> {
-		if self.datasets.len() != self.config.dataset_weight.len() {
-			return Err(AlcError::DatasetWeightsMismatchError(self.datasets.len(), self.config.dataset_weight.len()));
+		let datasets = &self.compute_datasets();
+		if datasets.len() != self.config.dataset_weight.len() {
+			return Err(AlcError::DatasetWeightsMismatchError(datasets.len(), self.config.dataset_weight.len()));
 		}
+
 		self.activate();
 		println!("base layout\n{:b}", self.base_layout);
-		for dataset in &self.datasets {
+		for dataset in datasets {
 			let onegram = dataset.get(&1).unwrap().clone();
 			for (gram, count) in onegram.into_iter() {
 				println!("{}: {}", gram, count);
@@ -238,7 +237,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let mut avg_gen_time = 0.0;
 
 		let mut now = SystemTime::now();
-		let mut layouts_and_scores = self.generate_and_score_initial_population(rng);
+		let mut layouts_and_scores = self.generate_and_score_initial_population(rng, datasets);
 		let (mut best_layouts, mut best_scores) = self.take_best_layouts(layouts_and_scores);
 		println!("initial, best score: {}, worst score {}", best_scores[0], best_scores[best_scores.len()-1]);
 		let mut layouts = self.generate_new_layouts(rng, best_layouts);
@@ -246,7 +245,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	
 		for i in tqdm(0..self.config.generation_count) {
 			now = SystemTime::now();
-			layouts_and_scores = self.score_population(&layouts);
+			layouts_and_scores = self.score_population(&layouts, datasets);
 			avg_score_time += now.elapsed().unwrap().as_secs_f32();
 			
 			now = SystemTime::now();
@@ -259,7 +258,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			// println!("after {} generation(s), layout\n{}\n score: {}", i, printclone[0], best_scores[0]);
 			println!("after {} generation(s), best score: {}, worst score {}", i, best_scores[0], best_scores[best_scores.len()-1]);
 		}
-		layouts_and_scores = self.score_population(&layouts);
+		layouts_and_scores = self.score_population(&layouts, datasets);
 		(best_layouts, best_scores) = self.take_best_layouts(layouts_and_scores);
 		println!("final layout\n{:#}\nscore: {}", best_layouts[0], best_scores[0]);
 		let final_layout = best_layouts[0].clone();
@@ -295,7 +294,7 @@ impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
 		").unwrap();
 		let score_function = SimpleScoreFunction{};
 		let config = LayoutOptimizerConfig::default();
-		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![String::from("./data/rust_book_test/")], vec![], config, Cell::new((0, 0, 0)))
+		LayoutOptimizer::new(base_layout, effort_layer, score_function, config, Cell::new((0, 0, 0)))
 	}
 }
 
@@ -305,7 +304,7 @@ impl Default for LayoutOptimizer<4, 12, SimpleScoreFunction> {
 		let effort_layer = Layer::<4, 12, f32>::default();
 		let score_function = SimpleScoreFunction{};
 		let config = LayoutOptimizerConfig::default();	
-		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![String::from("./data/rust_book_test/")], vec![], config, Cell::new((0, 0, 0)))
+		LayoutOptimizer::new(base_layout, effort_layer, score_function, config, Cell::new((0, 0, 0)))
 	}
 }
 
@@ -331,15 +330,17 @@ mod tests {
 		let score_function = SimpleScoreFunction{};
 		let mut config = LayoutOptimizerConfig::default();
 		config.max_ngram_size = 2;
-		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![String::from("./data/small_test/")], vec![], config, Cell::new((0, 0, 0)));
-		let twogram_frequency = layout_optimizer.datasets[0].ngram_frequencies.get(&(2 as usize)).unwrap();
+		config.dataset_paths = vec![String::from("./data/small_test/")];
+		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, score_function, config, Cell::new((0, 0, 0)));
+		let datasets = layout_optimizer.compute_datasets();
+		let twogram_frequency = datasets[0].ngram_frequencies.get(&(2 as usize)).unwrap();
 		println!("{:?}", twogram_frequency);
 		let s = layout_optimizer.score_single_grams(&test_layout, twogram_frequency.clone());
 		// 3 * he + 1 * be + 2 * eh + 1 + eb
 		let expected_two_score = 3.0 * (0.1 + 0.2 + 0.1) + 1.0 * (0.3 + 0.2 + 0.1) + 2.0 * (0.2 + 0.1 + 0.1) + 1.0 * (0.2 + 0.1 + 0.3);
 		assert_eq!(format!("{s:.3}"), format!("{expected_two_score:.3}"));
 		
-		let full_score = layout_optimizer.score_dataset(&test_layout);
+		let full_score = layout_optimizer.score_dataset(&test_layout, &datasets);
 		let expected_one_score = 3.0 * 0.1 + 4.0 * (0.2 + 0.1) + 1.0 * 0.3;
 		let expected_score = expected_one_score + expected_two_score;
 		assert_eq!(format!("{full_score:.3}"), format!("{expected_score:.3}"));
