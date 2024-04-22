@@ -1,0 +1,8 @@
+score: 136571
+layer switches checks passed
+symmetric keys checks passed
+operations: Cell { value: (16394, 4229, 291) }
+initial time: 0.112205945
+avg score time: 0.066919796
+avg take top time: 0.0043886853
+avg gen time: 0.031590518

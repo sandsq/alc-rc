@@ -17,6 +17,7 @@ use self::frequency_holder::{SingleGramFrequencies, TopFrequenciesToTake::*};
 use self::keycode::KeycodeOptions;
 use self::keycode::{Keycode, generate_default_keycode_set};
 
+#[derive(Debug, Clone)]
 pub struct LayoutOptimizerConfig {
 	pub population_size: u32,
 	pub generation_count: u32,
@@ -26,6 +27,7 @@ pub struct LayoutOptimizerConfig {
 	pub dataset_weight: Vec<f32>,
 	pub keycode_options: KeycodeOptions,
 	pub valid_keycodes: Vec<Keycode>,
+	pub max_ngram_size: usize,
 	pub top_n_ngrams_to_take: usize,
 }
 impl Default for LayoutOptimizerConfig {
@@ -40,6 +42,7 @@ impl Default for LayoutOptimizerConfig {
 			dataset_weight: vec![1.0],
 			keycode_options: keycode_options.clone(),
 			valid_keycodes: generate_default_keycode_set(&keycode_options).into_iter().collect(),
+			max_ngram_size: 5,
 			top_n_ngrams_to_take: 50, }
 	}
 }
@@ -48,13 +51,26 @@ pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, 
 	pub base_layout: Layout<R, C>,
 	pub effort_layer: Layer<R, C, f32>,
 	score_function: S,
+	dataset_paths: Vec<String>,
 	datasets: Vec<FrequencyDataset<u32>>,
 	pub config: LayoutOptimizerConfig,
 	operation_counter: Cell<(u32, u32, u32)>, // swaps, replacements, nothings
 }
 impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> {
-	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f32>, score_function: S, datasets: Vec<FrequencyDataset<u32>>, config: LayoutOptimizerConfig, operation_counter: Cell<(u32, u32, u32)>) -> Self {
-		LayoutOptimizer { base_layout, effort_layer, score_function, datasets, config, operation_counter }
+	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f32>, score_function: S, dataset_paths: Vec<String>, _datasets: Vec<FrequencyDataset<u32>>, config: LayoutOptimizerConfig, operation_counter: Cell<(u32, u32, u32)>) -> Self {
+		let datasets = Self::compute_dataset(&dataset_paths, &config);
+		LayoutOptimizer { base_layout, effort_layer, score_function, dataset_paths, datasets: datasets, config, operation_counter }
+	}
+
+	pub fn compute_dataset(dataset_paths: &Vec<String>, config: &LayoutOptimizerConfig) -> Vec<FrequencyDataset<u32>> {
+		dataset_paths.iter()
+			.map(|x| FrequencyDataset::<u32>::try_from_dir(PathBuf::from(x), config.max_ngram_size, Num(config.top_n_ngrams_to_take), &config.keycode_options).unwrap()).collect::<Vec<FrequencyDataset<u32>>>()
+	}
+
+	pub fn activate(&mut self) -> () {
+		let datasets = Self::compute_dataset(&self.dataset_paths, &self.config);
+		self.datasets = datasets;
+		self.config.valid_keycodes = generate_default_keycode_set(&self.config.keycode_options).into_iter().collect();
 	}
 
 	fn score_single_grams(&self, layout: &Layout<R, C>, frequencies: SingleGramFrequencies<u32>) -> f32 {
@@ -205,10 +221,11 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		layouts
 	}
 
-	pub fn optimize(&self, rng: &mut impl Rng) -> Result<Layout<R, C>, AlcError> {
+	pub fn optimize(&mut self, rng: &mut impl Rng) -> Result<Layout<R, C>, AlcError> {
 		if self.datasets.len() != self.config.dataset_weight.len() {
 			return Err(AlcError::DatasetWeightsMismatchError(self.datasets.len(), self.config.dataset_weight.len()));
 		}
+		self.activate();
 		println!("base layout\n{:b}", self.base_layout);
 
 		let mut avg_score_time = 0.0;
@@ -273,8 +290,7 @@ impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
 		").unwrap();
 		let score_function = SimpleScoreFunction{};
 		let config = LayoutOptimizerConfig::default();
-		let dataset = FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(config.top_n_ngrams_to_take), &KeycodeOptions::default()).unwrap();
-		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config, Cell::new((0, 0, 0)))
+		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![String::from("./data/rust_book_test/")], vec![], config, Cell::new((0, 0, 0)))
 	}
 }
 
@@ -283,10 +299,8 @@ impl Default for LayoutOptimizer<4, 12, SimpleScoreFunction> {
 		let base_layout = Layout::<4, 12>::default();
 		let effort_layer = Layer::<4, 12, f32>::default();
 		let score_function = SimpleScoreFunction{};
-		let config = LayoutOptimizerConfig::default();
-		let dataset = FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(config.top_n_ngrams_to_take), &KeycodeOptions::default()).unwrap();
-		
-		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config, Cell::new((0, 0, 0)))
+		let config = LayoutOptimizerConfig::default();	
+		LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![String::from("./data/rust_book_test/")], vec![], config, Cell::new((0, 0, 0)))
 	}
 }
 
@@ -310,10 +324,11 @@ mod tests {
 		
 		").unwrap();
 		let score_function = SimpleScoreFunction{};
-		let dataset = FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/small_test/"), 2, All, &KeycodeOptions::default()).unwrap();
-		let config = LayoutOptimizerConfig::default();
-		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![dataset], config, Cell::new((0, 0, 0)));
+		let mut config = LayoutOptimizerConfig::default();
+		config.max_ngram_size = 2;
+		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, score_function, vec![String::from("./data/small_test/")], vec![], config, Cell::new((0, 0, 0)));
 		let twogram_frequency = layout_optimizer.datasets[0].ngram_frequencies.get(&(2 as usize)).unwrap();
+		println!("{:?}", twogram_frequency);
 		let s = layout_optimizer.score_single_grams(&test_layout, twogram_frequency.clone());
 		// 3 * he + 1 * be + 2 * eh + 1 + eb
 		let expected_two_score = 3.0 * (0.1 + 0.2 + 0.1) + 1.0 * (0.3 + 0.2 + 0.1) + 2.0 * (0.2 + 0.1 + 0.1) + 1.0 * (0.2 + 0.1 + 0.3);
@@ -332,8 +347,8 @@ mod tests {
 	fn test_optimize() {
 		let mut lo = LayoutOptimizer::<4, 12, SimpleScoreFunction>::default();
 		// lo.config.keycode_options.include_number_symbols = true;
-		lo.datasets = vec![FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(lo.config.top_n_ngrams_to_take), &lo.config.keycode_options).unwrap()];
-		lo.config.valid_keycodes = generate_default_keycode_set(&lo.config.keycode_options).into_iter().collect();
+		// lo.datasets = vec![FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(lo.config.top_n_ngrams_to_take), &lo.config.keycode_options).unwrap()];
+		// lo.config.valid_keycodes = generate_default_keycode_set(&lo.config.keycode_options).into_iter().collect();
 		lo.config.generation_count = 100;
 		lo.config.population_size = 100;
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
