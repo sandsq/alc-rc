@@ -27,10 +27,11 @@ use TopFrequenciesToTake::*;
 pub struct SingleGramFrequencies<T> where T: Frequencies {
 	frequencies: HashMap<Ngram, T>,
 	n: usize,
+	pub total: f32,
 }
 impl<T> SingleGramFrequencies<T> where T: Frequencies {
 	pub fn new(n: usize) -> Self {
-		Self { frequencies:  Default::default(), n: n }
+		Self { frequencies:  Default::default(), n: n, total: 0.0 }
 	}
 	pub fn get(&self, k: &Ngram) -> Option<&T> {
 		self.frequencies.get(k)
@@ -56,6 +57,7 @@ impl SingleGramFrequencies<u32> {
 		if self.n != key.len() {
 			Err(AlcError::NgramMatchError(key.len(), self.n))
 		} else {
+			self.total += value as f32;
 			Ok(*self.frequencies.entry(key).or_insert(0) += value)
 		}
 	}
@@ -63,7 +65,7 @@ impl SingleGramFrequencies<u32> {
 	/// consumes other (I think?)
 	/// will give an error if trying to combine containers with different ngram lengths
 	pub fn combine_with(&mut self, other: Self) -> Result<(), AlcError> {
-		for (key, value) in other {			
+		for (key, value) in other {
 			self.add_from_key_value(key, value)?;
 		}
 		Ok(())
@@ -77,14 +79,17 @@ impl SingleGramFrequencies<u32> {
 			Num(n) => min(hash_vec.len(), n),
 		};
 		let mut temp_freqs: HashMap<Ngram, u32> = Default::default();
+		let mut new_total = 0.0;
 		for i in 0..amount_to_take {
 			let item = hash_vec[i];
 			// println!("{:?}", item);
 			let k = item.0.clone();
 			let v = item.1.clone();
+			new_total += v as f32;
 			temp_freqs.insert(k, v);
 		}
-		self.frequencies = temp_freqs
+		self.frequencies = temp_freqs;
+		self.total = new_total;
 	}
 
 	/// might want to rename because it isn't really a conversion, once something turns into frequencies it can't be turned back
@@ -98,12 +103,14 @@ impl SingleGramFrequencies<u32> {
 			// this particular string was not long enough to create an N-gram out of
 			return None;
 		}
+		let mut total = 0.0;
 		for i in 0..(keycodes.len() - n + 1) {
 			// should handle error here or change ngram to not error
 			let ngram = Ngram::new(keycodes[i..i + n].to_vec());
 			*ngram_to_counts.entry(ngram).or_insert(0) += 1;
+			total += 1.0;
 		}
-		Some(SingleGramFrequencies { frequencies: ngram_to_counts, n: n })
+		Some(SingleGramFrequencies { frequencies: ngram_to_counts, n: n, total: total})
 	}
 
 	pub fn try_from_file<P>(filename: P, n: usize, options: &KeycodeOptions) -> Result<SingleGramFrequencies<u32>, AlcError> where P: AsRef<Path> {
@@ -162,14 +169,20 @@ mod tests {
 		freq_holder.add_from_key_value(Ngram::new(vec![_C, _D]), 3).unwrap();
 		assert_eq!(freq_holder[Ngram::new(vec![_C, _D])], 3);
 
+		assert_eq!(freq_holder.total, 10.0);
+
 		let mut freq_holder2 = SingleGramFrequencies::<u32>::new(2);
 		freq_holder2.add_from_key_value(Ngram::new(vec![_A, _E]), 2).unwrap();
 		freq_holder2.add_from_key_value(Ngram::new(vec![_C, _D]), 3).unwrap();
+
+		assert_eq!(freq_holder2.total, 5.0);
 
 		freq_holder.combine_with(freq_holder2).unwrap();
 		assert_eq!(freq_holder[Ngram::new(vec![_A, _B])], 7);
 		assert_eq!(freq_holder[Ngram::new(vec![_C, _D])], 6);
 		assert_eq!(freq_holder[Ngram::new(vec![_A, _E])], 2);
+
+		assert_eq!(freq_holder.total, 15.0);
 	}
 
 	#[test]
@@ -177,7 +190,7 @@ mod tests {
 		let ngram = Ngram::new(vec![_A, _B]);
 		let mut expected_ngram_to_counts: HashMap<Ngram, u32> = HashMap::new();
 		expected_ngram_to_counts.insert(ngram, 1);
-		assert_eq!(SingleGramFrequencies::try_from_string("ab", 2, &KeycodeOptions::default()).unwrap(), SingleGramFrequencies { frequencies: expected_ngram_to_counts, n: 2 });
+		assert_eq!(SingleGramFrequencies::try_from_string("ab", 2, &KeycodeOptions::default()).unwrap(), SingleGramFrequencies { frequencies: expected_ngram_to_counts, n: 2, total: 1.0 });
 	}
 
 	#[test]

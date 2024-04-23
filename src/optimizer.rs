@@ -5,6 +5,7 @@ use std::mem::discriminant;
 use std::time::SystemTime;
 use rand::prelude::*;
 use rand::Rng;
+use rand_chacha::ChaCha8Rng;
 use tqdm::tqdm;
 use std::path::PathBuf;
 
@@ -77,6 +78,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 
 	fn score_single_grams(&self, layout: &Layout<R, C>, frequencies: SingleGramFrequencies<u32>, save_positions: bool) -> (f32, HashSet<LayoutPosition>) {
 		let mut score = 0.0;
+		let total = frequencies.total;
 		let mut visited_positions: HashSet<LayoutPosition> = HashSet::default();
 		let effort_layer = &self.effort_layer;
 		for (ngram, ngram_frequency) in frequencies {
@@ -112,7 +114,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			// 	None => &0.0,
 			// };
 				
-			score += min_score * (ngram_frequency as f32);
+			score += min_score * (ngram_frequency as f32) / total; // should be slightly more efficient to precompute counts / total, but lazy for now
 		}
 		(score, visited_positions)
 	}
@@ -122,10 +124,11 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let mut visited_positions: HashSet<LayoutPosition> = HashSet::default();
 		let mut d_ind: usize = 0;
 		for dataset in datasets {
+			let ngram_ratio = 1.0 / dataset.ngram_frequencies.len() as f32;
 			let mut dataset_score = 0.0;
 			for ngram_size in dataset.ngram_frequencies.keys() {
 				let (calculated_score, calculated_positions) = self.score_single_grams(layout, dataset.ngram_frequencies[ngram_size].clone(), save_positions); // this clone might be expensive
-				dataset_score += calculated_score;
+				dataset_score += calculated_score * ngram_ratio; // each ngram length has equal weight to score, can change in the future
 				if save_positions {
 					visited_positions.extend(calculated_positions);
 				}
@@ -428,10 +431,10 @@ mod tests {
 		lo.config.generation_count = 10;
 		lo.config.population_size = 100;
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
-		let mut rng = StdRng::seed_from_u64(0);
-		let mut test_layout = lo.base_layout.clone();
+		let mut rng = ChaCha8Rng::seed_from_u64(0);
+		let test_layout = lo.base_layout.clone();
 		println!("initial layout\n{}", test_layout);
-		test_layout.randomize(&mut rng, &lo.config.valid_keycodes).unwrap();
+		// test_layout.randomize(&mut rng, &lo.config.valid_keycodes).unwrap();
 		// println!("initial randomized layout\n{:#}", test_layout);
 		println!("effort layer\n{}", lo.effort_layer);
 		let _final_layout = lo.optimize(&mut rng).unwrap();

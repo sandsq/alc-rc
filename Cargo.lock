@@ -18,6 +18,7 @@ dependencies = [
  "array2d",
  "delegate",
  "rand",
+ "rand_chacha",
  "regex",
  "serde",
  "strum",

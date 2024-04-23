@@ -142,13 +142,14 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, f32> {
 impl Default for Layer<4, 12, f32> {
 	fn default() -> Self {
 		Layer::try_from("
-			12 8 2 2 2 6 6 2 2 2 8 12
-			6 4 1 1 1 3 3 1 1 1 4 6
-			13 9 3 3 3 7 7 3 3 3 9 13
-			14 10 4 4 4 8 8 4 4 4 10 14
+		12 8 2 2 2 6 6 2 2 2 8 12
+		6 4 1 1 1 3 3 1 1 1 4 6
+		13 9 3 3 3 7 7 3 3 3 9 13
+		14 10 4 4 4 8 8 4 4 4 10 14
 		").unwrap()
 	}
 }
+
 
 fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, AlcError> {
 	let mut rows = input_s.split("\n").filter(|s| s.trim().len() > 0);
