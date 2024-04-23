@@ -24,8 +24,7 @@ impl<const R: usize, const C: usize> Score<R, C> for SimpleScoreFunction {
 #[cfg(test)]
 mod tests {
 	use crate::keyboard::LayoutPosition;
-
-use super::*;
+	use super::*;
 
 	#[test]
 	fn test_simple_score() {

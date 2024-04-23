@@ -42,12 +42,11 @@ impl Default for LayoutOptimizerConfig {
 		let keycode_options = KeycodeOptions::default();
 		let mut valid_keycodes = generate_default_keycode_set(&keycode_options).into_iter().collect::<Vec<Keycode>>();
 		valid_keycodes.sort_unstable();
-		println!("for dev: no swaps happening to test");
 		LayoutOptimizerConfig { 
 			population_size: 5, 
 			generation_count: 1,
 			fitness_cutoff: 0.1,
-			swap_weight: 0.0,
+			swap_weight: 4.0,
 			replace_weight: 1.0,
 			dataset_weight: vec![1.0],
 			dataset_paths: vec![String::from("./data/rust_book_test/")],
@@ -442,7 +441,7 @@ mod tests {
 		// lo.config.keycode_options.include_number_symbols = true;
 		// lo.datasets = vec![FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(lo.config.top_n_ngrams_to_take), &lo.config.keycode_options).unwrap()];
 		// lo.config.valid_keycodes = generate_default_keycode_set(&lo.config.keycode_options).into_iter().collect();
-		lo.config.generation_count = 1;
+		lo.config.generation_count = 10;
 		lo.config.population_size = 10;
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
