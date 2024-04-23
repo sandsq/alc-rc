@@ -80,8 +80,8 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		self.config.valid_keycodes.sort_unstable();
 	}
 
-	fn score_single_grams(&self, layout: &Layout<R, C>, frequencies: SingleGramFrequencies<u32>, save_positions: bool) -> (f64, HashSet<LayoutPosition>) {
-		let mut score: f64 = 0.0;
+	fn score_single_grams(&self, layout: &Layout<R, C>, frequencies: SingleGramFrequencies<u32>, save_positions: bool) -> (u32, HashSet<LayoutPosition>) {
+		let mut score = 0;
 		let total = frequencies.total;
 		let mut visited_positions: HashSet<LayoutPosition> = HashSet::default();
 		let effort_layer = &self.effort_layer;
@@ -91,7 +91,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				None => panic!("unable to create sequence from {}", ngram),
 				// return 0.0
 			};
-			let mut possible_scores: Vec<f64> = vec![];
+			let mut possible_scores: Vec<u32> = vec![];
 			let mut possible_sequences: Vec<LayoutPositionSequence> = vec![];
 			for sequence in sequences {
 				if save_positions {
@@ -106,7 +106,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			// 	Some(v) => v,
 			// 	None => 0,
 			// };
-			let min_index = arg_min(&possible_scores);
+			let min_index = arg_min2(&possible_scores);
 			let min_score = possible_scores[min_index];
 			
 			if save_positions {
@@ -122,26 +122,26 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			// println!("{} * {} / {}", min_score, ngram_frequency, total);
 			
 			
-			score += min_score * (ngram_frequency as f64) / total; // should be slightly more efficient to precompute counts / total, but lazy for now
+			score += min_score * (ngram_frequency); // / total; // should be slightly more efficient to precompute counts / total, but lazy for now
 		}
 		(score, visited_positions)
 	}
 
-	fn score_datasets(&self, layout: &Layout<R, C>, datasets: &Vec<FrequencyDataset<u32>>, save_positions: bool) -> (f64, HashSet<LayoutPosition>) {
-		let mut score: f64 = 0.0;
+	fn score_datasets(&self, layout: &Layout<R, C>, datasets: &Vec<FrequencyDataset<u32>>, save_positions: bool) -> (u32, HashSet<LayoutPosition>) {
+		let mut score = 0;
 		let mut visited_positions: HashSet<LayoutPosition> = HashSet::default();
 		let mut d_ind: usize = 0;
 		for dataset in datasets {
 			let ngram_ratio = 1.0 / dataset.ngram_frequencies.len() as f64;
-			let mut dataset_score = 0.0;
+			let mut dataset_score = 0;
 			for ngram_size in dataset.ngram_frequencies.keys() {
 				let (calculated_score, calculated_positions) = self.score_single_grams(layout, dataset.ngram_frequencies[ngram_size].clone(), save_positions); // this clone might be expensive
-				dataset_score += calculated_score * ngram_ratio; // each ngram length has equal weight to score, can change in the future
+				dataset_score += calculated_score; // * ngram_ratio; // each ngram length has equal weight to score, can change in the future
 				if save_positions {
 					visited_positions.extend(calculated_positions);
 				}
 			}
-			dataset_score *= self.config.dataset_weight[d_ind];
+			dataset_score *= self.config.dataset_weight[d_ind] as u32;
 			d_ind += 1;
 			score += dataset_score;
 		}
@@ -149,8 +149,8 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 
 
-	fn score_population(&self, layouts: &Vec<Layout<R, C>>, datasets: &Vec<FrequencyDataset<u32>>) -> Vec<(Layout<R, C>, f64)> {
-		let mut new_population: Vec<(Layout<R, C>, f64)> = Default::default();
+	fn score_population(&self, layouts: &Vec<Layout<R, C>>, datasets: &Vec<FrequencyDataset<u32>>) -> Vec<(Layout<R, C>, u32)> {
+		let mut new_population: Vec<(Layout<R, C>, u32)> = Default::default();
 		for layout in layouts {
 			let (score, _) = self.score_datasets(layout, datasets, false);
 			new_population.push((layout.clone(), score));
@@ -159,9 +159,9 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 	
 
-	fn generate_and_score_initial_population(&self, rng: &mut impl Rng, datasets: &Vec<FrequencyDataset<u32>>) -> Vec<(Layout<R, C>, f64)> {
+	fn generate_and_score_initial_population(&self, rng: &mut impl Rng, datasets: &Vec<FrequencyDataset<u32>>) -> Vec<(Layout<R, C>, u32)> {
 		let valid_keycodes = &self.config.valid_keycodes;
-		let mut initial_population: Vec<(Layout<R, C>, f64)> = Default::default();
+		let mut initial_population: Vec<(Layout<R, C>, u32)> = Default::default();
 		for _i in 0..self.config.population_size {
 			let mut initial_layout = self.base_layout.clone();
 			initial_layout.randomize(rng, valid_keycodes).unwrap();
@@ -171,11 +171,11 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		initial_population
 	}
 
-	fn take_best_layouts(&self, mut population: Vec<(Layout<R, C>, f64)>) -> (Vec<Layout<R, C>>, Vec<f64>) {
-    	population.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+	fn take_best_layouts(&self, mut population: Vec<(Layout<R, C>, u32)>) -> (Vec<Layout<R, C>>, Vec<u32>) {
+    	population.sort_by(|a, b| a.1.cmp(&b.1));
 		let num_to_take = (self.config.fitness_cutoff * (self.config.population_size as f64)).ceil() as usize;
 		let _ = population.split_off(num_to_take); // the returned value is the low score ones
-		let (left, right): (Vec<Layout<R, C>>, Vec<f64>) =  population.into_iter().unzip();
+		let (left, right): (Vec<Layout<R, C>>, Vec<u32>) =  population.into_iter().unzip();
 		println!("scores {:?}", right);
 		(left, right)
 	}
@@ -382,6 +382,14 @@ fn arg_min(scores: &Vec<f64>) -> usize {
 	};
 	min_index
 }
+fn arg_min2(scores: &Vec<u32>) -> usize {
+	let min_index = match scores.iter().enumerate().min_by(|(_, a), (_, b)| a.cmp(b)).map(|(idx, _)| idx) {
+		Some(v) => v,
+		None => panic!("Error for the developer, couldn't find a min score index"),
+	};
+	min_index
+}
+
 
 
 #[cfg(test)]
@@ -442,8 +450,8 @@ mod tests {
 		// lo.config.keycode_options.include_number_symbols = true;
 		// lo.datasets = vec![FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(lo.config.top_n_ngrams_to_take), &lo.config.keycode_options).unwrap()];
 		// lo.config.valid_keycodes = generate_default_keycode_set(&lo.config.keycode_options).into_iter().collect();
-		lo.config.generation_count = 1;
-		lo.config.population_size = 10;
+		lo.config.generation_count = 5;
+		lo.config.population_size = 100;
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
 		// let test_layout = lo.base_layout.clone();
