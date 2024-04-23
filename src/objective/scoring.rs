@@ -21,6 +21,17 @@ impl<const R: usize, const C: usize> Score<R, C> for SimpleScoreFunction {
 	}
 }
 
+pub struct AdvancedScoreFunction {}
+
+impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
+	fn score_layout_position_sequence(&self, layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> f64 {
+		let mut score: f64 = 0.0;
+
+
+		score
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use crate::keyboard::LayoutPosition;

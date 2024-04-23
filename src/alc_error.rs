@@ -1,4 +1,5 @@
 use core::num;
+use std::num::ParseFloatError;
 use std::path::PathBuf;
 
 use crate::keyboard::LayoutPosition;
@@ -12,12 +13,16 @@ pub enum AlcError {
 	#[error(transparent)]
 	ParseIntError(#[from] num::ParseIntError),
 	#[error(transparent)]
+	ParseFloatError(#[from] ParseFloatError),
+	#[error(transparent)]
 	Array2DError(#[from] array2d::Error),
 	#[error(transparent)]
 	RegexError(#[from] regex::Error),
 
 	#[error("{0} cannot be parsed into a KeycodeKey, {1}")]
 	InvalidKeycodeKeyFromString(String, String), // second param tries to describe what is invalid
+	#[error("{0} is not a valid hand-finger combination, use \"Hand:Finger\" formatting, e.g., \"Left:Index\"")]
+	InvalidPhalanxError(String),
 
 	#[error("trying to add an ngram of length {0} to a holder with ngrams of length {1}, the ngram lengths must match")]
 	NgramMatchError(usize, usize),

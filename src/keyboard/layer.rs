@@ -1,5 +1,4 @@
 use array2d::{Array2D, Error as Array2DError};
-use std::error::Error;
 use std::fmt;
 use std::ops::Index;
 use std::str;
@@ -7,7 +6,7 @@ use std::collections::VecDeque;
 
 use crate::alc_error::AlcError;
 use crate::text_processor::keycode::Keycode::{self, *};
-use super::key::{KeyValue, KeycodeKey, Randomizeable};
+use super::key::{Finger, Hand, KeyValue, KeycodeKey, PhalanxKey, Randomizeable};
 use super::LayoutPosition;
 
 /// Layers are grids. For non-grid keyboard layouts, create the largest grid that fits and block unused cells with dummy keys. Works for anything implementing [KeyValue]
@@ -122,7 +121,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, KeycodeKey> {
 	}
 }
 impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, f64> {
-	type Error = Box<dyn Error>;
+	type Error = AlcError;
 	fn try_from(layer_string: &str) -> Result<Self, Self::Error> {
 		let mut effort_layer = Array2D::filled_with(0.0, R, C);
 		let rows = rows_from_string(layer_string, R)?;
@@ -137,6 +136,53 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, f64> {
 	}
 }
 
+fn uppercase_first_letter(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+    }
+}
+
+impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, PhalanxKey> {
+	type Error = AlcError;
+	fn try_from(layer_string: &str) -> Result<Self, Self::Error> {
+		let mut phalanx_layer = Array2D::filled_with(PhalanxKey::default(), R, C);
+		let rows = rows_from_string(layer_string, R)?;
+		for (i, row) in rows.iter().enumerate() {
+			let cols = cols_from_string(row, C)?;
+			for (j, col) in cols.iter().enumerate() {
+				let mut phalanx = col.split(":");
+				let hand_str = match phalanx.next() {
+					Some(v) => match v {
+						"l" | "L" => "Left",
+						"r" | "R" => "Right",
+						_ => v,
+					},
+					None => return Err(AlcError::InvalidPhalanxError(String::from(*col))),
+				};
+				let hand_str = uppercase_first_letter(hand_str);
+				let finger_str = match phalanx.next() {
+					Some(v) => match v {
+						"t" | "T" => "Thumb",
+						"i" | "I" => "Index",
+						"m" | "M" => "Middle",
+						"r" | "R" => "Ring",
+						"p" | "P" => "Pinkie",
+						_ => v,
+ 					},
+					None => return Err(AlcError::InvalidPhalanxError(String::from(*col))),
+				};
+				let finger_str = uppercase_first_letter(finger_str);
+				let hand = Hand::try_from(&hand_str[..])?;
+				let finger = Finger::try_from(&finger_str[..])?;
+				let phalanx_key = PhalanxKey::new(hand, finger);
+				phalanx_layer[(i, j)] = phalanx_key;
+			}
+		}
+		Ok(Layer{ layer: phalanx_layer })
+	}
+}
 
 
 impl Default for Layer<4, 12, f64> {
@@ -240,6 +286,21 @@ impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, f64> {
 		Ok(())
     }
 }
+impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, PhalanxKey> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write_col_indexes(f, C, false)?;
+		for (i, row) in self.layer.rows_iter().enumerate() {
+			write!(f, "{}|", i)?;
+			for element in row {
+				write!(f, "{:>4}", element)?;
+				write!(f, " ")?;
+			}
+			writeln!(f)?;
+		}
+		Ok(())
+    }
+}
+
 
 /// Remember 4 is a magic number for keycodes. The moveability and symmetric flags add 3 characters (_00)
 fn write_col_indexes(f: &mut fmt::Formatter, c: usize, is_binary: bool) -> fmt::Result {
@@ -267,6 +328,8 @@ fn write_col_indexes(f: &mut fmt::Formatter, c: usize, is_binary: bool) -> fmt::
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use Hand::*;
+	use Finger::*;
 
 	// don't test things with square dimensions as doing so makes it easier for incorrect logic to still give the expected outcome
 	#[test]
@@ -377,4 +440,27 @@ mod tests {
 		let effort_layer = Layer::<2, 3, f64>::try_from(effort_string).unwrap();
 		println!("effort layer\n{}", effort_layer);
 	}
+
+	#[test]
+	fn test_phalanx_from_string() {
+		let test_str = "
+			left:middle left:index right:index right:ring
+		";
+		let phalanx_layer = Layer::<1, 4, PhalanxKey>::try_from(test_str).unwrap();
+		assert_eq!(phalanx_layer[(0, 0)], PhalanxKey::new(Left, Middle));
+		assert_eq!(phalanx_layer[(0, 1)], PhalanxKey::new(Left, Index));
+		assert_eq!(phalanx_layer[(0, 2)], PhalanxKey::new(Right, Index));
+		assert_eq!(phalanx_layer[(0, 3)], PhalanxKey::new(Right, Ring));
+
+		let test_str = "
+			L:M  L:I  R:I  R:R 
+		";
+		let phalanx_layer = Layer::<1, 4, PhalanxKey>::try_from(test_str).unwrap();
+		assert_eq!(phalanx_layer[(0, 0)], PhalanxKey::new(Left, Middle));
+		assert_eq!(phalanx_layer[(0, 1)], PhalanxKey::new(Left, Index));
+		assert_eq!(phalanx_layer[(0, 2)], PhalanxKey::new(Right, Index));
+		assert_eq!(phalanx_layer[(0, 3)], PhalanxKey::new(Right, Ring));
+		println!("{}", phalanx_layer);
+	}
+
 }

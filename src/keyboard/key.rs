@@ -162,7 +162,6 @@ impl Randomizeable for KeycodeKey {
 	}
 }
 
-
 impl KeyValue for f64 {
 	type Item = f64;
 	fn value(&self) -> Self::Item {
@@ -181,6 +180,50 @@ impl KeyValue for PhysicalKey {
 		String::from(self.text.clone())
 	}
 }
+
+#[derive(Debug, PartialEq, Clone, Copy, strum_macros::EnumString, strum_macros::Display)]
+pub enum Hand {
+	Left,
+	Right,
+}
+use Hand::*;
+#[derive(Debug, PartialEq, Clone, Copy, strum_macros::EnumString, strum_macros::Display)]
+pub enum Finger {
+	Thumb,
+	Index,
+	Middle,
+	Ring,
+	Pinkie,
+}
+use Finger::*;
+#[derive(Debug, PartialEq, Clone)]
+pub struct PhalanxKey {
+	pub hand: Hand,
+	pub finger: Finger,
+}
+impl PhalanxKey {
+	pub fn new(hand: Hand, finger: Finger) -> Self {
+		PhalanxKey{ hand, finger }
+	}
+}
+impl KeyValue for PhalanxKey {
+	type Item = (Hand, Finger);
+	fn value(&self) -> Self::Item {
+		(self.hand, self.finger)
+	}
+}
+impl Default for PhalanxKey {
+	fn default() -> Self {
+		PhalanxKey { hand: Left, finger: Index }
+	}
+}
+impl fmt::Display for PhalanxKey {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		let (hand, finger) = self.value();
+		write!(f, "{:>2}:{}", &hand.to_string()[0..1], &finger.to_string()[0..1])
+    }
+}
+
 
 
 #[cfg(test)]

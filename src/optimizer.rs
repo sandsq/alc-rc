@@ -175,7 +175,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let num_to_take = (self.config.fitness_cutoff * (self.config.population_size as f64)).ceil() as usize;
 		let _ = population.split_off(num_to_take); // the returned value is the low score ones
 		let (left, right): (Vec<Layout<R, C>>, Vec<f64>) =  population.into_iter().unzip();
-		println!("scores {:?}", right);
+		// println!("top scores of each generation {:?}", right);
 		(left, right)
 	}
 
@@ -441,8 +441,8 @@ mod tests {
 		// lo.config.keycode_options.include_number_symbols = true;
 		// lo.datasets = vec![FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(lo.config.top_n_ngrams_to_take), &lo.config.keycode_options).unwrap()];
 		// lo.config.valid_keycodes = generate_default_keycode_set(&lo.config.keycode_options).into_iter().collect();
-		lo.config.generation_count = 10;
-		lo.config.population_size = 10;
+		lo.config.generation_count = 100;
+		lo.config.population_size = 100;
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
 		// let test_layout = lo.base_layout.clone();
