@@ -8,7 +8,7 @@ pub mod default_layouts;
 
 
 /// Describes position in a keyboard layout (i.e., a collection of layers). For a single layer, layer_index is ignored.
-#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub struct LayoutPosition {
 	layer_index: usize,
 	row_index: usize,
@@ -29,7 +29,7 @@ impl fmt::Display for LayoutPosition {
 }
 
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct LayoutPositionSequence {
 	sequence: Vec<LayoutPosition>
 }

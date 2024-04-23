@@ -87,7 +87,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let effort_layer = &self.effort_layer;
 		for (ngram, ngram_frequency) in frequencies {
 			let sequences = match layout.ngram_to_sequences(&ngram) {
-				Some(v) => v.into_iter(),
+				Some(v) => v,
 				None => panic!("unable to create sequence from {}", ngram),
 				// return 0.0
 			};
@@ -101,13 +101,14 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				possible_scores.push(sequence_score);
 			}
 			
-			let min_index = arg_min(&possible_scores);
-		
+
 			// let min_index = match possible_scores.iter().enumerate().min_by(|(_, a), (_, b)| a.total_cmp(b)).map(|(idx, _)| idx) {
 			// 	Some(v) => v,
 			// 	None => 0,
 			// };
+			let min_index = arg_min(&possible_scores);
 			let min_score = possible_scores[min_index];
+			
 			if save_positions {
 				let min_sequence = &possible_sequences[min_index];
 				for pos in min_sequence.clone() {
@@ -441,8 +442,8 @@ mod tests {
 		// lo.config.keycode_options.include_number_symbols = true;
 		// lo.datasets = vec![FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(lo.config.top_n_ngrams_to_take), &lo.config.keycode_options).unwrap()];
 		// lo.config.valid_keycodes = generate_default_keycode_set(&lo.config.keycode_options).into_iter().collect();
-		lo.config.generation_count = 10;
-		lo.config.population_size = 100;
+		lo.config.generation_count = 1;
+		lo.config.population_size = 10;
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
 		// let test_layout = lo.base_layout.clone();
