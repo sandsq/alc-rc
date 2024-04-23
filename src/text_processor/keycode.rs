@@ -10,7 +10,7 @@ pub struct KeycodeOptions {
 	pub include_brackets: bool, // ()[]{}
 	pub include_misc_symbols: bool, // -/ etc.
 	pub include_misc_symbols_shifted: bool, // _? etc.
-	pub explicit_inclusion: HashSet<Keycode>,
+	pub explicit_inclusion: Vec<Keycode>,
 }
 impl Default for KeycodeOptions {
 	fn default() -> Self {
@@ -21,12 +21,12 @@ impl Default for KeycodeOptions {
 			include_brackets: false,
 			include_misc_symbols: true,
 			include_misc_symbols_shifted: false,
-			explicit_inclusion: HashSet::from([_SPC, _SFT, _ENT]),
+			explicit_inclusion: vec![_SPC, _SFT, _ENT],
 		}
 	}
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter)]
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter)]
 pub enum Keycode {
 	_A, _B, _C, _D, _E,
 	_F, _G, _H, _I, _J,

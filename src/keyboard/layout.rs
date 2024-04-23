@@ -190,7 +190,7 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 			swap_happened = true;
 		} else if k1_clone.is_symmetric() {
 			let p1_counterpart = self_clone.symmetric_position(p1);
-			if p2.col_index as f32 == (C as f32 - 1.0) / 2.0 {
+			if p2.col_index as f64 == (C as f64 - 1.0) / 2.0 {
 				println!("Warning: symmetric p1 {} is being swapped into the center column {}, meaning p1's counterpart {} has no where to go, doing nothing instead.", p1, p2, p1_counterpart);
 				return false;
 			}
@@ -340,6 +340,7 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 			}
 		}
 		Some(p)
+		
 	}
 
 	pub fn verify_pathmap_correctness(&self) -> Result<bool, AlcError> {
@@ -576,11 +577,13 @@ impl<const R: usize, const C: usize> fmt::Binary for Layout<R, C> {
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+	use rand_chacha::ChaCha8Rng;
+
+use super::*;
 
 	#[test]
 	fn test() {
-		let mut rng = StdRng::seed_from_u64(0);
+		let mut rng = ChaCha8Rng::seed_from_u64(1);
 		let mut layout = Layout::<2, 3>::init_blank(5);
 		layout.get_mut(0, 1, 2).unwrap().set_value(_D);
 		layout.get_mut(0, 1, 2).unwrap().set_is_moveable(false);
@@ -597,27 +600,27 @@ mod tests {
 			___Layer 0___
 					0       1       2 
 			0| LS1_10  LS2_10  LS3_10 
-			1| LS4_10    A_10    D_00 
+			1| LS4_10    E_10    D_00 
 			
 			___Layer 1___
 					0       1       2 
-			0| LST1_0_10    E_10    A_10 
+			0|   __10    A_10    A_10 
 			1|   E_10    A_10    E_10 
 			
 			___Layer 2___
 					0       1       2 
-			0|   __10  LST2_0_10    __10 
+			0|   __10    __10    __10 
 			1|   __10    __10    __10 
 			
 			___Layer 3___
 					0       1       2 
-			0|   __10    __10  LST3_0_10 
+			0|   __10    __10    __10 
 			1|   __10    __10    __10 
 			
 			___Layer 4___
 					0       1       2 
 			0|   __10    __10    __10 
-			1| LST4_0_10    __10    __10 
+			1|   __10    __10    __10 
 			
 			";
 			let layout_from_string = Layout::try_from(layout_string).unwrap();
@@ -798,6 +801,28 @@ mod tests {
 		assert!(seqs2.contains(&seq2_1));
 		let seq2_2 = LayoutPositionSequence::from_tuples(vec![(0, 0, 3), (1, 0, 2), (0, 0, 1), (0, 0, 2), (0, 0, 3), (1, 0, 0), (0, 0, 3), (1, 0, 1)]);
 		assert!(seqs2.contains(&seq2_2));
+	}
+
+	#[test]
+	fn test_randomization() {
+		let mut rng = ChaCha8Rng::seed_from_u64(1);
+		println!("{}", rng.gen::<f64>());
+		let mut score = 0.0;
+		for i in 1..100 {
+			score += i as f64 * &rng.gen() / (i as f64  + 1.0);
+		}
+		println!("{}", score);
+
+		let valid_keycodes = vec![_A, _B, _C, _D, _E];
+		let mut valid_keycodes_all = VecDeque::from(valid_keycodes.clone());
+		
+		valid_keycodes_all.make_contiguous().shuffle(&mut rng);
+		println!("{:?}", valid_keycodes_all);
+		
+
+		let mut initial_layout = Layout::<4, 12>::init_blank(3);
+		initial_layout.randomize(&mut rng, &vec![_F, _G, _A, _C, _B, _D, _E]).unwrap();
+		println!("{}", initial_layout);
 	}
 	
 }

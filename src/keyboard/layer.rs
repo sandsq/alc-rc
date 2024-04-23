@@ -121,7 +121,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, KeycodeKey> {
 		Ok(layer)
 	}
 }
-impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, f32> {
+impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, f64> {
 	type Error = Box<dyn Error>;
 	fn try_from(layer_string: &str) -> Result<Self, Self::Error> {
 		let mut effort_layer = Array2D::filled_with(0.0, R, C);
@@ -129,7 +129,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, f32> {
 		for (i, row) in rows.iter().enumerate() {
 			let cols = cols_from_string(row, C)?;
 			for (j, col) in cols.iter().enumerate() {
-				let effort_value = col.parse::<f32>()?;
+				let effort_value = col.parse::<f64>()?;
 				effort_layer.set(i, j, effort_value).unwrap();
 			}
 		}
@@ -139,7 +139,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, f32> {
 
 
 
-impl Default for Layer<4, 12, f32> {
+impl Default for Layer<4, 12, f64> {
 	fn default() -> Self {
 		Layer::try_from("
 		12 8 2 2 2 6 6 2 2 2 8 12
@@ -226,7 +226,7 @@ impl<const R: usize, const C: usize> fmt::Binary for Layer<R, C, KeycodeKey> {
     }
 }
 // there should be a smarter way to do this
-impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, f32> {
+impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, f64> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write_col_indexes(f, C, false)?;
 		for (i, row) in self.layer.rows_iter().enumerate() {
@@ -293,7 +293,7 @@ mod tests {
 
 	#[test]
 	fn test_float_layer() {
-		let expected_layer = Layer::<1, 2, f32> { layer: Array2D::from_rows(&vec![vec![0.4, 0.5]]).unwrap() };
+		let expected_layer = Layer::<1, 2, f64> { layer: Array2D::from_rows(&vec![vec![0.4, 0.5]]).unwrap() };
 		assert_eq!(expected_layer[LayoutPosition::new(0, 0, 0)], 0.4);
 	}
 
@@ -374,7 +374,7 @@ mod tests {
 			0.5 1.0 1.5
 			0.25 2.0 3.0
 		";
-		let effort_layer = Layer::<2, 3, f32>::try_from(effort_string).unwrap();
+		let effort_layer = Layer::<2, 3, f64>::try_from(effort_string).unwrap();
 		println!("effort layer\n{}", effort_layer);
 	}
 }

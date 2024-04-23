@@ -1,5 +1,6 @@
-use rand::{rngs::StdRng, SeedableRng};
 
+use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
 use alc::{objective::scoring::SimpleScoreFunction, optimizer::LayoutOptimizer};
 
 
@@ -12,7 +13,7 @@ fn main() {
 	lo.config.generation_count = 20;
 	lo.config.population_size = 1000;
 	println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
-	let mut rng = StdRng::seed_from_u64(0);
+	let mut rng = ChaCha8Rng::seed_from_u64(1);
 	println!("initial layout\n{}", lo.base_layout);
 	println!("effort layer\n{}", lo.effort_layer);
 	lo.optimize(&mut rng).unwrap();

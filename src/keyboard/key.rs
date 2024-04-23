@@ -163,8 +163,8 @@ impl Randomizeable for KeycodeKey {
 }
 
 
-impl KeyValue for f32 {
-	type Item = f32;
+impl KeyValue for f64 {
+	type Item = f64;
 	fn value(&self) -> Self::Item {
 		*self
 	}
@@ -172,8 +172,8 @@ impl KeyValue for f32 {
 
 pub struct PhysicalKey {
 	text: String,
-	_x: f32,
-	_y: f32,
+	_x: f64,
+	_y: f64,
 }
 impl KeyValue for PhysicalKey {
 	type Item = String;

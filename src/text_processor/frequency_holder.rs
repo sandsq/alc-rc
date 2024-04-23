@@ -2,7 +2,7 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::io::{self, BufRead};
 use std::ops::Index;
-use std::collections::hash_map::{IntoIter, IntoKeys};
+use std::collections::hash_map::{IntoIter, IntoKeys, Iter};
 use std::fs::File;
 use std::path::Path;
 
@@ -12,7 +12,7 @@ use super::keycode::{Keycode, KeycodeOptions};
 use super::ngram::Ngram;
 
 pub trait Frequencies {}
-impl Frequencies for f32 {}
+impl Frequencies for f64 {}
 impl Frequencies for u32 {}
 
 #[derive(Debug, PartialEq, Clone)]
@@ -27,7 +27,7 @@ use TopFrequenciesToTake::*;
 pub struct SingleGramFrequencies<T> where T: Frequencies {
 	frequencies: HashMap<Ngram, T>,
 	n: usize,
-	pub total: f32,
+	pub total: f64,
 }
 impl<T> SingleGramFrequencies<T> where T: Frequencies {
 	pub fn new(n: usize) -> Self {
@@ -38,9 +38,12 @@ impl<T> SingleGramFrequencies<T> where T: Frequencies {
 	}
 	pub fn into_keys(self) -> IntoKeys<Ngram, T> {
 		self.frequencies.into_keys()
+	}	
+	pub fn iter(&self) -> Iter<'_, Ngram, T> {
+		self.frequencies.iter()
 	}
-	
 }
+
 /// u32 for raw ngram counts
 /// should only contain one ngram length
 impl SingleGramFrequencies<u32> {
@@ -57,7 +60,7 @@ impl SingleGramFrequencies<u32> {
 		if self.n != key.len() {
 			Err(AlcError::NgramMatchError(key.len(), self.n))
 		} else {
-			self.total += value as f32;
+			self.total += value as f64;
 			Ok(*self.frequencies.entry(key).or_insert(0) += value)
 		}
 	}
@@ -85,7 +88,7 @@ impl SingleGramFrequencies<u32> {
 			// println!("{:?}", item);
 			let k = item.0.clone();
 			let v = item.1.clone();
-			new_total += v as f32;
+			new_total += v as f64;
 			temp_freqs.insert(k, v);
 		}
 		self.frequencies = temp_freqs;
@@ -212,7 +215,7 @@ mod tests {
 	fn test_read_from_file() {
 		let mut holder = SingleGramFrequencies::<u32>::try_from_file("./data/rust_book_test/ch04-02-references-and-borrowing.md", 2, &KeycodeOptions::default()).unwrap();
 		let holder_clone = holder.clone();
-		println!("{:?}", holder);
+		// println!("{:?}", holder);
 		// this value is found by control + F "he" and seeing how many matches there are
 		assert_eq!(holder[Ngram::new(vec![_H, _E])], 145);
 		holder.take_top_frequencies(All);
