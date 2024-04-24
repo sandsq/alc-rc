@@ -59,42 +59,29 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		let mut score: f64 = 0.0;
 		let mut previous_hand = phalanx_layer[layout_position_sequence[0]].value().0;
 		let mut alternating_hand_streak = 0; // streak of 1 means previous hand and current hand were different
+		let mut alternating_hand_prev_streak = 0;
 		let mut efforts: Vec<f64> = vec![];
 		let mut alt_inds: Vec<usize> = vec![]; // index i is where a hand alternating streak starts, index i + 1 is where it ends (not inclusive)
 		for (l_ind, layout_position) in layout_position_sequence.into_iter().enumerate() {
 			let (current_hand, current_finger) = phalanx_layer[layout_position].value();
 			if l_ind > 0 {
+				if alternating_hand_streak == 0 && alternating_hand_prev_streak != 0 {
+					// streak just ended
+					alt_inds.push(l_ind);
+				} else if alternating_hand_prev_streak == 0 && alternating_hand_streak > 0 {
+					// streak started in previous iteration
+					alt_inds.push(l_ind - 1);
+				}
 				if current_hand != previous_hand {
 					alternating_hand_streak += 1;
 				} else {
-					let l_start = l_ind - alternating_hand_streak - 1;
-					let l_end = l_ind - 1;
-					if l_start != l_end {
-						alt_inds.push(l_start);
-						alt_inds.push(l_end);
-					}
 					alternating_hand_streak = 0;
 				}
-				// if alternating_hand_streak == 1 {
-				// 	alt_inds.push(l_ind - 1);
-				// }
 			}
-			// if current_hand != previous_hand {
-			// 	if l_ind > 0 {
-			// 		alternating_hand_streak += 1;
-			// 	}
-			// 	if alternating_hand_streak == 0 {
-			// 		alt_inds.push(l_ind);
-			// 	}
-			// } else {
-			// 	alternating_hand_streak = 0;
-			// 	if l_ind > 0 {
-			// 		alt_inds.push(l_ind);
-			// 	}
-			// }
-			
 
+			
 			previous_hand = current_hand;
+			alternating_hand_prev_streak = alternating_hand_streak;
 
 			let effort_value = effort_layer[layout_position];
 			efforts.push(effort_value);
@@ -104,11 +91,14 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 			alt_inds.push(seq_len);
 		}
 
-		println!("{}, {:?}", debug_clone, alt_inds);
+		// println!("{}, {:?}", debug_clone, alt_inds);
 		if alt_inds.len() != 1 {			
 			for i in (0..alt_inds.len()).step_by(2) {
 				let alt_start = alt_inds[i];
 				let alt_end = alt_inds[i + 1];
+				// if alt_start == 0 && alt_end == 0 {
+				// 	break;
+				// }
 				let streak_score: f64 = efforts[alt_start..alt_end].iter().sum();
 				for j in alt_start..alt_end {
 					efforts[j] = 0.0; // effort values within the streak will be used, so ignore them for the final sum of any non-streak positions
