@@ -187,6 +187,8 @@ pub enum Hand {
 	Right,
 }
 use Hand::*;
+
+/// depending on your keyboard, you may be able to press the bottom left / bottom right corner key with the upper palm / joint of your pinkie finger, hence Joint
 #[derive(Debug, PartialEq, Clone, Copy, strum_macros::EnumString, strum_macros::Display)]
 pub enum Finger {
 	Thumb,
@@ -194,6 +196,7 @@ pub enum Finger {
 	Middle,
 	Ring,
 	Pinkie,
+	Joint,
 }
 use Finger::*;
 #[derive(Debug, PartialEq, Clone)]

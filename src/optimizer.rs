@@ -11,6 +11,7 @@ use std::path::PathBuf;
 
 use crate::alc_error::AlcError;
 use crate::keyboard::key::KeyValue;
+use crate::keyboard::key::PhalanxKey;
 use crate::keyboard::LayoutPosition;
 use crate::keyboard::LayoutPositionSequence;
 use crate::keyboard::{layout::*, layer::*};
@@ -36,6 +37,7 @@ pub struct LayoutOptimizerConfig {
 	pub valid_keycodes: Vec<Keycode>,
 	pub max_ngram_size: usize,
 	pub top_n_ngrams_to_take: usize,
+	
 }
 impl Default for LayoutOptimizerConfig {
 	fn default() -> Self {
@@ -60,13 +62,14 @@ impl Default for LayoutOptimizerConfig {
 pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, C> {
 	pub base_layout: Layout<R, C>,
 	pub effort_layer: Layer<R, C, f64>,
+	pub phalanx_layer: Layer<R, C, PhalanxKey>,
 	score_function: S,
 	pub config: LayoutOptimizerConfig,
 	operation_counter: Cell<(u32, u32, u32)>, // swaps, replacements, nothings
 }
 impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> {
-	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f64>, score_function: S, config: LayoutOptimizerConfig, operation_counter: Cell<(u32, u32, u32)>) -> Self {
-		LayoutOptimizer { base_layout, effort_layer, score_function, config, operation_counter }
+	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f64>, phalanx_layer: Layer<R, C, PhalanxKey>, score_function: S, config: LayoutOptimizerConfig, operation_counter: Cell<(u32, u32, u32)>) -> Self {
+		LayoutOptimizer { base_layout, effort_layer, phalanx_layer, score_function, config, operation_counter }
 	}
 
 	pub fn compute_datasets(&self) -> Vec<FrequencyDataset<u32>> {
@@ -84,6 +87,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let total = frequencies.total;
 		let mut visited_positions: HashSet<LayoutPosition> = HashSet::default();
 		let effort_layer = &self.effort_layer;
+		let phalanx_layer = &self.phalanx_layer;
 		for (ngram, ngram_frequency) in frequencies {
 			let sequences = match layout.ngram_to_sequences(&ngram) {
 				Some(v) => v,
@@ -96,7 +100,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				if save_positions {
 					possible_sequences.push(sequence.clone());
 				}
-				let sequence_score = self.score_function.score_layout_position_sequence(layout, effort_layer, sequence, &self.config);
+				let sequence_score = self.score_function.score_layout_position_sequence(layout, effort_layer, phalanx_layer, sequence, &self.config);
 				possible_scores.push(sequence_score);
 			}
 			
@@ -358,9 +362,13 @@ impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
 			0.1 0.2 0.3 0.4
 			0.5 0.6 0.7 0.8
 		").unwrap();
+		let phalanx_layer = Layer::<2, 4, PhalanxKey>::try_from("
+			l:m l:i r:i r:m
+			l:m l:i r:i r:m
+		").unwrap();
 		let score_function = SimpleScoreFunction{};
 		let config = LayoutOptimizerConfig::default();
-		LayoutOptimizer::new(base_layout, effort_layer, score_function, config, Cell::new((0, 0, 0)))
+		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0)))
 	}
 }
 
@@ -368,9 +376,10 @@ impl Default for LayoutOptimizer<4, 12, SimpleScoreFunction> {
 	fn default() -> Self {
 		let base_layout = Layout::<4, 12>::default();
 		let effort_layer = Layer::<4, 12, f64>::default();
+		let phalanx_layer = Layer::<4, 12, PhalanxKey>::default();
 		let score_function = SimpleScoreFunction{};
 		let config = LayoutOptimizerConfig::default();	
-		LayoutOptimizer::new(base_layout, effort_layer, score_function, config, Cell::new((0, 0, 0)))
+		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0)))
 	}
 }
 
@@ -401,6 +410,9 @@ mod tests {
 		let effort_layer = Layer::<1, 4, f64>::try_from("
 			0.1 0.4 0.3 0.2
 		").unwrap();
+		let phalanx_layer = Layer::<1, 4, PhalanxKey>::try_from("
+			l:m l:i r:i r:m
+		").unwrap();
 		let test_layout = Layout::<1, 4>::try_from("
 			___Layer 0___
 			H_10 E_10 B_10 LS1_10
@@ -412,7 +424,7 @@ mod tests {
 		let mut config = LayoutOptimizerConfig::default();
 		config.max_ngram_size = 2;
 		config.dataset_paths = vec![String::from("./data/small_test/")];
-		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, score_function, config, Cell::new((0, 0, 0)));
+		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0)));
 		let datasets = layout_optimizer.compute_datasets();
 		let twogram_frequency = datasets[0].ngram_frequencies.get(&(2 as usize)).unwrap();
 		println!("{:?}", twogram_frequency);

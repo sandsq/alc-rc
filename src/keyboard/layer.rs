@@ -169,6 +169,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, PhalanxKey> {
 						"m" | "M" => "Middle",
 						"r" | "R" => "Ring",
 						"p" | "P" => "Pinkie",
+						"j" | "J" => "Joint",
 						_ => v,
  					},
 					None => return Err(AlcError::InvalidPhalanxError(String::from(*col))),
@@ -196,6 +197,16 @@ impl Default for Layer<4, 12, f64> {
 	}
 }
 
+impl Default for Layer<4, 12, PhalanxKey> {
+	fn default() -> Self {
+		Layer::try_from("
+		L:P L:P L:R L:M L:I L:I R:I R:I R:M R:R R:P R:P
+		L:P L:P L:R L:M L:I L:I R:I R:I R:M R:R R:P R:P
+		L:P L:P L:R L:M L:I L:I R:I R:I R:M R:R R:P R:P
+		L:J L:P L:R L:T L:T L:T R:T R:T R:T R:R R:P R:J
+		").unwrap()
+	}
+}
 
 fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, AlcError> {
 	let mut rows = input_s.split("\n").filter(|s| s.trim().len() > 0);
@@ -444,22 +455,24 @@ mod tests {
 	#[test]
 	fn test_phalanx_from_string() {
 		let test_str = "
-			left:middle left:index right:index right:ring
+			left:middle left:index right:index right:ring right:joint
 		";
-		let phalanx_layer = Layer::<1, 4, PhalanxKey>::try_from(test_str).unwrap();
+		let phalanx_layer = Layer::<1, 5, PhalanxKey>::try_from(test_str).unwrap();
 		assert_eq!(phalanx_layer[(0, 0)], PhalanxKey::new(Left, Middle));
 		assert_eq!(phalanx_layer[(0, 1)], PhalanxKey::new(Left, Index));
 		assert_eq!(phalanx_layer[(0, 2)], PhalanxKey::new(Right, Index));
 		assert_eq!(phalanx_layer[(0, 3)], PhalanxKey::new(Right, Ring));
+		assert_eq!(phalanx_layer[(0, 4)], PhalanxKey::new(Right, Joint));
 
 		let test_str = "
-			L:M  L:I  R:I  R:R 
+			L:M  L:I  R:I  R:R R:J
 		";
-		let phalanx_layer = Layer::<1, 4, PhalanxKey>::try_from(test_str).unwrap();
+		let phalanx_layer = Layer::<1, 5, PhalanxKey>::try_from(test_str).unwrap();
 		assert_eq!(phalanx_layer[(0, 0)], PhalanxKey::new(Left, Middle));
 		assert_eq!(phalanx_layer[(0, 1)], PhalanxKey::new(Left, Index));
 		assert_eq!(phalanx_layer[(0, 2)], PhalanxKey::new(Right, Index));
 		assert_eq!(phalanx_layer[(0, 3)], PhalanxKey::new(Right, Ring));
+		assert_eq!(phalanx_layer[(0, 4)], PhalanxKey::new(Right, Joint));
 		println!("{}", phalanx_layer);
 	}
 
