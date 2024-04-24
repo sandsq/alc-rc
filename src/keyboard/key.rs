@@ -185,6 +185,7 @@ impl KeyValue for PhysicalKey {
 pub enum Hand {
 	Left,
 	Right,
+	Placeholder,
 }
 use Hand::*;
 

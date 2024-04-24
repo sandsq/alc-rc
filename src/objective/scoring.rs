@@ -57,14 +57,22 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		let roll_reduction = config.finger_roll_reduction_factor;
 		let seq_len = layout_position_sequence.len();
 		let mut score: f64 = 0.0;
-		let mut previous_hand = phalanx_layer[layout_position_sequence[0]].value().0;
+		let mut previous_hand = Placeholder;
+		// phalanx_layer[layout_position_sequence[0]].value().0;
 		let mut alternating_hand_streak = 0; // streak of 1 means previous hand and current hand were different
 		let mut alternating_hand_prev_streak = 0;
 		let mut efforts: Vec<f64> = vec![];
 		let mut alt_inds: Vec<usize> = vec![]; // index i is where a hand alternating streak starts, index i + 1 is where it ends (not inclusive)
 		for (l_ind, layout_position) in layout_position_sequence.into_iter().enumerate() {
+			alternating_hand_prev_streak = alternating_hand_streak;
 			let (current_hand, current_finger) = phalanx_layer[layout_position].value();
 			if l_ind > 0 {
+				if current_hand != previous_hand {
+					alternating_hand_streak += 1;
+				} else {
+					alternating_hand_streak = 0;
+				}
+
 				if alternating_hand_streak == 0 && alternating_hand_prev_streak != 0 {
 					// streak just ended
 					alt_inds.push(l_ind);
@@ -72,16 +80,11 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 					// streak started in previous iteration
 					alt_inds.push(l_ind - 1);
 				}
-				if current_hand != previous_hand {
-					alternating_hand_streak += 1;
-				} else {
-					alternating_hand_streak = 0;
-				}
 			}
 
 			
 			previous_hand = current_hand;
-			alternating_hand_prev_streak = alternating_hand_streak;
+			
 
 			let effort_value = effort_layer[layout_position];
 			efforts.push(effort_value);
@@ -92,7 +95,8 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		}
 
 		// println!("{}, {:?}", debug_clone, alt_inds);
-		if alt_inds.len() != 1 {			
+		if alt_inds.len() > 1 {
+			// println!("{}, {:?}", debug_clone, alt_inds);
 			for i in (0..alt_inds.len()).step_by(2) {
 				let alt_start = alt_inds[i];
 				let alt_end = alt_inds[i + 1];
@@ -107,7 +111,7 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 				score += streak_score * reduction;
 			}
 		}
-		// println!("{:?}", alt_inds);
+		// println!("{}, {:?}", debug_clone, alt_inds);
 		score += efforts.iter().sum::<f64>();
 		score
 	}
@@ -145,6 +149,8 @@ mod tests {
 	fn test_reduction() {
 		let red = calculate_final_reduction(0.9, 2, 0.4);
 		assert_eq!(red, 0.924);
+		let red = calculate_final_reduction(0.9, 1, 0.5);
+		assert_eq!(red, 0.95);
 	}
 
 	#[test]

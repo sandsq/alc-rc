@@ -273,7 +273,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		self.activate();
 		println!("base layout\n{}", self.base_layout);
 		for dataset in datasets {
-			let onegram = dataset.get(&1).unwrap().clone();
+			let onegram = dataset.get(&3).unwrap().clone();
 			let mut onegram_sorted = onegram.iter().collect::<Vec<(&Ngram, &u32)>>();
 			onegram_sorted.sort_by(|a, b| b.1.cmp(a.1));
 			println!("onegrams");
@@ -479,8 +479,9 @@ mod tests {
 	#[ignore = "expensive"] // cargo test -- --ignored to run ignored, cargo test -- --include-ignored to run all
 	fn test_optimize_advanced() {
 		let mut lo = LayoutOptimizer::<4, 12, AdvancedScoreFunction>::default();
-		lo.config.generation_count = 100;
-		lo.config.population_size = 100;
+		lo.config.generation_count = 50;
+		lo.config.population_size = 200;
+		lo.config.hand_alternation_reduction_factor = 0.5;
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
 		println!("effort layer\n{}", lo.effort_layer);
