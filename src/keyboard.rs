@@ -50,6 +50,9 @@ impl LayoutPositionSequence {
 	pub fn last(&self) -> Option<&LayoutPosition> {
 		self.sequence.last()
 	}
+	pub fn len(&self) -> usize {
+		self.sequence.len()
+	}
 
 }
 impl Index<usize> for LayoutPositionSequence {

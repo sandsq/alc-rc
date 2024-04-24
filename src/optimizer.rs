@@ -37,7 +37,11 @@ pub struct LayoutOptimizerConfig {
 	pub valid_keycodes: Vec<Keycode>,
 	pub max_ngram_size: usize,
 	pub top_n_ngrams_to_take: usize,
-	
+	pub hand_alternation_weight: f64, // determines the relative weight of hand alternation bonus vs finger roll bonus. 
+	pub hand_alternation_reduction_factor: f64, // say this is 0.9. Then a hand alternation of left-right would reduce the effort by 0.9x. Adding a 3rd -left would reduce the effort of that sequence by 0.9 * 0.9x.
+	pub finger_roll_weight: f64,
+	pub finger_roll_reduction_factor: f64, // say this is 0.9. Then a roll of length 3 would reduce the effort by 0.9 * 0.9x.
+
 }
 impl Default for LayoutOptimizerConfig {
 	fn default() -> Self {
@@ -55,7 +59,12 @@ impl Default for LayoutOptimizerConfig {
 			keycode_options: keycode_options.clone(),
 			valid_keycodes: valid_keycodes,
 			max_ngram_size: 5,
-			top_n_ngrams_to_take: 50, }
+			top_n_ngrams_to_take: 50,
+			hand_alternation_weight: 3.0,
+			hand_alternation_reduction_factor: 0.9,
+			finger_roll_weight: 2.0,
+			finger_roll_reduction_factor: 0.9,
+		 }
 	}
 }
 
