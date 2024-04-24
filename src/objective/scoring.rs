@@ -8,12 +8,21 @@ use crate::optimizer::LayoutOptimizerConfig;
 
 
 pub trait Score<const R: usize, const C: usize> {
+	fn new() -> Self;
 	fn score_layout_position_sequence(&self, layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>,  layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> f64;
 }
 
 pub struct SimpleScoreFunction {}
+impl SimpleScoreFunction {
+	pub fn new() -> Self {
+		SimpleScoreFunction{}
+	}
+}
 
 impl<const R: usize, const C: usize> Score<R, C> for SimpleScoreFunction {
+	fn new() -> Self {
+		SimpleScoreFunction{}
+	}
 	fn score_layout_position_sequence(&self, _layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, _phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, _config: &LayoutOptimizerConfig) -> f64 {
 		let mut score = 0.0;
 		for (_i, layout_position) in layout_position_sequence.into_iter().enumerate() {
@@ -25,11 +34,21 @@ impl<const R: usize, const C: usize> Score<R, C> for SimpleScoreFunction {
 }
 
 pub struct AdvancedScoreFunction {}
+impl AdvancedScoreFunction {
+	pub fn new() -> Self {
+		AdvancedScoreFunction {}
+	}
+}
+
 
 impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
+	fn new() -> Self {
+		AdvancedScoreFunction {}
+	}
 	fn score_layout_position_sequence(&self, layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> f64 {
 		// during debug, check that the position preceeding a higher layer position is a layer switch
 		// we can use the fact that layer switches always should occur before a higher layer position to eliminate the need to actually check the layout for layer switches, and simplify checking when layer switches can be canceled
+		let debug_clone = layout_position_sequence.clone();
 		let alt_raw_weight = config.hand_alternation_weight;
 		let roll_raw_weight = config.finger_roll_weight;
 		let alt_weight = alt_raw_weight / (alt_raw_weight + roll_raw_weight);
@@ -38,25 +57,41 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		let roll_reduction = config.finger_roll_reduction_factor;
 		let seq_len = layout_position_sequence.len();
 		let mut score: f64 = 0.0;
-		let mut previous_hand = Left;
+		let mut previous_hand = phalanx_layer[layout_position_sequence[0]].value().0;
 		let mut alternating_hand_streak = 0; // streak of 1 means previous hand and current hand were different
 		let mut efforts: Vec<f64> = vec![];
 		let mut alt_inds: Vec<usize> = vec![]; // index i is where a hand alternating streak starts, index i + 1 is where it ends (not inclusive)
 		for (l_ind, layout_position) in layout_position_sequence.into_iter().enumerate() {
 			let (current_hand, current_finger) = phalanx_layer[layout_position].value();
-			if current_hand != previous_hand {
-				if l_ind > 0 {
+			if l_ind > 0 {
+				if current_hand != previous_hand {
 					alternating_hand_streak += 1;
+				} else {
+					let l_start = l_ind - alternating_hand_streak - 1;
+					let l_end = l_ind - 1;
+					if l_start != l_end {
+						alt_inds.push(l_start);
+						alt_inds.push(l_end);
+					}
+					alternating_hand_streak = 0;
 				}
-				if alternating_hand_streak == 1 {
-					alt_inds.push(l_ind - 1); // alternating began at the previous index
-				}
-			} else {
-				alternating_hand_streak = 0;
-				if l_ind > 0 {
-					alt_inds.push(l_ind);
-				}
+				// if alternating_hand_streak == 1 {
+				// 	alt_inds.push(l_ind - 1);
+				// }
 			}
+			// if current_hand != previous_hand {
+			// 	if l_ind > 0 {
+			// 		alternating_hand_streak += 1;
+			// 	}
+			// 	if alternating_hand_streak == 0 {
+			// 		alt_inds.push(l_ind);
+			// 	}
+			// } else {
+			// 	alternating_hand_streak = 0;
+			// 	if l_ind > 0 {
+			// 		alt_inds.push(l_ind);
+			// 	}
+			// }
 			
 
 			previous_hand = current_hand;
@@ -68,16 +103,19 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		if alternating_hand_streak > 0 {
 			alt_inds.push(seq_len);
 		}
-		println!("{:?}", alt_inds);
-		for i in (0..alt_inds.len()).step_by(2) {
-			let alt_start = alt_inds[i];
-			let alt_end = alt_inds[i + 1];
-			let streak_score: f64 = efforts[alt_start..alt_end].iter().sum();
-			for j in alt_start..alt_end {
-				efforts[j] = 0.0; // effort values within the streak will be used, so ignore them for the final sum of any non-streak positions
+
+		println!("{}, {:?}", debug_clone, alt_inds);
+		if alt_inds.len() != 1 {			
+			for i in (0..alt_inds.len()).step_by(2) {
+				let alt_start = alt_inds[i];
+				let alt_end = alt_inds[i + 1];
+				let streak_score: f64 = efforts[alt_start..alt_end].iter().sum();
+				for j in alt_start..alt_end {
+					efforts[j] = 0.0; // effort values within the streak will be used, so ignore them for the final sum of any non-streak positions
+				}
+				let reduction = calculate_final_reduction(alt_reduction, alt_end - alt_start - 1, alt_weight);
+				score += streak_score * reduction;
 			}
-			let reduction = calculate_final_reduction(alt_reduction, alt_end - alt_start - 1, alt_weight);
-			score += streak_score * reduction;
 		}
 		// println!("{:?}", alt_inds);
 		score += efforts.iter().sum::<f64>();

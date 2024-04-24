@@ -364,7 +364,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		
 	}
 }
-impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
+impl<T> Default for LayoutOptimizer<2, 4, T> where T: Score<2, 4> {
 	fn default() -> Self {
 		let base_layout = Layout::<2, 4>::init_blank(2);
 		let effort_layer = Layer::<2, 4, f64>::try_from("
@@ -375,18 +375,18 @@ impl Default for LayoutOptimizer<2, 4, SimpleScoreFunction> {
 			l:m l:i r:i r:m
 			l:m l:i r:i r:m
 		").unwrap();
-		let score_function = SimpleScoreFunction{};
+		let score_function = T::new();
 		let config = LayoutOptimizerConfig::default();
 		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0)))
 	}
 }
 
-impl Default for LayoutOptimizer<4, 12, SimpleScoreFunction> {
+impl<T> Default for LayoutOptimizer<4, 12, T> where T: Score<4, 12> {
 	fn default() -> Self {
 		let base_layout = Layout::<4, 12>::default();
 		let effort_layer = Layer::<4, 12, f64>::default();
 		let phalanx_layer = Layer::<4, 12, PhalanxKey>::default();
-		let score_function = SimpleScoreFunction{};
+		let score_function = T::new();
 		let config = LayoutOptimizerConfig::default();	
 		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0)))
 	}
@@ -473,5 +473,17 @@ mod tests {
 		println!("effort layer\n{}", lo.effort_layer);
 		let _final_layout = lo.optimize(&mut rng).unwrap();
 		// println!("final layout\n{:b}", final_layout);
+	}
+
+	#[test]
+	#[ignore = "expensive"] // cargo test -- --ignored to run ignored, cargo test -- --include-ignored to run all
+	fn test_optimize_advanced() {
+		let mut lo = LayoutOptimizer::<4, 12, AdvancedScoreFunction>::default();
+		lo.config.generation_count = 100;
+		lo.config.population_size = 100;
+		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
+		let mut rng = ChaCha8Rng::seed_from_u64(1);
+		println!("effort layer\n{}", lo.effort_layer);
+		let _final_layout = lo.optimize(&mut rng).unwrap();
 	}
 }
