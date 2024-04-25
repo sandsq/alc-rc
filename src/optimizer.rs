@@ -41,6 +41,7 @@ pub struct LayoutOptimizerConfig {
 	pub hand_alternation_reduction_factor: f64, // say this is 0.9. Then a hand alternation of left-right would reduce the effort by 0.9x. Adding a 3rd -left would reduce the effort of that sequence by 0.9 * 0.9x.
 	pub finger_roll_weight: f64,
 	pub finger_roll_reduction_factor: f64, // say this is 0.9. Then a roll of length 3 would reduce the effort by 0.9 * 0.9x.
+	pub same_finger_penalty_factor: f64,
 
 }
 impl Default for LayoutOptimizerConfig {
@@ -64,6 +65,7 @@ impl Default for LayoutOptimizerConfig {
 			hand_alternation_reduction_factor: 0.9,
 			finger_roll_weight: 2.0,
 			finger_roll_reduction_factor: 0.9,
+			same_finger_penalty_factor: 3.0,
 		 }
 	}
 }

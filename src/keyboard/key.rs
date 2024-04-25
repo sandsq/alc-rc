@@ -185,7 +185,7 @@ impl KeyValue for PhysicalKey {
 pub enum Hand {
 	Left,
 	Right,
-	Placeholder,
+	PlaceholderHand,
 }
 use Hand::*;
 
@@ -198,6 +198,7 @@ pub enum Finger {
 	Ring,
 	Pinkie,
 	Joint,
+	PlaceholderFinger,
 }
 use Finger::*;
 #[derive(Debug, PartialEq, Clone)]
