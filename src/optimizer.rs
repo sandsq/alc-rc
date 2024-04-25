@@ -481,9 +481,10 @@ mod tests {
 	#[ignore = "expensive"] // cargo test -- --ignored to run ignored, cargo test -- --include-ignored to run all
 	fn test_optimize_advanced() {
 		let mut lo = LayoutOptimizer::<4, 12, AdvancedScoreFunction>::default();
-		lo.config.generation_count = 50;
+		lo.config.generation_count = 100;
 		lo.config.population_size = 200;
 		lo.config.hand_alternation_reduction_factor = 0.5;
+		
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
 		println!("effort layer\n{}", lo.effort_layer);

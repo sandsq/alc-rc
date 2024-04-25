@@ -120,12 +120,12 @@ pub fn generate_default_keycode_set(options: &KeycodeOptions) -> HashSet<Keycode
 	}
 	if options.include_misc_symbols {
 		keycodes.extend(&HashSet::from([
-			_MINS, _EQL, _BSLS, _SCLN, _QUOT, _GRV, _SLSH,
+			_MINS, _EQL, _BSLS, _SCLN, _QUOT, _GRV, _SLSH, _LBRC, _RBRC,
 		]));
 	}
 	if options.include_misc_symbols_shifted {
 		keycodes.extend(&HashSet::from([
-			_UNDS, _PLUS, _PIPE, _COLN, _DQUO, _TILD, _QUES,
+			_UNDS, _PLUS, _PIPE, _COLN, _DQUO, _TILD, _QUES, _LCBR, _RCBR,
 		]));
 	}
 	if options.explicit_inclusion.len() > 0 {
@@ -312,14 +312,14 @@ impl Keycode {
 					}
 				},
 				'{' => {
-					if options.include_brackets {
+					if options.include_brackets || options.include_misc_symbols_shifted {
 						keycodes.push(_LCBR);
 					} else {
 						keycodes.push(_SFT); keycodes.push(_LBRC);
 					}
 				}, 
 				'}' => {
-					if options.include_brackets {
+					if options.include_brackets || options.include_misc_symbols_shifted {
 						keycodes.push(_RCBR);
 					} else {
 						keycodes.push(_SFT); keycodes.push(_RBRC);

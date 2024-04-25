@@ -189,10 +189,10 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, PhalanxKey> {
 impl Default for Layer<4, 12, f64> {
 	fn default() -> Self {
 		Layer::try_from("
-		12 8 2 2 2 6 6 2 2 2 8 12
-		6 4 1 1 1 3 3 1 1 1 4 6
-		13 9 3 3 3 7 7 3 3 3 9 13
-		14 10 4 4 4 8 8 4 4 4 10 14
+		12 7 2 2 2 7 7 2 2 2 7 12
+		6 3 1 1 1 3 3 1 1 1 3 6
+		13 5 3 3 3 8 8 3 3 3 5 13
+		14 10 7 4 2 1 1 2 4 7 10 14
 		").unwrap()
 	}
 }
