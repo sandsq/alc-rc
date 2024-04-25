@@ -40,6 +40,13 @@ impl AdvancedScoreFunction {
 	}
 }
 
+pub enum RollDirection {
+	In,
+	Out,
+	PlaceholderDirection,
+}
+use RollDirection::*;
+
 
 impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 	fn new() -> Self {
@@ -64,18 +71,22 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		let mut alternating_hand_prev_streak = 0;
 		let mut efforts: Vec<f64> = vec![];
 		let mut alt_inds: Vec<usize> = vec![]; // index i is where a hand alternating streak starts, index i + 1 is where it ends (not inclusive)
+		let mut roll_inds: Vec<usize> = vec![]; // rolls can go in or out, but they should not span more than two rows
+		let mut roll_direction = PlaceholderDirection;
 		for (l_ind, layout_position) in layout_position_sequence.into_iter().enumerate() {
 			let base_effort_value = effort_layer[layout_position];
 			let mut effort_value = base_effort_value;
 			alternating_hand_prev_streak = alternating_hand_streak;
 			let (current_hand, current_finger) = phalanx_layer[layout_position].value();
+
+			
 			if l_ind > 0 {
+				
 				if current_hand != previous_hand {
 					alternating_hand_streak += 1;
 				} else {
 					alternating_hand_streak = 0;
 				}
-
 				if alternating_hand_streak == 0 && alternating_hand_prev_streak != 0 {
 					// streak just ended
 					alt_inds.push(l_ind);
@@ -83,20 +94,20 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 					// streak started in previous iteration
 					alt_inds.push(l_ind - 1);
 				}
+
 			}
 
+			// penalize same finger
 			if current_hand == previous_hand && current_finger == previous_finger {
 				effort_value *= config.same_finger_penalty_factor;
 			}
 
+			// prepare next iteration
 			previous_hand = current_hand;
 			previous_finger = current_finger;
-			
-
-			
 			efforts.push(effort_value);
-			// score += effort_value;
 		}
+		// if ending on a hand alternation, add the last index
 		if alternating_hand_streak > 0 {
 			alt_inds.push(seq_len);
 		}
@@ -188,6 +199,12 @@ mod tests {
 		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
 		let red = calculate_final_reduction(0.9, 1, 0.6);
 		assert_eq!(score, (0.1 + 0.3) * red + (0.4 + 0.2) * red + 0.1);
+
+		// shorter alternating sequences, same finger in the middle
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 3), LayoutPosition::new(0, 0, 2), LayoutPosition::new(0, 0, 3), LayoutPosition::new(0, 0, 1)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		let red = calculate_final_reduction(0.9, 1, 0.6);
+		assert_eq!(format!("{:.3}", score), format!("{:.3}", (0.1 + 0.4) * red + 0.3 + (0.4 + 0.2) * red));
 
 		// same finger
 		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 0)]);

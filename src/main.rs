@@ -12,6 +12,7 @@ fn main() {
 	// let mut config = LayoutOptimizerConfig::default();
 	lo.config.generation_count = 20;
 	lo.config.population_size = 1000;
+	lo.config.keycode_options.include_numbers = true;
 	println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 	let mut rng = ChaCha8Rng::seed_from_u64(1);
 	println!("initial layout\n{}", lo.base_layout);
