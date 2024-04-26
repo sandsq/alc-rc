@@ -510,7 +510,8 @@ mod tests {
 		let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::choc_ferris_sweep();
 		lo.config.generation_count = 100;
 		lo.config.population_size = 200;
-		lo.config.hand_alternation_reduction_factor = 0.5;
+		lo.config.hand_alternation_weight = 1.0;
+		lo.config.finger_roll_weight = 1.0;
 		
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = ChaCha8Rng::seed_from_u64(1);

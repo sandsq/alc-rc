@@ -367,6 +367,9 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 				for col_index in 0..C {
 					let current_position = LayoutPosition::new(layer_index, row_index, col_index);
 					let current_key_value = self[current_position].value();
+					if current_key_value == _NO {
+						continue;
+					}
 					if visited_positions.contains(&current_position) {
 						continue;
 					} else if discriminant(&current_key_value) == discriminant(&_LST(0, 0)) {
@@ -545,7 +548,9 @@ impl<const R: usize, const C: usize> fmt::Display for Layout<R, C> {
 			writeln!(f, "{}", layer)?;
 		}
 		if f.alternate() {
-			for k in self.keycode_pathmap.keys() {
+			let mut keys: Vec<&Keycode> = self.keycode_pathmap.keys().into_iter().collect();
+			keys.sort();
+			for k in keys {
 				let key_text = match k {
 					_LS(i) => format!("_LS{}", i),
 					_ => k.to_string(),
@@ -567,7 +572,9 @@ impl<const R: usize, const C: usize> fmt::Binary for Layout<R, C> {
 			writeln!(f, "{:b}", layer)?;
 		}
 		if f.alternate() {
-			for k in self.keycode_pathmap.keys() {
+			let mut keys: Vec<&Keycode> = self.keycode_pathmap.keys().into_iter().collect();
+			keys.sort();
+			for k in keys {
 				let key_text = match k {
 					_LS(i) => format!("_LS{}", i),
 					_ => k.to_string(),
