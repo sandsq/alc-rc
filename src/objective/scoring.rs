@@ -8,6 +8,9 @@ use crate::optimizer::LayoutOptimizerConfig;
 
 pub trait Score<const R: usize, const C: usize> {
 	fn new() -> Self;
+
+	fn score_small(&self, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> Option<f64>;
+
 	fn score_layout_position_sequence(&self, layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>,  layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> f64;
 }
 
@@ -22,6 +25,11 @@ impl<const R: usize, const C: usize> Score<R, C> for SimpleScoreFunction {
 	fn new() -> Self {
 		SimpleScoreFunction{}
 	}
+
+	fn score_small(&self, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> Option<f64> {
+		None
+	}
+
 	fn score_layout_position_sequence(&self, _layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, _phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, _config: &LayoutOptimizerConfig) -> f64 {
 		let mut score = 0.0;
 		for (_i, layout_position) in layout_position_sequence.into_iter().enumerate() {
@@ -48,10 +56,71 @@ pub enum RollDirection {
 use RollDirection::*;
 
 
+
 impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 	fn new() -> Self {
 		AdvancedScoreFunction {}
 	}
+
+	fn score_small(&self, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> Option<f64> {
+		let alt_raw_weight = config.hand_alternation_weight;
+		let roll_raw_weight = config.finger_roll_weight;
+		let (alt_weight, roll_weight) = if alt_raw_weight == 0.0 && roll_raw_weight == 0.0 {
+			(0.0, 0.0)
+		} else {
+			(alt_raw_weight / (alt_raw_weight + roll_raw_weight), roll_raw_weight / (alt_raw_weight + roll_raw_weight))
+		};
+		let alt_reduction = config.hand_alternation_reduction_factor;
+		let roll_reduction = config.finger_roll_reduction_factor;
+
+		if layout_position_sequence.len() == 1 {
+			let lp = layout_position_sequence[0];
+			return Some(effort_layer[lp]);
+		} else if layout_position_sequence.len() == 2 {
+			let lp1 = layout_position_sequence[0];
+			let lp2 = layout_position_sequence[1];
+			let (hand1, finger1) = phalanx_layer[lp1].value();
+			let (hand2, finger2) = phalanx_layer[lp2].value();
+			if hand1 == hand2 && finger1 == finger2 {
+				return Some(effort_layer[lp1] + effort_layer[lp2] * config.same_finger_penalty_factor);
+			}
+		} else if layout_position_sequence.len() == 3 {
+			let lp1 = layout_position_sequence[0];
+			let lp2 = layout_position_sequence[1];
+			let lp3 = layout_position_sequence[2];
+			let (hand1, finger1) = phalanx_layer[lp1].value();
+			let (hand2, finger2) = phalanx_layer[lp2].value();
+			let (hand3, finger3) = phalanx_layer[lp3].value();
+			if hand1 == hand2 && finger1 == finger2 {
+				return Some(effort_layer[lp1] + effort_layer[lp2] * config.same_finger_penalty_factor + effort_layer[lp3]);
+			}
+			if hand2 == hand3 && finger2 == finger3 {
+				return Some(effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3] * config.same_finger_penalty_factor);
+			}
+			if hand1 != hand2 && hand2 != hand3 {
+				let red = calculate_final_reduction(alt_reduction, 2, alt_weight);
+				return Some((effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]) * red);
+			}
+			if hand1 == hand2 && hand2 == hand3 {
+				// doesn't span 2 rows
+				if (lp1.row_index as i8 - lp2.row_index as i8).abs() <= 1 && (lp2.row_index as i8 - lp3.row_index as i8).abs() <= 1 {
+					// inner roll
+					if finger1 < finger2 && finger2 < finger3 {
+						let red = calculate_final_reduction(roll_reduction, 2, roll_weight);
+						return Some((effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]) * red);
+					}
+					// outer roll
+					if finger1 > finger2 && finger2 > finger3 {
+						let red = calculate_final_reduction(roll_reduction, 2, roll_weight);
+						return Some((effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]) * red);
+					}
+				}
+			}
+			return Some(effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]);
+		}
+		return None;
+	}
+
 	fn score_layout_position_sequence(&self, layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> f64 {
 		// during debug, check that the position preceeding a higher layer position is a layer switch
 		// we can use the fact that layer switches always should occur before a higher layer position to eliminate the need to actually check the layout for layer switches, and simplify checking when layer switches can be canceled
@@ -65,6 +134,13 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		};
 		let alt_reduction = config.hand_alternation_reduction_factor;
 		let roll_reduction = config.finger_roll_reduction_factor;
+
+		match self.score_small(effort_layer, phalanx_layer, layout_position_sequence.clone(), config) {
+			Some(v) => return v,
+			None => (),
+		}
+
+
 		let seq_len = layout_position_sequence.len();
 		let mut score: f64 = 0.0;
 		let mut previous_hand = PlaceholderHand;
@@ -100,10 +176,22 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 
 					if current_finger > previous_finger {
 						roll_direction = Inner;
+						if roll_streak == 0 {
+							previous_roll_direction = Inner;
+							// roll_streak += 1;
+						}
 					} else if current_finger < previous_finger {
 						roll_direction = Outer;
+						if roll_streak == 0 {
+							previous_roll_direction = Outer;
+							// roll_streak += 1;
+						}
+					} else {
+						roll_direction = PlaceholderDirection;
 					}
-					if (current_row - previous_row).abs() <= 1 || (roll_direction != PlaceholderDirection && previous_roll_direction == roll_direction) {
+					if (current_row - previous_row).abs() > 1 {
+						roll_streak = 0;
+					} else if roll_direction != PlaceholderDirection && previous_roll_direction == roll_direction {
 						roll_streak += 1;
 					} else {
 						roll_streak = 0;
@@ -194,7 +282,7 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 	}
 }
 
-fn calculate_final_reduction(initial_reduction: f64, n: usize, weight: f64) -> f64 {
+pub fn calculate_final_reduction(initial_reduction: f64, n: usize, weight: f64) -> f64 {
 	// eg if initial reduction is 0.9 and the streak is 2, the total reduction is 0.81x. That corresponds to a 0.19x loss. If the weight is 0.4, then 0.19 * 0.4 = 0.076x loss, or (1 - 0.076) = 0.924x reduction
 	1.0 - (1.0 - (initial_reduction).powf(n as f64)) * weight
 }
@@ -286,6 +374,32 @@ mod tests {
 		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 0)]);
 		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
 		assert_eq!(score, 0.1 + 0.1 * 3.0);
+
+		// length 1
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		assert_eq!(score, 0.1);
+		
+		//length 2
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 1)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		assert_eq!(score, 0.1 + 0.2);
+
+		// length 3, nothing special
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 1), LayoutPosition::new(0, 0, 0)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		assert_eq!(score, 0.1 + 0.2 + 0.1);
+		
+		// length 3, alternating
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 2), LayoutPosition::new(0, 0, 0)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		let red = calculate_final_reduction(0.9, 2, 0.6);
+		assert_eq!(score, (0.1 + 0.3 + 0.1) * red);
+
+		// length 3, repeat
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 2)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		assert_eq!(score, (0.1 + 0.1 * 3.0 + 0.3));
 	}
 	#[test]
 	fn test_roll() {
@@ -328,6 +442,12 @@ mod tests {
 		let red_roll = calculate_final_reduction(0.9, 2, 0.4);
 		let red_alt = calculate_final_reduction(0.9, 3, 0.6);
 		assert_eq!(format!("{:.5}", score), format!("{:.5}", (0.9 + 0.6 + 0.3 + 0.45 + 0.5 + 0.85) - (0.9 + 0.6 + 0.3) * (1.0 - red_roll) - (0.3 + 0.45 + 0.5 + 0.85) * (1.0 - red_alt)));
+
+		// length 3, roll
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 2, 0), LayoutPosition::new(0, 1, 1), LayoutPosition::new(0, 0, 2)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		let red_roll = calculate_final_reduction(0.9, 2, 0.4);
+		assert_eq!(format!("{:.5}", score), format!("{:.5}", (0.9 + 0.6 + 0.3) * red_roll));
 
 	}
 

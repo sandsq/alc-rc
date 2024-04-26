@@ -1,0 +1,11 @@
+ score: 4.188100072855571
+verified that removing unused positions has the same score
+layer switches checks passed
+symmetric keys checks passed
+operations: Cell { value: (4091, 979, 21) }
+initial time: 0.076336667
+avg score time: 0.08787492300000002
+avg take top time: 0.00020174761999999997
+avg gen time: 0.0026162999600000004
+
+manual implementation of scoring sequences of size 1 - 3
