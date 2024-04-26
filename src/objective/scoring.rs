@@ -48,10 +48,13 @@ pub enum RollDirection {
 use RollDirection::*;
 
 
+
 impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 	fn new() -> Self {
 		AdvancedScoreFunction {}
 	}
+
+
 	fn score_layout_position_sequence(&self, layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> f64 {
 		// during debug, check that the position preceeding a higher layer position is a layer switch
 		// we can use the fact that layer switches always should occur before a higher layer position to eliminate the need to actually check the layout for layer switches, and simplify checking when layer switches can be canceled
@@ -65,6 +68,56 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		};
 		let alt_reduction = config.hand_alternation_reduction_factor;
 		let roll_reduction = config.finger_roll_reduction_factor;
+
+
+		if layout_position_sequence.len() == 1 {
+			let lp = layout_position_sequence[0];
+			return effort_layer[lp];
+		} else if layout_position_sequence.len() == 2 {
+			let lp1 = layout_position_sequence[0];
+			let lp2 = layout_position_sequence[1];
+			let (hand1, finger1) = phalanx_layer[lp1].value();
+			let (hand2, finger2) = phalanx_layer[lp2].value();
+			if hand1 == hand2 && finger1 == finger2 {
+				return effort_layer[lp1] + effort_layer[lp2] * config.same_finger_penalty_factor;
+			}
+		} else if layout_position_sequence.len() == 3 {
+			let lp1 = layout_position_sequence[0];
+			let lp2 = layout_position_sequence[1];
+			let lp3 = layout_position_sequence[2];
+			let (hand1, finger1) = phalanx_layer[lp1].value();
+			let (hand2, finger2) = phalanx_layer[lp2].value();
+			let (hand3, finger3) = phalanx_layer[lp3].value();
+			if hand1 == hand2 && finger1 == finger2 {
+				return effort_layer[lp1] + effort_layer[lp2] * config.same_finger_penalty_factor + effort_layer[lp3];
+			}
+			if hand2 == hand3 && finger2 == finger3 {
+				return effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3] * config.same_finger_penalty_factor;
+			}
+			if hand1 != hand2 && hand2 != hand3 {
+				let red = calculate_final_reduction(alt_reduction, 2, alt_weight);
+				return (effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]) * red;
+			}
+			if hand1 == hand2 && hand2 == hand3 {
+				// doesn't span 2 rows
+				if (lp1.row_index as i8 - lp2.row_index as i8).abs() <= 1 && (lp2.row_index as i8 - lp3.row_index as i8).abs() <= 1 {
+					// inner roll
+					if finger1 < finger2 && finger2 < finger3 {
+						let red = calculate_final_reduction(roll_reduction, 2, roll_weight);
+						return (effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]) * red;
+					}
+					// outer roll
+					if finger1 > finger2 && finger2 > finger3 {
+						let red = calculate_final_reduction(roll_reduction, 2, roll_weight);
+						return (effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]) * red;
+					}
+				}
+			}
+			return effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3];
+
+		}
+
+
 		let seq_len = layout_position_sequence.len();
 		let mut score: f64 = 0.0;
 		let mut previous_hand = PlaceholderHand;
@@ -286,6 +339,32 @@ mod tests {
 		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 0)]);
 		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
 		assert_eq!(score, 0.1 + 0.1 * 3.0);
+
+		// length 1
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		assert_eq!(score, 0.1);
+		
+		//length 2
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 1)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		assert_eq!(score, 0.1 + 0.2);
+
+		// length 3, nothing special
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 1), LayoutPosition::new(0, 0, 0)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		assert_eq!(score, 0.1 + 0.2 + 0.1);
+		
+		// length 3, alternating
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 2), LayoutPosition::new(0, 0, 0)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		let red = calculate_final_reduction(0.9, 2, 0.6);
+		assert_eq!(score, (0.1 + 0.3 + 0.1) * red);
+
+		// length 3, repeat
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 2)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		assert_eq!(score, (0.1 + 0.1 * 3.0 + 0.3));
 	}
 	#[test]
 	fn test_roll() {
@@ -328,6 +407,12 @@ mod tests {
 		let red_roll = calculate_final_reduction(0.9, 2, 0.4);
 		let red_alt = calculate_final_reduction(0.9, 3, 0.6);
 		assert_eq!(format!("{:.5}", score), format!("{:.5}", (0.9 + 0.6 + 0.3 + 0.45 + 0.5 + 0.85) - (0.9 + 0.6 + 0.3) * (1.0 - red_roll) - (0.3 + 0.45 + 0.5 + 0.85) * (1.0 - red_alt)));
+
+		// length 3, roll
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 2, 0), LayoutPosition::new(0, 1, 1), LayoutPosition::new(0, 0, 2)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		let red_roll = calculate_final_reduction(0.9, 2, 0.4);
+		assert_eq!(format!("{:.5}", score), format!("{:.5}", (0.9 + 0.6 + 0.3) * red_roll));
 
 	}
 
