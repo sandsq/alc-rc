@@ -1,9 +1,6 @@
 
 
-
-use std::thread::current;
-
-use crate::keyboard::key::{Hand::*, Finger::*, KeyValue, PhalanxKey};
+use crate::keyboard::key::{Finger::{self, *}, Hand::{self, *}, KeyValue, PhalanxKey};
 use crate::keyboard::{LayoutPositionSequence, layer::Layer, layout::Layout};
 use crate::optimizer::LayoutOptimizerConfig;
 
@@ -86,7 +83,7 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		let mut previous_row;
 		for (l_ind, layout_position) in layout_position_sequence.into_iter().enumerate() {
 			let base_effort_value = effort_layer[layout_position];
-			let mut effort_value = base_effort_value;
+			let effort_value = base_effort_value;
 			previous_alternating_hand_streak = alternating_hand_streak;
 			previous_roll_streak = roll_streak;
 			previous_row = current_row;
@@ -117,7 +114,7 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 					// streak just ended
 					alt_inds.push(l_ind);
 				} else if previous_alternating_hand_streak == 1 && alternating_hand_streak > 1 {
-					// streak started in previous iteration
+					// streak started previously
 					alt_inds.push(l_ind - alternating_hand_streak);
 				}
 
@@ -130,7 +127,7 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 			}
 
 			// penalize same finger
-			if current_hand == previous_hand && current_finger == previous_finger {
+			if same_hand_and_finger(current_hand, previous_hand, current_finger, previous_finger) {
 				score += (config.same_finger_penalty_factor - 1.0) * effort_value;
 				// effort_value *= config.same_finger_penalty_factor;
 			}
@@ -147,13 +144,13 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		
 
 		// if ending on a hand alternation, add the last index
-		if alternating_hand_streak > 0 {
+		if alternating_hand_streak > 1 {
 			alt_inds.push(seq_len);
 		}
-		if roll_streak > 0 {
+		if roll_streak > 1 {
 			roll_inds.push(seq_len);
 		}
-		println!("{}\n\t{:?}\n\t{:?}", debug_clone, alt_inds, roll_inds);
+		// println!("{}\n\t{:?}\n\t{:?}", debug_clone, alt_inds, roll_inds);
 
 		let mut reductions: Vec<f64> = vec![];
 
@@ -161,7 +158,10 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 			// println!("{}, {:?}", debug_clone, alt_inds);
 			for i in (0..alt_inds.len()).step_by(2) {
 				let alt_start = alt_inds[i];
-				let alt_end = alt_inds[i + 1];
+				let alt_end = *match alt_inds.get(i + 1){
+					Some(v) => v,
+					None => panic!("{}\n\t{:?}\n\t{:?}", debug_clone, alt_inds, roll_inds),
+				};
 				// if alt_start == 0 && alt_end == 0 {
 				// 	break;
 				// }
@@ -178,14 +178,16 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		if roll_inds.len() > 1 {
 			for i in (0..roll_inds.len()).step_by(2) {
 				let roll_start = roll_inds[i];
-				let roll_end = roll_inds[i + 1];
+				let roll_end = *match roll_inds.get(i + 1) {
+					Some(v) => v,
+					None => panic!("{}\n\t{:?}\n\t{:?}", debug_clone, alt_inds, roll_inds),
+				};
 				let streak_score: f64 = efforts[roll_start..roll_end].iter().sum();
 				let reduction = calculate_final_reduction(roll_reduction, roll_end - roll_start - 1, roll_weight);
 				reductions.push(-(1.0 - reduction) * streak_score);
 			}
 		}
 		
-		println!("{:?}", reductions);
 		score += efforts.iter().sum::<f64>() + reductions.iter().sum::<f64>();
 		score
 	}
@@ -194,6 +196,14 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 fn calculate_final_reduction(initial_reduction: f64, n: usize, weight: f64) -> f64 {
 	// eg if initial reduction is 0.9 and the streak is 2, the total reduction is 0.81x. That corresponds to a 0.19x loss. If the weight is 0.4, then 0.19 * 0.4 = 0.076x loss, or (1 - 0.076) = 0.924x reduction
 	1.0 - (1.0 - (initial_reduction).powf(n as f64)) * weight
+}
+
+fn same_hand_and_finger(current_hand: Hand, previous_hand: Hand, current_finger: Finger, previous_finger: Finger) -> bool {
+	if current_hand == previous_hand && current_finger == previous_finger {
+		true
+	} else {
+		false
+	}
 }
 
 
@@ -264,6 +274,12 @@ mod tests {
 		let red = calculate_final_reduction(0.9, 2, 0.6);
 		assert_eq!(format!("{:.3}", score), format!("{:.3}", (0.1 + 0.4 + 0.2) * red + 0.2 * 2.0 + (0.2 + 0.4 + 0.2) * red));
 		// 0, 0, 1, with effort 0.2, is repeated. So it incurs an extra 2x cost, with the original cost being part of an alternating sequence, for a "total" of 3.0x as set by the config option.
+
+		// right left left right left
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 3), LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 1), LayoutPosition::new(0, 0, 3), LayoutPosition::new(0, 0, 0)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		let red = calculate_final_reduction(0.9, 2, 0.6);
+		assert_eq!(format!("{:.3}", score), format!("{:.3}", (0.4 + 0.1) + (0.2 + 0.4 + 0.1) * red));
 
 		// same finger
 		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 0)]);
