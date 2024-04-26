@@ -26,7 +26,7 @@ impl<const R: usize, const C: usize> Score<R, C> for SimpleScoreFunction {
 		SimpleScoreFunction{}
 	}
 
-	fn score_small(&self, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> Option<f64> {
+	fn score_small(&self, _effort_layer: &Layer<R, C, f64>, _phalanx_layer: &Layer<R, C, PhalanxKey>, _layout_position_sequence: LayoutPositionSequence, _config: &LayoutOptimizerConfig) -> Option<f64> {
 		None
 	}
 
