@@ -70,7 +70,7 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		let mut previous_hand = PlaceholderHand;
 		let mut previous_finger = PlaceholderFinger;
 		// phalanx_layer[layout_position_sequence[0]].value().0;
-		let mut alternating_hand_streak = 0; // streak of 1 means previous hand and current hand were different
+		let mut alternating_hand_streak = 0; // streak of 1 means previous hand and current hand were different. ie, it's 1 less than the length of the sequence satisfying the alternating / rolling criteria
 		let mut previous_alternating_hand_streak;
 		let mut efforts: Vec<f64> = vec![];
 		let mut alt_inds: Vec<usize> = vec![]; // index i is where a hand alternating streak starts, index i + 1 is where it ends (not inclusive)
@@ -110,6 +110,7 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 					}
 					
 				}
+				// a left-right-left sequence of length 3 will have a streak of 2; 3 is the minimum sequence length eligible for an alternation or roll streak. We do not consider streaks of 1 (sequence of length 2, eg left-right) as otherwise anything that is not a roll would automatically be an alternation, and vice versa.
 				if alternating_hand_streak == 0 && previous_alternating_hand_streak > 1 {
 					// streak just ended
 					alt_inds.push(l_ind);
