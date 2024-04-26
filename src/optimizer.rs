@@ -43,6 +43,7 @@ pub struct LayoutOptimizerConfig {
 	pub finger_roll_weight: f64,
 	pub finger_roll_reduction_factor: f64, // say this is 0.9. Then a roll of length 3 would reduce the effort by 0.9 * 0.9x. Min length 3.
 	pub same_finger_penalty_factor: f64,
+	pub extra_length_penalty: f64,
 
 }
 impl Default for LayoutOptimizerConfig {
@@ -67,6 +68,7 @@ impl Default for LayoutOptimizerConfig {
 			finger_roll_weight: 2.0,
 			finger_roll_reduction_factor: 0.9,
 			same_finger_penalty_factor: 3.0,
+			extra_length_penalty: 1.1,
 		 }
 	}
 }
@@ -101,6 +103,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let effort_layer = &self.effort_layer;
 		let phalanx_layer = &self.phalanx_layer;
 		for (ngram, ngram_frequency) in frequencies {
+			let ngram_len = ngram.len();
 			let sequences = match layout.ngram_to_sequences(&ngram) {
 				Some(v) => v,
 				None => panic!("unable to create sequence from {}", ngram),
@@ -109,10 +112,11 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			let mut possible_scores: Vec<f64> = vec![];
 			let mut possible_sequences: Vec<LayoutPositionSequence> = vec![];
 			for sequence in sequences {
+				let sequence_len = sequence.len();
 				if save_positions {
 					possible_sequences.push(sequence.clone());
 				}
-				let sequence_score = self.score_function.score_layout_position_sequence(layout, effort_layer, phalanx_layer, sequence, &self.config);
+				let sequence_score = self.score_function.score_layout_position_sequence(layout, effort_layer, phalanx_layer, sequence, &self.config) * &self.config.extra_length_penalty.powf((sequence_len - ngram_len) as f64);
 				possible_scores.push(sequence_score);
 			}
 			
@@ -454,7 +458,8 @@ mod tests {
 		println!("{:?}", twogram_frequency);
 		let (s, poss) = layout_optimizer.score_single_grams(&test_layout, twogram_frequency.clone(), true);
 		// 3 * he + 1 * be + 2 * eh + 1 + eb
-		let expected_two_score = (3.0 * (0.1 + 0.2 + 0.1) + 1.0 * (0.3 + 0.2 + 0.1) + 2.0 * (0.2 + 0.1 + 0.1) + 1.0 * (0.2 + 0.1 + 0.3)) / 7.0;
+		let mut expected_two_score = (3.0 * (0.1 + 0.2 + 0.1) + 1.0 * (0.3 + 0.2 + 0.1) + 2.0 * (0.2 + 0.1 + 0.1) + 1.0 * (0.2 + 0.1 + 0.3)) / 7.0;
+		expected_two_score *= 1.1;
 		assert_eq!(format!("{s:.3}"), format!("{expected_two_score:.3}"));
 		let expected_poss: HashSet<LayoutPosition> = HashSet::from_iter(vec![
 			LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 2),
@@ -463,7 +468,7 @@ mod tests {
 		assert_eq!(poss, expected_poss);
 		
 		let (full_score, _) = layout_optimizer.score_datasets(&test_layout, &datasets, true);
-		let expected_one_score = (3.0 * 0.1 + 4.0 * (0.2 + 0.1) + 1.0 * 0.3) / 8.0;
+		let expected_one_score = (3.0 * 0.1 + 4.0 * (0.2 + 0.1) * 1.1 + 1.0 * 0.3) / 8.0;
 		// onegrams and twograms have equal weight
 		let expected_score = 0.5 * expected_one_score + 0.5 * expected_two_score;
 		assert_eq!(format!("{full_score:.3}"), format!("{expected_score:.3}"));

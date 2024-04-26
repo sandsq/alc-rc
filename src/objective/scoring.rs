@@ -283,8 +283,9 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 }
 
 pub fn calculate_final_reduction(initial_reduction: f64, n: usize, weight: f64) -> f64 {
-	// eg if initial reduction is 0.9 and the streak is 2, the total reduction is 0.81x. That corresponds to a 0.19x loss. If the weight is 0.4, then 0.19 * 0.4 = 0.076x loss, or (1 - 0.076) = 0.924x reduction
-	1.0 - (1.0 - (initial_reduction).powf(n as f64)) * weight
+	// // eg if initial reduction is 0.9 and the streak is 2, the total reduction is 0.81x. That corresponds to a 0.19x loss. If the weight is 0.4, then 0.19 * 0.4 = 0.076x loss, or (1 - 0.076) = 0.924x reduction
+	// 1.0 - (1.0 - (initial_reduction).powf(n as f64)) * weight
+	1.0 - (1.0 - initial_reduction) * weight
 }
 
 fn same_hand_and_finger(current_hand: Hand, previous_hand: Hand, current_finger: Finger, previous_finger: Finger) -> bool {
@@ -324,7 +325,8 @@ mod tests {
 	#[test]
 	fn test_reduction() {
 		let red = calculate_final_reduction(0.9, 2, 0.4);
-		assert_eq!(red, 0.924);
+		// assert_eq!(red, 0.924); // old exponential reduction
+		assert_eq!(red, 0.96);
 		let red = calculate_final_reduction(0.9, 1, 0.5);
 		assert_eq!(red, 0.95);
 	}
@@ -355,7 +357,7 @@ mod tests {
 		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 2), LayoutPosition::new(0, 0, 1), LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 3), LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 1)]);
 		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
 		let red = calculate_final_reduction(0.9, 2, 0.6);
-		assert_eq!(score, (0.1 + 0.3 + 0.2) * red + (0.1 + 0.4 + 0.1) * red + 0.2);
+		assert_eq!(format!("{:.5}", score), format!("{:.5}", (0.1 + 0.3 + 0.2) * red + (0.1 + 0.4 + 0.1) * red + 0.2));
 
 		// shorter alternating sequences, same finger in the middle
 		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 3), LayoutPosition::new(0, 0, 1), LayoutPosition::new(0, 0, 1), LayoutPosition::new(0, 0, 3), LayoutPosition::new(0, 0, 1)]);

@@ -367,12 +367,11 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 				for col_index in 0..C {
 					let current_position = LayoutPosition::new(layer_index, row_index, col_index);
 					let current_key_value = self[current_position].value();
-					if current_key_value == _NO {
-						continue;
-					}
 					if visited_positions.contains(&current_position) {
 						continue;
 					} else if discriminant(&current_key_value) == discriminant(&_LST(0, 0)) {
+						continue;
+					} else if current_key_value == _NO {
 						continue;
 					} else {
 						return Err(AlcError::IncompletePathmapError(current_key_value, current_position));
