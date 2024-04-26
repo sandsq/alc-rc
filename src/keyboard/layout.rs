@@ -283,10 +283,16 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 		let mut count = 0;
 		let fallback_count = 100;
 
-		while discriminant(&k1.value()) == discriminant(&_LST(1, 2)) {
+		while discriminant(&k1.value()) == discriminant(&_LST(1, 2)) || k1.value() == _NO {
 			p1 = self.generate_random_moveable_position(rng)?;
 			k1 = &self[p1];
+
+			count += 1;
+			if count >= fallback_count {
+				panic!("Error for developer! Only finding _NO keycodes.")
+			}
 		}
+		count = 0;
 
 		if let _LS(_i) = k1.value() {
 			if k1.is_symmetric() {
@@ -435,6 +441,9 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 				for c in 0..C {
 					let key = &layer[(r, c)];
 					let key_value = key.value();
+					if key_value == _NO {
+						continue;
+					}
 					let layout_position = LayoutPosition::new(layer_num, r, c);
 					let layout_position_sequence = LayoutPositionSequence::from_vector(vec![layout_position.clone()]);
 					if layer_num == 0 {
