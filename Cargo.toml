@@ -9,6 +9,7 @@ debug = true
 [dependencies]
 array2d = "0.3.2"
 delegate = "0.12.0"
+divan = "0.1.14"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 regex = "1.10.4"
@@ -17,3 +18,10 @@ strum = "0.26.2"
 strum_macros = "0.26.2"
 thiserror = "1.0.58"
 tqdm = "0.7.0"
+
+[dev-dependencies]
+divan = "0.1.14"
+
+[[bench]]
+name = "loop"
+harness = false

@@ -26,6 +26,7 @@ use self::keycode::{Keycode, generate_default_keycode_set};
 
 #[derive(Debug, Clone)]
 pub struct LayoutOptimizerConfig {
+	// make sure constructor puts limits on fields
 	pub population_size: u32,
 	pub generation_count: u32,
 	pub fitness_cutoff: f64, // keep top x% for the next generation
@@ -38,9 +39,9 @@ pub struct LayoutOptimizerConfig {
 	pub max_ngram_size: usize,
 	pub top_n_ngrams_to_take: usize,
 	pub hand_alternation_weight: f64, // determines the relative weight of hand alternation bonus vs finger roll bonus. 
-	pub hand_alternation_reduction_factor: f64, // say this is 0.9. Then a hand alternation of left-right would reduce the effort by 0.9x. Adding a 3rd -left would reduce the effort of that sequence by 0.9 * 0.9x.
+	pub hand_alternation_reduction_factor: f64, // say this is 0.9. Then a hand alternation of left-right-left would reduce the effort of that sequence by 0.9 * 0.9x. Min length 3.
 	pub finger_roll_weight: f64,
-	pub finger_roll_reduction_factor: f64, // say this is 0.9. Then a roll of length 3 would reduce the effort by 0.9 * 0.9x.
+	pub finger_roll_reduction_factor: f64, // say this is 0.9. Then a roll of length 3 would reduce the effort by 0.9 * 0.9x. Min length 3.
 	pub same_finger_penalty_factor: f64,
 
 }

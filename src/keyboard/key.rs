@@ -1,4 +1,6 @@
 use std::fmt;
+use std::cmp::Ordering::*;
+
 
 use crate::alc_error::AlcError;
 use crate::text_processor::keycode::Keycode::{self, *};
@@ -201,6 +203,58 @@ pub enum Finger {
 	PlaceholderFinger,
 }
 use Finger::*;
+/// Thumb is the "biggest" finger, so a sequence of ascending fingers is an inner roll and a sequences of descending fingers is an outer roll. Joints are excluded from rolling since it's a bit awkward, but this may change in the future.
+impl PartialOrd for Finger {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		match *self {
+			Thumb => {
+				match *other {
+					Thumb => Some(Equal),
+					PlaceholderFinger | Joint => None,
+					_ =>  Some(Greater),
+				}
+			},
+			Index => {
+				match *other {
+					Thumb => Some(Less), 
+					Index => Some(Equal),
+					PlaceholderFinger | Joint => None,
+					_ => Some(Greater),
+				}
+			},
+			Middle => {
+				match *other {
+					Thumb | Index => Some(Less),
+					Middle => Some(Equal),
+					PlaceholderFinger | Joint => None,
+					_ => Some(Greater),
+				}
+			},
+			Ring => {
+				match *other {
+					Thumb | Index | Middle => Some(Less),
+					Ring => Some(Equal),
+					PlaceholderFinger | Joint => None,
+					_ => Some(Greater),
+				}
+			},
+			Pinkie => {
+				match *other {
+					Thumb | Index | Middle | Ring => Some(Less),
+					Pinkie => Some(Equal),
+					Joint | PlaceholderFinger => None,
+				}
+			},
+			Joint => {
+				match *other {
+					Joint => Some(Equal),
+					_ => None,
+				}
+			}
+			_ => None,
+		}
+	}
+}
 #[derive(Debug, PartialEq, Clone)]
 pub struct PhalanxKey {
 	pub hand: Hand,
@@ -233,6 +287,7 @@ impl fmt::Display for PhalanxKey {
 
 #[cfg(test)]
 mod tests {
+
 	use super::*;
 
 	#[test]
@@ -247,5 +302,38 @@ mod tests {
 		assert_eq!(b.value, _B);
 		assert_eq!(b.is_moveable, true);
 		assert_eq!(b.is_symmetric, false);
+	}
+
+	#[test]
+	fn test_finger_comp() {
+		assert!(Thumb == Thumb);
+		assert!(Thumb > Index);
+		assert!(Thumb > Middle);
+		assert!(Thumb > Ring);
+		assert!(Thumb > Pinkie);
+
+		assert!(Index == Index);
+		assert!(Index > Middle);
+		assert!(Index > Ring);
+		assert!(Index > Pinkie);
+
+		assert!(Middle == Middle);
+		assert!(Middle > Ring);
+		assert!(Middle > Pinkie);
+
+		assert!(Ring == Ring);
+		assert!(Ring > Pinkie);
+
+		assert!(Pinkie == Pinkie);
+		assert!(Pinkie < Ring);
+		assert!(Pinkie < Middle);
+		assert!(Pinkie < Index);
+		assert!(Pinkie < Thumb);
+
+		// etc.
+
+		assert!(!(Thumb > PlaceholderFinger));
+		assert!(!(Thumb > Joint));
+		assert!(!(Thumb < Joint));
 	}
 }
