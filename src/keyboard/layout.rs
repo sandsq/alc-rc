@@ -234,7 +234,7 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 		#[allow(unused_assignments)]
 		let mut replace_happened = false;
 		let k = self[p];
-		if self.keycode_pathmap[&k.value()].len() == 1 {
+		if k.value() != _NO && self.keycode_pathmap[&k.value()].len() == 1 {
 			panic!("Error for the developer! There is only one way to reach {}, not allowed to replace.", k)
 		}
 		if let _LST(_i, _j) = k.value() {
@@ -328,8 +328,13 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 		let mut p = self.generate_random_moveable_position(rng).unwrap();
 		let mut k = &self[p];
 		let mut paths = match self.keycode_pathmap.get(&k.value()) {
-			Some(v) => v,
-			None => return None,
+			Some(v) => v.clone(),
+			None => match k.value() {
+				_NO => {
+					vec![LayoutPositionSequence::from_vector(vec![p]), LayoutPositionSequence::from_vector(vec![p])]
+				},
+				_ => return None,
+			}
 		};
 		let fallback_count = 100;
 		let mut count = 0;
@@ -337,8 +342,13 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 			p = self.generate_random_moveable_position(rng).unwrap();
 			k = &self[p];
 			paths = match self.keycode_pathmap.get(&k.value()) {
-				Some(v) => v,
-				None => return None,
+				Some(v) => v.clone(),
+				None => match k.value() {
+					_NO => {
+						vec![LayoutPositionSequence::from_vector(vec![p]), LayoutPositionSequence::from_vector(vec![p])]
+					},
+					_ => return None,
+				}
 			};
 			count += 1;
 			if count >= fallback_count {

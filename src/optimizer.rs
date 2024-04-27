@@ -79,10 +79,10 @@ pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, 
 	pub phalanx_layer: Layer<R, C, PhalanxKey>,
 	score_function: S,
 	pub config: LayoutOptimizerConfig,
-	operation_counter: Cell<(u32, u32, u32)>, // swaps, replacements, nothings
+	operation_counter: Cell<(u32, u32, u32, u32)>, // swaps, replacements, nothings
 }
 impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> {
-	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f64>, phalanx_layer: Layer<R, C, PhalanxKey>, score_function: S, config: LayoutOptimizerConfig, operation_counter: Cell<(u32, u32, u32)>) -> Self {
+	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f64>, phalanx_layer: Layer<R, C, PhalanxKey>, score_function: S, config: LayoutOptimizerConfig, operation_counter: Cell<(u32, u32, u32, u32)>) -> Self {
 		LayoutOptimizer { base_layout, effort_layer, phalanx_layer, score_function, config, operation_counter }
 	}
 
@@ -205,7 +205,11 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let valid_keycodes = &self.config.valid_keycodes;
 		// modify surviving layouts
 		for layout in &mut layouts {
+			let op_counter = self.operation_counter.get();		
+			self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2, op_counter.3 + 1));
+
 			let roll: f64 = rng.gen();
+			// println!("{}, {}", roll, swap_threshold);
 			if roll <= swap_threshold {
 				let (p1, p2) = match layout.generate_random_valid_swap(rng) {
 					Some((x, y)) => (x, y),
@@ -216,9 +220,9 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				let swap_happened = layout.swap(p1, p2);
 				let op_counter = self.operation_counter.get();
 				if swap_happened {
-					self.operation_counter.set((op_counter.0 + 1, op_counter.1, op_counter.2));
+					self.operation_counter.set((op_counter.0 + 1, op_counter.1, op_counter.2, op_counter.3));
 				} else {
-					self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1));
+					self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 				}
 			} else {
 				if let Some(p) = layout.generate_valid_replace_position(rng) {
@@ -227,17 +231,23 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 					let replace_happened = layout.replace(p, *keycode);
 					let op_counter = self.operation_counter.get();
 					if replace_happened {
-						self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2));
+						self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2, op_counter.3));
 					} else {
-						self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1));
+						self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 					}
+				} else {
+					self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 				}
 			}
 		}
 		// fill up to population size
 		while layouts.len() < (population_size as usize) {
+			let op_counter = self.operation_counter.get();		
+			self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2, op_counter.3 + 1));
+
 			let mut new_layout = layouts.choose(rng).unwrap().clone();
 			let roll: f64 = rng.gen();
+			// println!("{}", roll);
 			// println!("roll {} vs swap threshold {}", roll, swap_threshold);
 			if roll <= swap_threshold {
 				let (p1, p2) = match new_layout.generate_random_valid_swap(rng) {
@@ -249,9 +259,9 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				let swap_happened = new_layout.swap(p1, p2);
 				let op_counter = self.operation_counter.get();
 				if swap_happened {
-					self.operation_counter.set((op_counter.0 + 1, op_counter.1, op_counter.2));
+					self.operation_counter.set((op_counter.0 + 1, op_counter.1, op_counter.2, op_counter.3));
 				} else {
-					self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1));
+					self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 				}
 			} else {
 				if let Some(p) = new_layout.generate_valid_replace_position(rng) {
@@ -260,10 +270,12 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 					let replace_happened = new_layout.replace(p, *keycode);
 					let op_counter = self.operation_counter.get();
 					if replace_happened {
-						self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2));
+						self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2, op_counter.3));
 					} else {
-						self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1));
+						self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 					}
+				} else {
+					self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 				}
 			}
 			layouts.push(new_layout);
@@ -378,7 +390,7 @@ impl<T> LayoutOptimizer<4, 10, T> where T: Score<4, 10> {
 		let phalanx_layer = Layer::<4, 10, PhalanxKey>::choc_ferris_sweep();
 		let score_function = T::new();
 		let config = LayoutOptimizerConfig::default();	
-		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0)))
+		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0, 0)))
 	}
 }
 
@@ -396,7 +408,7 @@ impl<T> Default for LayoutOptimizer<2, 4, T> where T: Score<2, 4> {
 		").unwrap();
 		let score_function = T::new();
 		let config = LayoutOptimizerConfig::default();
-		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0)))
+		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0, 0)))
 	}
 }
 
@@ -407,7 +419,7 @@ impl<T> Default for LayoutOptimizer<4, 12, T> where T: Score<4, 12> {
 		let phalanx_layer = Layer::<4, 12, PhalanxKey>::default();
 		let score_function = T::new();
 		let config = LayoutOptimizerConfig::default();	
-		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0)))
+		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0, 0)))
 	}
 }
 
@@ -452,7 +464,7 @@ mod tests {
 		let mut config = LayoutOptimizerConfig::default();
 		config.max_ngram_size = 2;
 		config.dataset_paths = vec![String::from("./data/small_test/")];
-		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0)));
+		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0, 0)));
 		let datasets = layout_optimizer.compute_datasets();
 		let twogram_frequency = datasets[0].ngram_frequencies.get(&(2 as usize)).unwrap();
 		println!("{:?}", twogram_frequency);
@@ -517,6 +529,8 @@ mod tests {
 		lo.config.population_size = 200;
 		lo.config.hand_alternation_weight = 1.0;
 		lo.config.finger_roll_weight = 1.0;
+		lo.config.swap_weight = 1.0;
+		lo.config.replace_weight = 1.0;
 		
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
