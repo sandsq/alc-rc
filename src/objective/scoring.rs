@@ -1,8 +1,8 @@
 
 
-use crate::keyboard::key::{Finger::{self, *}, Hand::{self, *}, KeyValue, PhalanxKey};
+use crate::{keyboard::key::{Finger::{self, *}, Hand::{self, *}, KeyValue, PhalanxKey}, optimizer::config::LayoutOptimizerConfig};
 use crate::keyboard::{LayoutPositionSequence, layer::Layer, layout::Layout};
-use crate::optimizer::LayoutOptimizerConfig;
+
 
 
 

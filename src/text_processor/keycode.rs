@@ -1,8 +1,8 @@
 use strum_macros;
 use std::collections::HashSet;
+use serde_derive::{Deserialize, Serialize};
 
-
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct KeycodeOptions {
 	pub include_alphas: bool,
 	pub include_numbers: bool,
@@ -26,7 +26,7 @@ impl Default for KeycodeOptions {
 	}
 }
 
-#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter)]
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter, Serialize, Deserialize)]
 pub enum Keycode {
 	_A, _B, _C, _D, _E,
 	_F, _G, _H, _I, _J,

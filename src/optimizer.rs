@@ -1,3 +1,4 @@
+pub mod config;
 
 use std::cell::Cell;
 use std::collections::HashSet;
@@ -19,61 +20,12 @@ use crate::optimizer::ngram::Ngram;
 use crate::text_processor::*;
 use crate::objective::scoring::*;
 
+use self::config::LayoutOptimizerConfig;
 use self::dataset::FrequencyDataset;
 use self::frequency_holder::{SingleGramFrequencies, TopFrequenciesToTake::*};
 use self::keycode::KeycodeOptions;
 use self::keycode::{Keycode, generate_default_keycode_set};
 
-#[derive(Debug, Clone)]
-pub struct LayoutOptimizerConfig {
-	// make sure constructor puts limits on fields
-	pub population_size: u32,
-	pub generation_count: u32,
-	pub fitness_cutoff: f64, // keep top x% for the next generation
-	pub swap_weight: f64,
-	pub replace_weight: f64,
-	pub dataset_paths: Vec<String>,
-	pub dataset_weight: Vec<f64>,
-	pub keycode_options: KeycodeOptions,
-	pub valid_keycodes: Vec<Keycode>,
-	pub max_ngram_size: usize,
-	pub top_n_ngrams_to_take: usize,
-	pub hand_alternation_weight: f64, // determines the relative weight of hand alternation bonus vs finger roll bonus. 
-	pub hand_alternation_reduction_factor: f64, // say this is 0.9. Then a hand alternation of left-right-left would reduce the effort of that sequence by 0.9 * 0.9x. Min length 3.
-	pub finger_roll_weight: f64,
-	pub finger_roll_reduction_factor: f64, // say this is 0.9. Then a roll of length 3 would reduce the effort by 0.9 * 0.9x. Min length 3.
-	pub finger_roll_same_row_reduction_factor: f64,
-	pub same_finger_penalty_factor: f64,
-	pub extra_length_penalty: f64,
-
-}
-impl Default for LayoutOptimizerConfig {
-	fn default() -> Self {
-		let keycode_options = KeycodeOptions::default();
-		let mut valid_keycodes = generate_default_keycode_set(&keycode_options).into_iter().collect::<Vec<Keycode>>();
-		valid_keycodes.sort_unstable();
-		LayoutOptimizerConfig { 
-			population_size: 5, 
-			generation_count: 1,
-			fitness_cutoff: 0.1,
-			swap_weight: 4.0,
-			replace_weight: 1.0,
-			dataset_weight: vec![1.0],
-			dataset_paths: vec![String::from("./data/rust_book_test/")],
-			keycode_options: keycode_options.clone(),
-			valid_keycodes: valid_keycodes,
-			max_ngram_size: 4,
-			top_n_ngrams_to_take: 100,
-			hand_alternation_weight: 3.0,
-			hand_alternation_reduction_factor: 0.9,
-			finger_roll_weight: 2.0,
-			finger_roll_reduction_factor: 0.9,
-			finger_roll_same_row_reduction_factor: 0.9,
-			same_finger_penalty_factor: 3.0,
-			extra_length_penalty: 1.1,
-		 }
-	}
-}
 
 pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, C> {
 	pub base_layout: Layout<R, C>,
@@ -333,7 +285,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		layouts_and_scores = self.score_population(&layouts, datasets);
 		(best_layouts, best_scores) = self.take_best_layouts(layouts_and_scores);
 		let mut final_layout = best_layouts[0].clone();
-		println!("final layout pre removal\n{} score: {}", final_layout, best_scores[0]);
+		println!("final layout pre removal\n{}score: {}", final_layout, best_scores[0]);
 
 		let (score, visited) = self.score_datasets(&final_layout, datasets, true);
 		assert_eq!(score, best_scores[0]);
@@ -356,7 +308,8 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let (score, _) = self.score_datasets(&final_layout, datasets, false);
 		println!("final layout post removal\n{:#} score: {}", final_layout, score);
 
-		println!("datasets {:?}", self.config.dataset_paths);
+		println!("config\n{:?}", self.config);
+		// println!("datasets {:?}", self.config.dataset_paths);
 		if score != best_scores[0] {
 			println!("removing unused key positions gave a different score, something went wrong")
 		} else {
@@ -531,7 +484,7 @@ mod tests {
 		lo.config.population_size = 200;
 		lo.config.hand_alternation_weight = 1.0;
 		lo.config.hand_alternation_reduction_factor = 0.8;
-		lo.config.finger_roll_weight = 1.0;
+		lo.config.finger_roll_weight = 4.0;
 		lo.config.finger_roll_reduction_factor = 0.8;
 		lo.config.finger_roll_same_row_reduction_factor = 0.8;
 		lo.config.same_finger_penalty_factor = 5.0;
