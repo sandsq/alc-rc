@@ -9,6 +9,8 @@ use crate::optimizer::LayoutOptimizerConfig;
 pub trait Score<const R: usize, const C: usize> {
 	fn new() -> Self;
 
+	fn cancel_layer_switches(&self, layout: Layout<R, C>, layout_position_sequence: LayoutPositionSequence) -> LayoutPositionSequence;
+
 	fn score_small(&self, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> Option<f64>;
 
 	fn score_layout_position_sequence(&self, layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>,  layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> f64;
@@ -24,6 +26,10 @@ impl SimpleScoreFunction {
 impl<const R: usize, const C: usize> Score<R, C> for SimpleScoreFunction {
 	fn new() -> Self {
 		SimpleScoreFunction{}
+	}
+
+	fn cancel_layer_switches(&self, _layout: Layout<R, C>, _layout_position_sequence: LayoutPositionSequence) -> LayoutPositionSequence {
+		LayoutPositionSequence::from_tuples(vec![(0 as usize, 0 as usize, 0 as usize)])
 	}
 
 	fn score_small(&self, _effort_layer: &Layer<R, C, f64>, _phalanx_layer: &Layer<R, C, PhalanxKey>, _layout_position_sequence: LayoutPositionSequence, _config: &LayoutOptimizerConfig) -> Option<f64> {
@@ -62,6 +68,13 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		AdvancedScoreFunction {}
 	}
 
+	fn cancel_layer_switches(&self, _layout: Layout<R, C>, _layout_position_sequence: LayoutPositionSequence) -> LayoutPositionSequence {
+		// for lp in layout_position_sequence {
+		// 	let layer = lp.layer_index;
+		// }
+		LayoutPositionSequence::from_tuples(vec![(0 as usize, 0 as usize, 0 as usize)])
+	}
+
 	fn score_small(&self, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> Option<f64> {
 		let alt_raw_weight = config.hand_alternation_weight;
 		let roll_raw_weight = config.finger_roll_weight;
@@ -72,6 +85,7 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		};
 		let alt_reduction = config.hand_alternation_reduction_factor;
 		let roll_reduction = config.finger_roll_reduction_factor;
+		let roll_same_row_reduction_factor = config.finger_roll_same_row_reduction_factor;
 
 		if layout_position_sequence.len() == 1 {
 			let lp = layout_position_sequence[0];
@@ -114,6 +128,19 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 						let red = calculate_final_reduction(roll_reduction, 2, roll_weight);
 						return Some((effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]) * red);
 					}
+				} else if (lp1.row_index as i8 - lp2.row_index as i8).abs() <= 0 && (lp2.row_index as i8 - lp3.row_index as i8).abs() <= 0 {
+					// roll happens in same row
+					// inner roll
+					if finger1 < finger2 && finger2 < finger3 {
+						let red = calculate_final_reduction(roll_same_row_reduction_factor, 2, roll_weight);
+						return Some((effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]) * red);
+					}
+					// outer roll
+					if finger1 > finger2 && finger2 > finger3 {
+						let red = calculate_final_reduction(roll_same_row_reduction_factor, 2, roll_weight);
+						return Some((effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]) * red);
+					}
+
 				}
 			}
 			return Some(effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]);
@@ -121,7 +148,7 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		return None;
 	}
 
-	fn score_layout_position_sequence(&self, layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> f64 {
+	fn score_layout_position_sequence(&self, _layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> f64 {
 		// during debug, check that the position preceeding a higher layer position is a layer switch
 		// we can use the fact that layer switches always should occur before a higher layer position to eliminate the need to actually check the layout for layer switches, and simplify checking when layer switches can be canceled
 		let debug_clone = layout_position_sequence.clone();
@@ -281,6 +308,8 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		score
 	}
 }
+
+
 
 pub fn calculate_final_reduction(initial_reduction: f64, _n: usize, weight: f64) -> f64 {
 	// // eg if initial reduction is 0.9 and the streak is 2, the total reduction is 0.81x. That corresponds to a 0.19x loss. If the weight is 0.4, then 0.19 * 0.4 = 0.076x loss, or (1 - 0.076) = 0.924x reduction

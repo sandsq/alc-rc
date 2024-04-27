@@ -42,6 +42,7 @@ pub struct LayoutOptimizerConfig {
 	pub hand_alternation_reduction_factor: f64, // say this is 0.9. Then a hand alternation of left-right-left would reduce the effort of that sequence by 0.9 * 0.9x. Min length 3.
 	pub finger_roll_weight: f64,
 	pub finger_roll_reduction_factor: f64, // say this is 0.9. Then a roll of length 3 would reduce the effort by 0.9 * 0.9x. Min length 3.
+	pub finger_roll_same_row_reduction_factor: f64,
 	pub same_finger_penalty_factor: f64,
 	pub extra_length_penalty: f64,
 
@@ -62,11 +63,12 @@ impl Default for LayoutOptimizerConfig {
 			keycode_options: keycode_options.clone(),
 			valid_keycodes: valid_keycodes,
 			max_ngram_size: 4,
-			top_n_ngrams_to_take: 50,
+			top_n_ngrams_to_take: 100,
 			hand_alternation_weight: 3.0,
 			hand_alternation_reduction_factor: 0.9,
 			finger_roll_weight: 2.0,
 			finger_roll_reduction_factor: 0.9,
+			finger_roll_same_row_reduction_factor: 0.9,
 			same_finger_penalty_factor: 3.0,
 			extra_length_penalty: 1.1,
 		 }
@@ -106,7 +108,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			let ngram_len = ngram.len();
 			let sequences = match layout.ngram_to_sequences(&ngram) {
 				Some(v) => v,
-				None => panic!("unable to create sequence from {}", ngram),
+				None => panic!("unable to find typeable sequence from {}, check that every keycode is present in the layout or toggled as valid", ngram),
 				// return 0.0
 			};
 			let mut possible_scores: Vec<f64> = vec![];
@@ -527,10 +529,11 @@ mod tests {
 		let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::choc_ferris_sweep();
 		lo.config.generation_count = 100;
 		lo.config.population_size = 200;
-		lo.config.hand_alternation_weight = 4.0;
+		lo.config.hand_alternation_weight = 1.0;
 		lo.config.hand_alternation_reduction_factor = 0.8;
 		lo.config.finger_roll_weight = 1.0;
 		lo.config.finger_roll_reduction_factor = 0.8;
+		lo.config.finger_roll_same_row_reduction_factor = 0.8;
 		lo.config.same_finger_penalty_factor = 5.0;
 		lo.config.swap_weight = 1.0;
 		lo.config.replace_weight = 1.0;
