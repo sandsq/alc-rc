@@ -356,7 +356,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let (score, _) = self.score_datasets(&final_layout, datasets, false);
 		println!("final layout post removal\n{:#} score: {}", final_layout, score);
 
-		
+		println!("datasets {:?}", self.config.dataset_paths);
 		if score != best_scores[0] {
 			println!("removing unused key positions gave a different score, something went wrong")
 		} else {

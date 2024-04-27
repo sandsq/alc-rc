@@ -1,0 +1,111 @@
+final layout post removal
+___Layer 0___
+     0    1    2    3    4    5    6    7    8    9 
+0|   _  SFT    R    S    _    _    D    O    H CIRC 
+1|   V    E    I  LS3    _  GRV    T    A    N SLSH 
+2|   F    B    Y COMM    _    _ MINS    S    P    _ 
+3|   _    _    _  LS1  SPC BSPC  LS2    _    _    _ 
+
+___Layer 1___
+     0    1    2    3    4    5    6    7    8    9 
+0|   _    _    _    F    _    _  EQL    H BSLS    _ 
+1|AMPR LCBR LBRC LPRN    _    _ RPRN RBRC RCBR    _ 
+2|   _   AT    _    _    _    _    _    _    _    _ 
+3|   _    _    _    _    _  DOT    _    _    _    _ 
+
+___Layer 2___
+     0    1    2    3    4    5    6    7    8    9 
+0|   1    2    3    4    5    _    R ASTR  SPC    _ 
+1|   6    7    8    9 ZERO    _ LEFT DOWN   UP RGHT 
+2|   _ PERC    _    _  SFT  SFT HOME PGDN PGUP  END 
+3|   _    _    _ EXLM  GRV    Z    _    _    _    _ 
+
+___Layer 3___
+     0    1    2    3    4    5    6    7    8    9 
+0|   _    X HASH    _    _    _    B    _ SCLN    _ 
+1|   _    F    G    _    _    _    M    L    W  DLR 
+2|   _    R    _    _    _    _    Q    N    K    _ 
+3|   _    _    _    J    U    C QUOT    _    _    _ 
+
+_A: [(L0 R1 C7)], 
+_B: [(L0 R2 C1)], [(L0 R1 C3) -> (L3 R0 C6)], 
+_C: [(L0 R1 C3) -> (L3 R3 C5)], 
+_D: [(L0 R0 C6)], 
+_E: [(L0 R1 C1)], 
+_F: [(L0 R2 C0)], [(L0 R3 C3) -> (L1 R0 C3)], [(L0 R1 C3) -> (L3 R1 C1)], 
+_G: [(L0 R1 C3) -> (L3 R1 C2)], 
+_H: [(L0 R0 C8)], [(L0 R3 C3) -> (L1 R0 C7)], 
+_I: [(L0 R1 C2)], 
+_J: [(L0 R1 C3) -> (L3 R3 C3)], 
+_K: [(L0 R1 C3) -> (L3 R2 C8)], 
+_L: [(L0 R1 C3) -> (L3 R1 C7)], 
+_M: [(L0 R1 C3) -> (L3 R1 C6)], 
+_N: [(L0 R1 C8)], [(L0 R1 C3) -> (L3 R2 C7)], 
+_O: [(L0 R0 C7)], 
+_P: [(L0 R2 C8)], 
+_Q: [(L0 R1 C3) -> (L3 R2 C6)], 
+_R: [(L0 R0 C2)], [(L0 R3 C6) -> (L2 R0 C6)], [(L0 R1 C3) -> (L3 R2 C1)], 
+_S: [(L0 R0 C3)], [(L0 R2 C7)], 
+_T: [(L0 R1 C6)], 
+_U: [(L0 R1 C3) -> (L3 R3 C4)], 
+_V: [(L0 R1 C0)], 
+_W: [(L0 R1 C3) -> (L3 R1 C8)], 
+_X: [(L0 R1 C3) -> (L3 R0 C1)], 
+_Y: [(L0 R2 C2)], 
+_Z: [(L0 R3 C6) -> (L2 R3 C5)], 
+_1: [(L0 R3 C6) -> (L2 R0 C0)], 
+_2: [(L0 R3 C6) -> (L2 R0 C1)], 
+_3: [(L0 R3 C6) -> (L2 R0 C2)], 
+_4: [(L0 R3 C6) -> (L2 R0 C3)], 
+_5: [(L0 R3 C6) -> (L2 R0 C4)], 
+_6: [(L0 R3 C6) -> (L2 R1 C0)], 
+_7: [(L0 R3 C6) -> (L2 R1 C1)], 
+_8: [(L0 R3 C6) -> (L2 R1 C2)], 
+_9: [(L0 R3 C6) -> (L2 R1 C3)], 
+_ZERO: [(L0 R3 C6) -> (L2 R1 C4)], 
+_SPC: [(L0 R3 C4)], [(L0 R3 C6) -> (L2 R0 C8)], 
+_BSPC: [(L0 R3 C5)], 
+_SFT: [(L0 R0 C1)], [(L0 R3 C6) -> (L2 R2 C4)], [(L0 R3 C6) -> (L2 R2 C5)], 
+_COMM: [(L0 R2 C3)], 
+_DOT: [(L0 R3 C3) -> (L1 R3 C5)], 
+_EXLM: [(L0 R3 C6) -> (L2 R3 C3)], 
+_AT: [(L0 R3 C3) -> (L1 R2 C1)], 
+_HASH: [(L0 R1 C3) -> (L3 R0 C2)], 
+_DLR: [(L0 R1 C3) -> (L3 R1 C9)], 
+_PERC: [(L0 R3 C6) -> (L2 R2 C1)], 
+_CIRC: [(L0 R0 C9)], 
+_AMPR: [(L0 R3 C3) -> (L1 R1 C0)], 
+_ASTR: [(L0 R3 C6) -> (L2 R0 C7)], 
+_LPRN: [(L0 R3 C3) -> (L1 R1 C3)], 
+_RPRN: [(L0 R3 C3) -> (L1 R1 C6)], 
+_MINS: [(L0 R2 C6)], 
+_GRV: [(L0 R1 C5)], [(L0 R3 C6) -> (L2 R3 C4)], 
+_QUOT: [(L0 R1 C3) -> (L3 R3 C6)], 
+_SCLN: [(L0 R1 C3) -> (L3 R0 C8)], 
+_EQL: [(L0 R3 C3) -> (L1 R0 C6)], 
+_SLSH: [(L0 R1 C9)], 
+_BSLS: [(L0 R3 C3) -> (L1 R0 C8)], 
+_LCBR: [(L0 R3 C3) -> (L1 R1 C1)], 
+_RCBR: [(L0 R3 C3) -> (L1 R1 C8)], 
+_LBRC: [(L0 R3 C3) -> (L1 R1 C2)], 
+_RBRC: [(L0 R3 C3) -> (L1 R1 C7)], 
+_LS1: [(L0 R3 C3)], 
+_LS2: [(L0 R3 C6)], 
+_LS3: [(L0 R1 C3)], 
+_UP: [(L0 R3 C6) -> (L2 R1 C8)], 
+_RGHT: [(L0 R3 C6) -> (L2 R1 C9)], 
+_DOWN: [(L0 R3 C6) -> (L2 R1 C7)], 
+_LEFT: [(L0 R3 C6) -> (L2 R1 C6)], 
+_PGUP: [(L0 R3 C6) -> (L2 R2 C8)], 
+_END: [(L0 R3 C6) -> (L2 R2 C9)], 
+_PGDN: [(L0 R3 C6) -> (L2 R2 C7)], 
+_HOME: [(L0 R3 C6) -> (L2 R2 C6)], 
+ score: 4.113867571432042
+verified that removing unused positions has the same score
+layer switches checks passed
+symmetric keys checks passed
+operations: Cell { value: (9794, 9939, 467, 19837) }
+initial time: 0.433083872
+avg score time: 1.3199481039899998
+avg take top time: 0.00165506006
+avg gen time: 0.03527968270000001

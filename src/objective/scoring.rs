@@ -117,30 +117,30 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 			}
 			if hand1 == hand2 && hand2 == hand3 {
 				// doesn't span 2 rows
-				if (lp1.row_index as i8 - lp2.row_index as i8).abs() <= 1 && (lp2.row_index as i8 - lp3.row_index as i8).abs() <= 1 {
-					// inner roll
-					if finger1 < finger2 && finger2 < finger3 {
-						let red = calculate_final_reduction(roll_reduction, 2, roll_weight);
-						return Some((effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]) * red);
-					}
-					// outer roll
-					if finger1 > finger2 && finger2 > finger3 {
-						let red = calculate_final_reduction(roll_reduction, 2, roll_weight);
-						return Some((effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]) * red);
-					}
-				} else if (lp1.row_index as i8 - lp2.row_index as i8).abs() <= 0 && (lp2.row_index as i8 - lp3.row_index as i8).abs() <= 0 {
+				if (lp1.row_index as i8 - lp2.row_index as i8).abs() <= 0 && (lp2.row_index as i8 - lp3.row_index as i8).abs() <= 0 {
 					// roll happens in same row
 					// inner roll
 					if finger1 < finger2 && finger2 < finger3 {
-						let red = calculate_final_reduction(roll_same_row_reduction_factor, 2, roll_weight);
+						let red = calculate_final_reduction(roll_reduction * roll_same_row_reduction_factor, 2, roll_weight);
 						return Some((effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]) * red);
 					}
 					// outer roll
 					if finger1 > finger2 && finger2 > finger3 {
-						let red = calculate_final_reduction(roll_same_row_reduction_factor, 2, roll_weight);
+						let red = calculate_final_reduction(roll_reduction * roll_same_row_reduction_factor, 2, roll_weight);
 						return Some((effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]) * red);
 					}
-
+	
+				} else if (lp1.row_index as i8 - lp2.row_index as i8).abs() <= 1 && (lp2.row_index as i8 - lp3.row_index as i8).abs() <= 1 {
+					// inner roll
+					if finger1 < finger2 && finger2 < finger3 {
+						let red = calculate_final_reduction(roll_reduction, 2, roll_weight);
+						return Some((effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]) * red);
+					}
+					// outer roll
+					if finger1 > finger2 && finger2 > finger3 {
+						let red = calculate_final_reduction(roll_reduction, 2, roll_weight);
+						return Some((effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]) * red);
+					}
 				}
 			}
 			return Some(effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]);
@@ -184,7 +184,9 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		let mut previous_roll_streak;
 		let mut current_row = 0;
 		let mut previous_row;
+		let mut rows: Vec<usize> = vec![];
 		for (l_ind, layout_position) in layout_position_sequence.into_iter().enumerate() {
+			rows.push(layout_position.row_index);
 			let base_effort_value = effort_layer[layout_position];
 			let effort_value = base_effort_value;
 			previous_alternating_hand_streak = alternating_hand_streak;
@@ -299,8 +301,12 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 					None => panic!("{}\n\t{:?}\n\t{:?}", debug_clone, alt_inds, roll_inds),
 				};
 				let streak_score: f64 = efforts[roll_start..roll_end].iter().sum();
-				let reduction = calculate_final_reduction(roll_reduction, roll_end - roll_start - 1, roll_weight);
-				reductions.push(-(1.0 - reduction) * streak_score);
+				let total_reduction = if rows.iter().min() == rows.iter().max() {
+					calculate_final_reduction(config.finger_roll_same_row_reduction_factor * roll_reduction, roll_end - roll_start - 1, roll_weight)
+				} else {
+					calculate_final_reduction(roll_reduction, roll_end - roll_start - 1, roll_weight)
+				};
+				reductions.push(-(1.0 - total_reduction) * streak_score);
 			}
 		}
 		
@@ -480,6 +486,16 @@ mod tests {
 		let red_roll = calculate_final_reduction(0.9, 2, 0.4);
 		assert_eq!(format!("{:.5}", score), format!("{:.5}", (0.9 + 0.6 + 0.3) * red_roll));
 
+		// same row
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 2, 0), LayoutPosition::new(0, 2, 1), LayoutPosition::new(0, 2, 2)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		let red_roll = calculate_final_reduction(0.9 * 0.9, 2, 0.4);
+		assert_eq!(format!("{:.5}", score), format!("{:.5}", (0.9 + 1.0 + 1.1) * red_roll));
+
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 2, 0), LayoutPosition::new(0, 2, 1), LayoutPosition::new(0, 2, 2), LayoutPosition::new(0, 2, 3)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		let red_roll = calculate_final_reduction(0.9 * 0.9, 2, 0.4);
+		assert_eq!(format!("{:.5}", score), format!("{:.5}", (0.9 + 1.0 + 1.1 + 1.2) * red_roll));
 	}
 
 
