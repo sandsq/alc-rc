@@ -282,7 +282,7 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 	}
 }
 
-pub fn calculate_final_reduction(initial_reduction: f64, n: usize, weight: f64) -> f64 {
+pub fn calculate_final_reduction(initial_reduction: f64, _n: usize, weight: f64) -> f64 {
 	// // eg if initial reduction is 0.9 and the streak is 2, the total reduction is 0.81x. That corresponds to a 0.19x loss. If the weight is 0.4, then 0.19 * 0.4 = 0.076x loss, or (1 - 0.076) = 0.924x reduction
 	// 1.0 - (1.0 - (initial_reduction).powf(n as f64)) * weight
 	1.0 - (1.0 - initial_reduction) * weight

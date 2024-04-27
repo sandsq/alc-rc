@@ -1,7 +1,7 @@
 
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
-use alc::{objective::scoring::{AdvancedScoreFunction, SimpleScoreFunction}, optimizer::LayoutOptimizer};
+use alc::{objective::scoring::AdvancedScoreFunction, optimizer::LayoutOptimizer};
 
 
 

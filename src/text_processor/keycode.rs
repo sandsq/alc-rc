@@ -160,6 +160,7 @@ impl Keycode {
 			keycodes.push(_SFT);
 		}
 		let c_to_test = c.to_lowercase().next().unwrap();
+
 		match Keycode::try_from(format!("_{}", c_to_test.to_uppercase()).as_str()) {
 			Ok(k) => keycodes.push(k),
 			Err(_e) => match c_to_test {
@@ -327,7 +328,18 @@ impl Keycode {
 				}, 
 				'[' => keycodes.push(_LBRC),
 				']' => keycodes.push(_RBRC),
-				_ => panic!("keycode for {} doesn't exist. This will not be an error in the future and just use some placeholder code.", c),
+				'…' => {
+					keycodes.push(_DOT);
+					keycodes.push(_DOT);
+					keycodes.push(_DOT);
+				},
+				_ => {
+					if !c_to_test.is_ascii() {
+						println!("non-ascii character {} found", c_to_test);
+					} else {
+						panic!("keycode for {} doesn't exist. This will not be an error in the future and just use some placeholder code.", c);
+					}
+				},
 			}
 		}
 		keycodes

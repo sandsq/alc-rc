@@ -61,7 +61,7 @@ impl Default for LayoutOptimizerConfig {
 			dataset_paths: vec![String::from("./data/rust_book_test/")],
 			keycode_options: keycode_options.clone(),
 			valid_keycodes: valid_keycodes,
-			max_ngram_size: 5,
+			max_ngram_size: 4,
 			top_n_ngrams_to_take: 50,
 			hand_alternation_weight: 3.0,
 			hand_alternation_reduction_factor: 0.9,
@@ -292,10 +292,10 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		self.activate();
 		println!("base layout\n{}", self.base_layout);
 		for dataset in datasets {
-			let onegram = dataset.get(&3).unwrap().clone();
+			let onegram = dataset.get(&4).unwrap().clone();
 			let mut onegram_sorted = onegram.iter().collect::<Vec<(&Ngram, &u32)>>();
 			onegram_sorted.sort_by(|a, b| b.1.cmp(a.1));
-			println!("threegrams");
+			println!("fourgrams");
 			for (gram, count) in onegram_sorted {
 				println!("{}: {}", gram, count);
 			}
@@ -308,7 +308,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let mut now = SystemTime::now();
 		let mut layouts_and_scores = self.generate_and_score_initial_population(rng, datasets);
 		let (mut best_layouts, mut best_scores) = self.take_best_layouts(layouts_and_scores);
-		println!("initial best layout {}", best_layouts[0]);
+		println!("initial best layout\n{}", best_layouts[0]);
 		println!("initial, best score: {}, worst score {}", best_scores[0], best_scores[best_scores.len()-1]);
 		let mut layouts = self.generate_new_layouts(rng, best_layouts);
 		let initial_time = now.elapsed().unwrap().as_secs_f64();
@@ -527,10 +527,16 @@ mod tests {
 		let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::choc_ferris_sweep();
 		lo.config.generation_count = 100;
 		lo.config.population_size = 200;
-		lo.config.hand_alternation_weight = 1.0;
+		lo.config.hand_alternation_weight = 4.0;
+		lo.config.hand_alternation_reduction_factor = 0.8;
 		lo.config.finger_roll_weight = 1.0;
+		lo.config.finger_roll_reduction_factor = 0.8;
+		lo.config.same_finger_penalty_factor = 5.0;
 		lo.config.swap_weight = 1.0;
 		lo.config.replace_weight = 1.0;
+		lo.config.dataset_paths = vec![String::from("./data/rust_book/"), String::from("./data/rust_book_test/")];
+		lo.config.dataset_weight = vec![1.0, 0.1];
+		lo.config.keycode_options.include_number_symbols = true;
 		
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
