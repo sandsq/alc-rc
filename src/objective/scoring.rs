@@ -76,16 +76,16 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 	}
 
 	fn score_small(&self, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> Option<f64> {
-		let alt_raw_weight = config.hand_alternation_weight;
-		let roll_raw_weight = config.finger_roll_weight;
+		let alt_raw_weight = config.score_options.hand_alternation_weight;
+		let roll_raw_weight = config.score_options.finger_roll_weight;
 		let (alt_weight, roll_weight) = if alt_raw_weight == 0.0 && roll_raw_weight == 0.0 {
 			(0.0, 0.0)
 		} else {
 			(alt_raw_weight / (alt_raw_weight + roll_raw_weight), roll_raw_weight / (alt_raw_weight + roll_raw_weight))
 		};
-		let alt_reduction = config.hand_alternation_reduction_factor;
-		let roll_reduction = config.finger_roll_reduction_factor;
-		let roll_same_row_reduction_factor = config.finger_roll_same_row_reduction_factor;
+		let alt_reduction = config.score_options.hand_alternation_reduction_factor;
+		let roll_reduction = config.score_options.finger_roll_reduction_factor;
+		let roll_same_row_reduction_factor = config.score_options.finger_roll_same_row_reduction_factor;
 
 		if layout_position_sequence.len() == 1 {
 			let lp = layout_position_sequence[0];
@@ -96,7 +96,7 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 			let (hand1, finger1) = phalanx_layer[lp1].value();
 			let (hand2, finger2) = phalanx_layer[lp2].value();
 			if hand1 == hand2 && finger1 == finger2 {
-				return Some(effort_layer[lp1] + effort_layer[lp2] * config.same_finger_penalty_factor);
+				return Some(effort_layer[lp1] + effort_layer[lp2] * config.score_options.same_finger_penalty_factor);
 			}
 		} else if layout_position_sequence.len() == 3 {
 			let lp1 = layout_position_sequence[0];
@@ -106,10 +106,10 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 			let (hand2, finger2) = phalanx_layer[lp2].value();
 			let (hand3, finger3) = phalanx_layer[lp3].value();
 			if hand1 == hand2 && finger1 == finger2 {
-				return Some(effort_layer[lp1] + effort_layer[lp2] * config.same_finger_penalty_factor + effort_layer[lp3]);
+				return Some(effort_layer[lp1] + effort_layer[lp2] * config.score_options.same_finger_penalty_factor + effort_layer[lp3]);
 			}
 			if hand2 == hand3 && finger2 == finger3 {
-				return Some(effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3] * config.same_finger_penalty_factor);
+				return Some(effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3] * config.score_options.same_finger_penalty_factor);
 			}
 			if hand1 != hand2 && hand2 != hand3 {
 				let red = calculate_final_reduction(alt_reduction, 2, alt_weight);
@@ -152,15 +152,15 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		// during debug, check that the position preceeding a higher layer position is a layer switch
 		// we can use the fact that layer switches always should occur before a higher layer position to eliminate the need to actually check the layout for layer switches, and simplify checking when layer switches can be canceled
 		let debug_clone = layout_position_sequence.clone();
-		let alt_raw_weight = config.hand_alternation_weight;
-		let roll_raw_weight = config.finger_roll_weight;
+		let alt_raw_weight = config.score_options.hand_alternation_weight;
+		let roll_raw_weight = config.score_options.finger_roll_weight;
 		let (alt_weight, roll_weight) = if alt_raw_weight == 0.0 && roll_raw_weight == 0.0 {
 			(0.0, 0.0)
 		} else {
 			(alt_raw_weight / (alt_raw_weight + roll_raw_weight), roll_raw_weight / (alt_raw_weight + roll_raw_weight))
 		};
-		let alt_reduction = config.hand_alternation_reduction_factor;
-		let roll_reduction = config.finger_roll_reduction_factor;
+		let alt_reduction = config.score_options.hand_alternation_reduction_factor;
+		let roll_reduction = config.score_options.finger_roll_reduction_factor;
 
 		match self.score_small(effort_layer, phalanx_layer, layout_position_sequence.clone(), config) {
 			Some(v) => return v,
@@ -246,8 +246,8 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 
 			// penalize same finger
 			if same_hand_and_finger(current_hand, previous_hand, current_finger, previous_finger) {
-				score += (config.same_finger_penalty_factor - 1.0) * effort_value;
-				// effort_value *= config.same_finger_penalty_factor;
+				score += (config.score_options.same_finger_penalty_factor - 1.0) * effort_value;
+				// effort_value *= config.score_options.same_finger_penalty_factor;
 			}
 
 			// prepare next iteration
@@ -302,7 +302,7 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 				};
 				let streak_score: f64 = efforts[roll_start..roll_end].iter().sum();
 				let total_reduction = if rows.iter().min() == rows.iter().max() {
-					calculate_final_reduction(config.finger_roll_same_row_reduction_factor * roll_reduction, roll_end - roll_start - 1, roll_weight)
+					calculate_final_reduction(config.score_options.finger_roll_same_row_reduction_factor * roll_reduction, roll_end - roll_start - 1, roll_weight)
 				} else {
 					calculate_final_reduction(roll_reduction, roll_end - roll_start - 1, roll_weight)
 				};
@@ -380,10 +380,10 @@ mod tests {
 		// long alternating sequence
 		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 2), LayoutPosition::new(0, 0, 1), LayoutPosition::new(0, 0, 3)]);
 		let mut config = LayoutOptimizerConfig::default();
-		config.hand_alternation_reduction_factor = 0.9;
-		config.hand_alternation_weight = 3.0;
-		config.finger_roll_weight = 2.0;
-		config.same_finger_penalty_factor = 3.0;
+		config.score_options.hand_alternation_reduction_factor = 0.9;
+		config.score_options.hand_alternation_weight = 3.0;
+		config.score_options.finger_roll_weight = 2.0;
+		config.score_options.same_finger_penalty_factor = 3.0;
 		let red = calculate_final_reduction(0.9, 3, 0.6);
 		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
 		assert_eq!(score, (0.1 + 0.3 + 0.2 + 0.4) * red);
@@ -455,11 +455,11 @@ mod tests {
 
 		let sf = AdvancedScoreFunction{};
 		let mut config = LayoutOptimizerConfig::default();
-		config.hand_alternation_reduction_factor = 0.9;
-		config.finger_roll_reduction_factor = 0.9;
-		config.hand_alternation_weight = 3.0;
-		config.finger_roll_weight = 2.0;
-		config.same_finger_penalty_factor = 3.0;
+		config.score_options.hand_alternation_reduction_factor = 0.9;
+		config.score_options.finger_roll_reduction_factor = 0.9;
+		config.score_options.hand_alternation_weight = 3.0;
+		config.score_options.finger_roll_weight = 2.0;
+		config.score_options.same_finger_penalty_factor = 3.0;
 
 		// crossing two columns
 		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 2, 0), LayoutPosition::new(0, 0, 1), LayoutPosition::new(0, 0, 2)]);

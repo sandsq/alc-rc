@@ -23,7 +23,6 @@ use crate::objective::scoring::*;
 use self::config::LayoutOptimizerConfig;
 use self::dataset::FrequencyDataset;
 use self::frequency_holder::{SingleGramFrequencies, TopFrequenciesToTake::*};
-use self::keycode::KeycodeOptions;
 use self::keycode::{Keycode, generate_default_keycode_set};
 
 
@@ -41,13 +40,14 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 
 	pub fn compute_datasets(&self) -> Vec<FrequencyDataset<u32>> {
-		self.config.dataset_paths.iter()
-			.map(|x| FrequencyDataset::<u32>::try_from_dir(PathBuf::from(x), self.config.max_ngram_size, Num(self.config.top_n_ngrams_to_take), &self.config.keycode_options).unwrap()).collect::<Vec<FrequencyDataset<u32>>>()
+		self.config.dataset_options.dataset_paths.iter()
+			.map(|x| FrequencyDataset::<u32>::try_from_dir(PathBuf::from(x), self.config.dataset_options.max_ngram_size, Num(self.config.dataset_options.top_n_ngrams_to_take), &self.config.keycode_options).unwrap()).collect::<Vec<FrequencyDataset<u32>>>()
 	}
 
 	pub fn activate(&mut self) -> () {
 		self.config.valid_keycodes = generate_default_keycode_set(&self.config.keycode_options).into_iter().collect();
 		self.config.valid_keycodes.sort_unstable();
+		println!("initial valid keycodes {:?}", self.config.valid_keycodes);
 	}
 
 	fn score_single_grams(&self, layout: &Layout<R, C>, frequencies: SingleGramFrequencies<u32>, save_positions: bool) -> (f64, HashSet<LayoutPosition>) {
@@ -70,7 +70,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				if save_positions {
 					possible_sequences.push(sequence.clone());
 				}
-				let sequence_score = self.score_function.score_layout_position_sequence(layout, effort_layer, phalanx_layer, sequence, &self.config) * &self.config.extra_length_penalty.powf((sequence_len - ngram_len) as f64);
+				let sequence_score = self.score_function.score_layout_position_sequence(layout, effort_layer, phalanx_layer, sequence, &self.config) * &self.config.score_options.extra_length_penalty.powf((sequence_len - ngram_len) as f64);
 				possible_scores.push(sequence_score);
 			}
 			
@@ -114,7 +114,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 					visited_positions.extend(calculated_positions);
 				}
 			}
-			dataset_score *= self.config.dataset_weight[d_ind];
+			dataset_score *= self.config.dataset_options.dataset_weights[d_ind];
 			d_ind += 1;
 			score += dataset_score;
 		}
@@ -135,7 +135,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	fn generate_and_score_initial_population(&self, rng: &mut impl Rng, datasets: &Vec<FrequencyDataset<u32>>) -> Vec<(Layout<R, C>, f64)> {
 		let valid_keycodes = &self.config.valid_keycodes;
 		let mut initial_population: Vec<(Layout<R, C>, f64)> = Default::default();
-		for _i in 0..self.config.population_size {
+		for _i in 0..self.config.genetic_options.population_size {
 			let mut initial_layout = self.base_layout.clone();
 			initial_layout.randomize(rng, valid_keycodes).unwrap();
 			let (initial_score, _) = self.score_datasets(&initial_layout, datasets, false);
@@ -146,7 +146,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 
 	fn take_best_layouts(&self, mut population: Vec<(Layout<R, C>, f64)>) -> (Vec<Layout<R, C>>, Vec<f64>) {
     	population.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-		let num_to_take = (self.config.fitness_cutoff * (self.config.population_size as f64)).ceil() as usize;
+		let num_to_take = (self.config.genetic_options.fitness_cutoff * (self.config.genetic_options.population_size as f64)).ceil() as usize;
 		let _ = population.split_off(num_to_take); // the returned value is the low score ones
 		let (left, right): (Vec<Layout<R, C>>, Vec<f64>) =  population.into_iter().unzip();
 		// println!("top scores of each generation {:?}", right);
@@ -154,8 +154,8 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 
 	fn generate_new_layouts(&self, rng: &mut impl Rng, mut layouts: Vec<Layout<R, C>>) -> Vec<Layout<R, C>> {
-		let population_size = self.config.population_size;
-		let swap_threshold = self.config.swap_weight / (self.config.swap_weight + self.config.replace_weight);
+		let population_size = self.config.genetic_options.population_size;
+		let swap_threshold = self.config.genetic_options.swap_weight / (self.config.genetic_options.swap_weight + self.config.genetic_options.replace_weight);
 		let valid_keycodes = &self.config.valid_keycodes;
 		// modify surviving layouts
 		for layout in &mut layouts {
@@ -239,8 +239,8 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 
 	pub fn optimize(&mut self, rng: &mut impl Rng) -> Result<Layout<R, C>, AlcError> {
 		let datasets = &self.compute_datasets();
-		if datasets.len() != self.config.dataset_weight.len() {
-			return Err(AlcError::DatasetWeightsMismatchError(datasets.len(), self.config.dataset_weight.len()));
+		if datasets.len() != self.config.dataset_options.dataset_weights.len() {
+			return Err(AlcError::DatasetWeightsMismatchError(datasets.len(), self.config.dataset_options.dataset_weights.len()));
 		}
 
 		self.activate();
@@ -267,7 +267,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let mut layouts = self.generate_new_layouts(rng, best_layouts);
 		let initial_time = now.elapsed().unwrap().as_secs_f64();
 	
-		for i in tqdm(0..self.config.generation_count) {
+		for i in tqdm(0..self.config.genetic_options.generation_count) {
 			now = SystemTime::now();
 			layouts_and_scores = self.score_population(&layouts, datasets);
 			avg_score_time += now.elapsed().unwrap().as_secs_f64();
@@ -328,9 +328,9 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		}
 		println!("operations: {:?}", self.operation_counter);
 		println!("initial time: {}", initial_time);
-		println!("avg score time: {}", avg_score_time / self.config.generation_count as f64);
-		println!("avg take top time: {}", avg_take_time / self.config.generation_count as f64);
-		println!("avg gen time: {}", avg_gen_time / self.config.generation_count as f64);
+		println!("avg score time: {}", avg_score_time / self.config.genetic_options.generation_count as f64);
+		println!("avg take top time: {}", avg_take_time / self.config.genetic_options.generation_count as f64);
+		println!("avg gen time: {}", avg_gen_time / self.config.genetic_options.generation_count as f64);
 		Ok(final_layout)
 		// symmetry check
 		// layer reachability check
@@ -417,8 +417,8 @@ mod tests {
 		").unwrap();
 		let score_function = SimpleScoreFunction{};
 		let mut config = LayoutOptimizerConfig::default();
-		config.max_ngram_size = 2;
-		config.dataset_paths = vec![String::from("./data/small_test/")];
+		config.dataset_options.max_ngram_size = 2;
+		config.dataset_options.dataset_paths = vec![String::from("./data/small_test/")];
 		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0, 0)));
 		let datasets = layout_optimizer.compute_datasets();
 		let twogram_frequency = datasets[0].ngram_frequencies.get(&(2 as usize)).unwrap();
@@ -449,8 +449,8 @@ mod tests {
 		// lo.config.keycode_options.include_number_symbols = true;
 		// lo.datasets = vec![FrequencyDataset::<u32>::try_from_dir(PathBuf::from("./data/rust_book_test/"), 4, Num(lo.config.top_n_ngrams_to_take), &lo.config.keycode_options).unwrap()];
 		// lo.config.valid_keycodes = generate_default_keycode_set(&lo.config.keycode_options).into_iter().collect();
-		lo.config.generation_count = 100;
-		lo.config.population_size = 100;
+		lo.config.genetic_options.generation_count = 100;
+		lo.config.genetic_options.population_size = 100;
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
 		// let test_layout = lo.base_layout.clone();
@@ -466,9 +466,9 @@ mod tests {
 	#[ignore = "expensive"] // cargo test -- --ignored to run ignored, cargo test -- --include-ignored to run all
 	fn test_optimize_advanced() {
 		let mut lo = LayoutOptimizer::<4, 12, AdvancedScoreFunction>::default();
-		lo.config.generation_count = 100;
-		lo.config.population_size = 200;
-		lo.config.hand_alternation_reduction_factor = 0.5;
+		lo.config.genetic_options.generation_count = 100;
+		lo.config.genetic_options.population_size = 200;
+		lo.config.score_options.hand_alternation_reduction_factor = 0.5;
 		
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
@@ -480,21 +480,21 @@ mod tests {
 	#[ignore = "expensive"] // cargo test -- --ignored to run ignored, cargo test -- --include-ignored to run all
 	fn test_choc_ferris_sweep() {
 		let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::choc_ferris_sweep();
-		lo.config.generation_count = 100;
-		lo.config.population_size = 200;
-		lo.config.hand_alternation_weight = 1.0;
-		lo.config.hand_alternation_reduction_factor = 0.8;
-		lo.config.finger_roll_weight = 4.0;
-		lo.config.finger_roll_reduction_factor = 0.8;
-		lo.config.finger_roll_same_row_reduction_factor = 0.8;
-		lo.config.same_finger_penalty_factor = 5.0;
-		lo.config.swap_weight = 1.0;
-		lo.config.replace_weight = 1.0;
-		lo.config.dataset_paths = vec![String::from("./data/rust_book/"), String::from("./data/rust_book_test/")];
-		lo.config.dataset_weight = vec![1.0, 0.1];
+		lo.config.genetic_options.generation_count = 100;
+		lo.config.genetic_options.population_size = 200;
+		lo.config.score_options.hand_alternation_weight = 1.0;
+		lo.config.score_options.hand_alternation_reduction_factor = 0.8;
+		lo.config.score_options.finger_roll_weight = 4.0;
+		lo.config.score_options.finger_roll_reduction_factor = 0.8;
+		lo.config.score_options.finger_roll_same_row_reduction_factor = 0.8;
+		lo.config.score_options.same_finger_penalty_factor = 5.0;
+		lo.config.genetic_options.swap_weight = 1.0;
+		lo.config.genetic_options.replace_weight = 1.0;
+		lo.config.dataset_options.dataset_paths = vec![String::from("./data/rust_book/"), String::from("./data/rust_book_test/")];
+		lo.config.dataset_options.dataset_weights = vec![1.0, 0.1];
 		lo.config.keycode_options.include_number_symbols = true;
 		
-		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
+		
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
 		println!("effort layer\n{}", lo.effort_layer);
 		let _final_layout = lo.optimize(&mut rng).unwrap();

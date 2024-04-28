@@ -18,6 +18,8 @@ pub enum AlcError {
 	Array2DError(#[from] array2d::Error),
 	#[error(transparent)]
 	RegexError(#[from] regex::Error),
+	#[error(transparent)]
+	TomlError(#[from] toml::de::Error),
 
 	#[error("{0} cannot be parsed into a KeycodeKey, {1}")]
 	InvalidKeycodeKeyFromString(String, String), // second param tries to describe what is invalid
