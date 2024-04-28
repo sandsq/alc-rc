@@ -1,0 +1,47 @@
+[layout_info]
+num_rows = 4
+num_cols = 10
+layout = """
+___Layer 0___
+__10 __10 __10 __10   __10   __10    __10   __10 __10 __10 
+__10 __10 LS3_10 __10 __10   __10    __10 __10 __10 __10 
+SFT_11 __10 __10 __10   __10   __10    __10   __10 __10 SFT_11
+__00 __00 __00 LS1_00 SPC_00 BSPC_00 LS2_00 __00 __00 __00 
+___Layer 1___
+__10 __10 __10 __10 __10 __10 __10 __10 __10 __10 
+__10 LCBR_00 LBRC_00 LPRN_00 __10 __10 RPRN_00 RBRC_00 RCBR_00 __10 
+__10 __10 __10 __10 __10 __10 __10 __10 __10 __10 
+__00 __00 __00 __10 __10 __10 __10 __00 __00 __00 
+___Layer 2___
+1_00 2_00 3_00 4_00 5_00 __10 __10 __10 __10 __10 
+6_00 7_00 8_00 9_00 ZERO_00 __10 LEFT_00 DOWN_00 UP_00 RGHT_00 
+__10 __10 __10 __10 __10 __10 HOME_00 PGDN_00 PGUP_00 END_00 
+__00 __00 __00 __10 __10 __10 __10 __00 __00 __00 
+___Layer 3___
+__10 __10 __10 __10 __10 __10 __10 __10 __10 __10 
+__10 __10 __10 __10 __10 __10 __10 __10 __10 __10 
+__10 __10 __10 __10 __10 __10 __10 __10 __10 __10 
+__00 __00 __00 __10 __10 __10 __10 __00 __00 __00 
+"""
+effort_layer = """
+7  2  2  2  7  7  2  2  2  7
+3  1  1  1  3  3  1  1  1  3
+5  3  3  3  8  8  3  3  3  5
+10 7  4  2  1  1  2  4  7  10
+"""
+phalanx_layer = """
+L:P L:R L:M L:I L:I R:I R:I R:M R:R R:P
+L:P L:R L:M L:I L:I R:I R:I R:M R:R R:P
+L:P L:R L:M L:I L:I R:I R:I R:M R:R R:P
+L:P L:R L:T L:T L:T R:T R:T R:T R:R R:P
+"""
+
+[layout_optimizer_config]
+[keycode_options]
+include_alphas = true
+include_numbers = false
+include_number_symbols = false
+include_brackets = false
+include_misc_symbols = true
+include_misc_symbols_shifted = true
+explicit_inclusions = ["_SPC", "_SFT", "_ENT", "_AMPR"]

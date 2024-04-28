@@ -40,35 +40,35 @@ L:P L:R L:T L:T L:T R:T R:T R:T R:R R:P
 valid_keycodes = []
 
 [genetic_options]
-population_size = 200
-generation_count = 100
+population_size = 5
+generation_count = 1
 fitness_cutoff = 0.1
-swap_weight = 2.0
+swap_weight = 4.0
 replace_weight = 1.0
 
 [keycode_options]
 include_alphas = true
 include_numbers = false
-include_number_symbols = true
+include_number_symbols = false
 include_brackets = false
 include_misc_symbols = true
 include_misc_symbols_shifted = false
 explicit_inclusions = ["_SPC", "_SFT", "_ENT"]
 
 [dataset_options]
-dataset_paths = ["./data/rust_book_test/", "./data/rust_book/"]
-dataset_weights = [0.1, 1.0]
+dataset_paths = ["./data/rust_book_test/"]
+dataset_weights = [1.0]
 max_ngram_size = 4
 top_n_ngrams_to_take = 100
 
 [score_options]
-hand_alternation_weight = 1.0
-hand_alternation_reduction_factor = 0.8
-finger_roll_weight = 1.0
-finger_roll_reduction_factor = 0.8
+hand_alternation_weight = 3.0
+hand_alternation_reduction_factor = 0.9
+finger_roll_weight = 2.0
+finger_roll_reduction_factor = 0.9
 finger_roll_same_row_reduction_factor = 0.9
 same_finger_penalty_factor = 5.0
-extra_length_penalty = 1.2
+extra_length_penalty = 1.1
 
 # Option info (note: some descriptions may not be totally accurate due to complexity, but the general idea should be there.)
 # [layout_info]

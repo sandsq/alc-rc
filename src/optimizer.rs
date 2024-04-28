@@ -32,7 +32,7 @@ pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, 
 	pub phalanx_layer: Layer<R, C, PhalanxKey>,
 	score_function: S,
 	pub config: LayoutOptimizerConfig,
-	operation_counter: Cell<(u32, u32, u32, u32)>, // swaps, replacements, nothings
+	operation_counter: Cell<(u32, u32, u32, u32)>, // swaps, replacements, nothings, total
 }
 impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> {
 	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f64>, phalanx_layer: Layer<R, C, PhalanxKey>, score_function: S, config: LayoutOptimizerConfig, operation_counter: Cell<(u32, u32, u32, u32)>) -> Self {
@@ -344,9 +344,9 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 }
 impl<T> LayoutOptimizer<4, 10, T> where T: Score<4, 10> {
 	fn choc_ferris_sweep() -> Self {
-		let base_layout = Layout::<4, 10>::choc_ferris_sweep();
-		let effort_layer = Layer::<4, 10, f64>::choc_ferris_sweep();
-		let phalanx_layer = Layer::<4, 10, PhalanxKey>::choc_ferris_sweep();
+		let base_layout = Layout::<4, 10>::ferris_sweep();
+		let effort_layer = Layer::<4, 10, f64>::ferris_sweep();
+		let phalanx_layer = Layer::<4, 10, PhalanxKey>::ferris_sweep();
 		let score_function = T::new();
 		let config = LayoutOptimizerConfig::default();	
 		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0, 0)))

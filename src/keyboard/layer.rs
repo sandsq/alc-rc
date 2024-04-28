@@ -52,7 +52,8 @@ impl<const R: usize, const C: usize, K: KeyValue + std::clone::Clone> Layer<R, C
 		let orig_col = l.col_index;
 		let symm_col = (num_cols - 1) - orig_col;
 		LayoutPosition { layer_index: l.layer_index, row_index: orig_row, col_index: symm_col }
-	}	
+	}
+
 }
 
 impl<const R: usize, const C: usize, T> Index<(usize, usize)> for Layer<R, C, T> where T: KeyValue{
