@@ -343,7 +343,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 }
 impl<T> LayoutOptimizer<4, 10, T> where T: Score<4, 10> {
-	fn choc_ferris_sweep() -> Self {
+	fn ferris_sweep() -> Self {
 		let base_layout = Layout::<4, 10>::ferris_sweep();
 		let effort_layer = Layer::<4, 10, f64>::ferris_sweep();
 		let phalanx_layer = Layer::<4, 10, PhalanxKey>::ferris_sweep();
@@ -483,7 +483,7 @@ mod tests {
 	#[test]
 	#[ignore = "expensive"] // cargo test -- --ignored to run ignored, cargo test -- --include-ignored to run all
 	fn test_choc_ferris_sweep() {
-		let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::choc_ferris_sweep();
+		let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::ferris_sweep();
 		lo.config.genetic_options.generation_count = 100;
 		lo.config.genetic_options.population_size = 200;
 		lo.config.score_options.hand_alternation_weight = 1.0;

@@ -5,7 +5,7 @@ use toml;
 use strum::IntoEnumIterator;
 
 use crate::{alc_error::AlcError, keyboard::{default_layouts::LayoutPreset, key::PhalanxKey, layout}};
-use super::{keycode::{generate_default_keycode_set, Keycode, KeycodeOptions}, Layer, Layout, Score};
+use super::{keycode::{generate_default_keycode_set, Keycode, KeycodeOptions}, Layer, Layout, LayoutOptimizer, Score};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Copy, Clone)]
 pub struct GeneticOptions {
@@ -100,19 +100,19 @@ impl LayoutOptimizerConfig {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct LayoutInfoToml {
-	num_rows: Option<usize>,
-	num_cols: Option<usize>,
+pub struct LayoutInfoTomlObject {
+	num_rows: usize,
+	num_cols: usize,
 	name: Option<LayoutPreset>,
 	layout: String,
 	effort_layer: String,
 	phalanx_layer: String,
 }
-impl Default for LayoutInfoToml {
+impl Default for LayoutInfoTomlObject {
 	fn default() -> Self {
-		LayoutInfoToml {
-			num_rows: None,
-			num_cols: None,
+		LayoutInfoTomlObject {
+			num_rows: 4,
+			num_cols: 10,
 			name: Some(LayoutPreset::FerrisSweep),
 			layout: prettify_layer_string(Layout::<4, 10>::ferris_sweep_string()),
 			effort_layer: prettify_layer_string(Layer::<4, 10, f64>::ferris_sweep_string()),
@@ -122,19 +122,19 @@ impl Default for LayoutInfoToml {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct OptimizerToml {
+pub struct OptimizerTomlObject {
 	layout_optimizer_config: LayoutOptimizerConfig,
-	layout_info: LayoutInfoToml,
+	layout_info: LayoutInfoTomlObject,
 }
-impl Default for OptimizerToml {
+impl Default for OptimizerTomlObject {
 	fn default() -> Self {
-		OptimizerToml {
+		OptimizerTomlObject {
 			layout_optimizer_config: LayoutOptimizerConfig::default(),
-			layout_info: LayoutInfoToml::default(),
+			layout_info: LayoutInfoTomlObject::default(),
 		}
 	}
 }
-impl OptimizerToml {
+impl OptimizerTomlObject {
 	pub fn try_from_toml(filename: &str) -> Result<Self, AlcError> {
 		let contents = match fs::read_to_string(filename) {
 			Ok(c) => c,
@@ -142,14 +142,14 @@ impl OptimizerToml {
 				panic!("could not read file {}", filename)
 			}
 		};
-		let optimizer_object: OptimizerToml = toml::from_str(&contents)?;
+		let optimizer_object: OptimizerTomlObject = toml::from_str(&contents)?;
 		Ok(optimizer_object)
 	}
 
 	pub fn try_to_toml(&self) -> Result<String, AlcError> {
 		let option_to_description = option_descriptions();
 		let layout_info_string = toml::to_string(&self.layout_info).unwrap();
-		let mut layout_info_string_formatted = String::from("# See ending comments for option information.\n");
+		let mut layout_info_string_formatted = String::from("");
 		// layout_info_string_formatted.push_str(&layout_info_string);
 		layout_info_string_formatted.push_str(&prettify_layer_string(layout_info_string));
 		
@@ -204,7 +204,7 @@ impl OptimizerToml {
 				Err(e) => panic!("{}", e),
 			}
 		}
-		let output_string = format!("[layout_info]\n{}\n[layout_optimizer_config]\n{}\n# Option info (note: some descriptions may not be totally accurate due to complexity, but the general idea should be there.)\n{}", layout_info_string_formatted, layout_optimizer_config_string, comments_string);
+		let output_string = format!("# See ending comments for field information.\n[layout_info]\n{}\n[layout_optimizer_config]\n{}\n# Option info (note: some descriptions may not be totally accurate due to complexity, but the general idea should be there.)\n{}", layout_info_string_formatted, layout_optimizer_config_string, comments_string);
 		Ok(output_string)
 	}
 
@@ -213,7 +213,28 @@ impl OptimizerToml {
 		Ok(())
 	}
 
+	pub fn try_from_layout_optimizer<const R: usize, const C: usize, S>(lo: LayoutOptimizer<R, C, S>) -> Self where S: Score<R, C> {
+		let base_layout_string = format!("{:b}", lo.base_layout);
+		let effort_layer_string = format!("{}", lo.effort_layer);
+		let phalanx_layer_string = format!("{}", lo.phalanx_layer);
+
+		let layout_info = LayoutInfoTomlObject {
+			num_rows: R,
+			num_cols: C,
+			name: None,
+			layout: base_layout_string,
+			effort_layer: effort_layer_string,
+			phalanx_layer: phalanx_layer_string,
+		};
+
+		OptimizerTomlObject {
+			layout_optimizer_config: lo.config,
+			layout_info: layout_info,
+		}
+	}
+
 }
+
 
 
 pub fn prettify_layer_string(s: String) -> String {
@@ -263,23 +284,31 @@ pub fn option_descriptions() -> HashMap<String, String> {
 #[cfg(test)]
 pub mod tests {
 	
-	use super::*;
+	use crate::optimizer::AdvancedScoreFunction;
+
+use super::*;
 
 	#[test]
 	fn test_read_write() {
-		let optimizer_toml = OptimizerToml::default();
-		let optimizer_string = optimizer_toml.try_to_toml().unwrap();
-		println!("{}", optimizer_string);
-		optimizer_toml.write_to_file("./templates/test.toml").unwrap();
+		let optimizer_toml_object = OptimizerTomlObject::default();
+		let optimizer_toml_string = optimizer_toml_object.try_to_toml().unwrap();
+		println!("{}", optimizer_toml_string);
+		optimizer_toml_object.write_to_file("./templates/test.toml").unwrap();
 
-		let optimizer_toml_from_file = OptimizerToml::try_from_toml("./templates/test.toml").unwrap();
-		assert_eq!(optimizer_toml, optimizer_toml_from_file);
+		let optimizer_toml_object_from_file = OptimizerTomlObject::try_from_toml("./templates/test.toml").unwrap();
+		assert_eq!(optimizer_toml_object, optimizer_toml_object_from_file);
 
 
-		println!("{:?}", optimizer_toml_from_file);
-		let effort_layer = Layer::<4, 10, f64>::try_from(&optimizer_toml_from_file.layout_info.effort_layer[..]).unwrap();
+		println!("{:?}", optimizer_toml_object_from_file);
+		let effort_layer = Layer::<4, 10, f64>::try_from(&optimizer_toml_object_from_file.layout_info.effort_layer[..]).unwrap();
 		println!("{}", effort_layer);
 	}
 
+	#[test]
+	fn test_from_lo() {
+		let layout_optimizer = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::ferris_sweep();
+		let optimizer_toml_object = OptimizerTomlObject::try_from_layout_optimizer(layout_optimizer);
+		optimizer_toml_object.write_to_file("./templates/from_lo.toml").unwrap();
+	}
 	
 }
