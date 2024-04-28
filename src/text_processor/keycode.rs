@@ -10,7 +10,7 @@ pub struct KeycodeOptions {
 	pub include_brackets: bool, // ()[]{}
 	pub include_misc_symbols: bool, // -/ etc.
 	pub include_misc_symbols_shifted: bool, // _? etc.
-	pub explicit_inclusion: Vec<Keycode>,
+	pub explicit_inclusions: Vec<Keycode>,
 }
 impl Default for KeycodeOptions {
 	fn default() -> Self {
@@ -21,7 +21,7 @@ impl Default for KeycodeOptions {
 			include_brackets: false,
 			include_misc_symbols: true,
 			include_misc_symbols_shifted: false,
-			explicit_inclusion: vec![_SPC, _SFT, _ENT],
+			explicit_inclusions: vec![_SPC, _SFT, _ENT],
 		}
 	}
 }
@@ -120,8 +120,8 @@ pub fn generate_default_keycode_set(options: &KeycodeOptions) -> HashSet<Keycode
 			_UNDS, _PLUS, _PIPE, _COLN, _DQUO, _TILD, _QUES, _LCBR, _RCBR,
 		]));
 	}
-	if options.explicit_inclusion.len() > 0 {
-		keycodes.extend(&options.explicit_inclusion);
+	if options.explicit_inclusions.len() > 0 {
+		keycodes.extend(&options.explicit_inclusions);
 	}
 	
 	keycodes
@@ -140,7 +140,7 @@ impl Keycode {
 
 	fn from_char(c: char, options: &KeycodeOptions) -> Vec<Keycode> {
 		let mut keycodes: Vec<Keycode> = vec![];
-		for inclusion in options.explicit_inclusion.clone() {
+		for inclusion in options.explicit_inclusions.clone() {
 			if let Some(k) = inclusion.to_char() {
 				if k == c {
 					keycodes.push(inclusion);

@@ -45,8 +45,12 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 
 	pub fn activate(&mut self) -> () {
-		self.config.valid_keycodes = generate_default_keycode_set(&self.config.keycode_options).into_iter().collect();
-		self.config.valid_keycodes.sort_unstable();
+		if self.config.valid_keycodes.len() > 0 {
+			println!("valid keycodes is non-empty, so assuming you have supplied the keycodes you want rather than generating the list from keycode options")	
+		} else {
+			self.config.valid_keycodes = generate_default_keycode_set(&self.config.keycode_options).into_iter().collect();
+			self.config.valid_keycodes.sort_unstable();
+		}
 		println!("initial valid keycodes {:?}", self.config.valid_keycodes);
 	}
 

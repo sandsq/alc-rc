@@ -5,4 +5,4 @@ include_number_symbols = false
 include_brackets = false
 include_misc_symbols = true
 include_misc_symbols_shifted = true
-explicit_inclusion = ["_SPC", "_SFT", "_ENT", "_AMPR"]
+explicit_inclusions = ["_SPC", "_SFT", "_ENT", "_AMPR"]
