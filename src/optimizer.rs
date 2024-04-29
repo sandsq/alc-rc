@@ -343,7 +343,60 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		// other sanity checks
 		
 	}
+
+	pub fn try_from_optimizer_toml_object(t: LayoutOptimizerTomlAdapter) -> Result<Self, AlcError> {
+		// let num_rows = t.layout_info.num_rows;
+		// let num_cols = t.layout_info.num_cols;
+		// let panic_message = format!("{} x {} layout preset does not exist yet, choose the next largest layout and block key positions. List of available layout sizes should go here: ", R, C);
+		
+		// match (num_rows, num_cols) {
+		// 	(4, 10) => (),
+		// 	(4, 12) => (),
+		// 	_ => panic!{"{}", panic_message},
+		// };
+		let (base_layout, effort_layer, phalanx_layer) = (Layout::<R, C>::try_from(t.layout_info.layout.as_str())?, Layer::<R, C, f64>::try_from(t.layout_info.effort_layer.as_str())?, Layer::<R, C, PhalanxKey>::try_from(t.layout_info.phalanx_layer.as_str())?);
+		// let base_layout = match (num_rows, num_cols) {
+		// 	(4, 10) => Layout::<4, 10>::try_from(t.layout_info.layout.as_str())?,
+		// 	_ => panic!("{}", panic_message)
+		// };
+		// let effort_layer = match (num_rows, num_cols) {
+		// 	(4, 10) => Layer::<4, 10, f64>::try_from(t.layout_info.effort_layer.as_str())?,
+		// 	_ => panic!("{}", panic_message)
+		// };
+		// let phalanx_layer = match (num_rows, num_cols) {
+		// 	(4, 10) => Layer::<4, 10, PhalanxKey>::try_from(t.layout_info.phalanx_layer.as_str())?,
+		// 	_ => panic!("{}", panic_message),
+		// };
+		Ok(Self {
+			base_layout: base_layout,
+			effort_layer: effort_layer,
+			phalanx_layer: phalanx_layer,
+			score_function: S::new(),
+			config: t.layout_optimizer_config,
+			operation_counter: Cell::new((0, 0, 0, 0)),
+		})
+	}
+	pub fn try_from_optimizer_toml_file(f: String) -> Result<Self, AlcError> {
+		let toml = LayoutOptimizerTomlAdapter::try_from_toml_file(f.as_str())?;
+		// println!("{:?}", toml);
+		Self::try_from_optimizer_toml_object(toml)
+	}
 }
+
+pub fn optimize_from_toml(filename: String) {
+	let t = LayoutOptimizerTomlAdapter::try_from_toml_file(filename.as_str()).unwrap();
+	let num_rows = t.layout_info.num_rows;
+	let num_cols = t.layout_info.num_cols;
+	let panic_message = format!("{} x {} layout preset does not exist yet, choose the next largest layout and block key positions. List of available layout sizes should go here: ", num_rows, num_cols);
+	
+	match (num_rows, num_cols) {
+		(4, 10) => (),
+		(4, 12) => (),
+		_ => panic!{"{}", panic_message},
+	};
+}
+
+
 impl<T> LayoutOptimizer<4, 10, T> where T: Score<4, 10> {
 	fn _ferris_sweep() -> Self {
 		let base_layout = Layout::<4, 10>::ferris_sweep();
@@ -354,36 +407,7 @@ impl<T> LayoutOptimizer<4, 10, T> where T: Score<4, 10> {
 		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0, 0)))
 	}
 
-	pub fn try_from_optimizer_toml_object(t: LayoutOptimizerTomlAdapter) -> Result<Self, AlcError> {
-		let num_rows = t.layout_info.num_rows;
-		let num_cols = t.layout_info.num_cols;
-		let panic_message = format!("{} x {} layout preset does not exist yet, choose the next largest layout and block key positions. List of available layout sizes should go here: ", num_rows, num_cols);
-		let base_layout = match (num_rows, num_cols) {
-			(4, 10) => Layout::<4, 10>::try_from(t.layout_info.layout.as_str())?,
-			_ => panic!("{}", panic_message)
-		};
-		let effort_layer = match (num_rows, num_cols) {
-			(4, 10) => Layer::<4, 10, f64>::try_from(t.layout_info.effort_layer.as_str())?,
-			_ => panic!("{}", panic_message)
-		};
-		let phalanx_layer = match (num_rows, num_cols) {
-			(4, 10) => Layer::<4, 10, PhalanxKey>::try_from(t.layout_info.phalanx_layer.as_str())?,
-			_ => panic!("{}", panic_message),
-		};
-		Ok(Self {
-			base_layout: base_layout,
-			effort_layer: effort_layer,
-			phalanx_layer: phalanx_layer,
-			score_function: T::new(),
-			config: t.config,
-			operation_counter: Cell::new((0, 0, 0, 0)),
-		})
-	}
-	pub fn try_from_optimizer_toml_file(f: String) -> Result<Self, AlcError> {
-		let toml = LayoutOptimizerTomlAdapter::try_from_toml_file(f.as_str())?;
-		// println!("{:?}", toml);
-		Self::try_from_optimizer_toml_object(toml)
-	}
+	
 }
 
 impl<T> Default for LayoutOptimizer<4, 12, T> where T: Score<4, 12> {

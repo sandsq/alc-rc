@@ -1,4 +1,3 @@
-use serde_derive::{Deserialize, Serialize};
 
 use super::{key::PhalanxKey, layer::Layer, layout::Layout};
 

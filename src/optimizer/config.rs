@@ -3,8 +3,8 @@ use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use toml;
 
-use crate::{alc_error::AlcError, keyboard::key::PhalanxKey};
-use super::{keycode::{Keycode, KeycodeOptions}, Layer, Layout, LayoutOptimizer, Score};
+use crate::alc_error::AlcError;
+use super::{keycode::{Keycode, KeycodeOptions}, LayoutOptimizer, Score};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Copy, Clone)]
 pub struct GeneticOptions {
@@ -106,33 +106,14 @@ pub struct LayoutInfoTomlAdapter {
 	pub phalanx_layer: String,
 }
 
-// impl Default for LayoutInfoTomlAdapter {
-// 	fn default() -> Self {
-// 		LayoutInfoTomlAdapter {
-// 			num_rows: 4,
-// 			num_cols: 10,
-// 			layout: prettify_layer_string(Layout::<4, 10>::ferris_sweep_string()),
-// 			effort_layer: prettify_layer_string(Layer::<4, 10, f64>::ferris_sweep_string()),
-// 			phalanx_layer: prettify_layer_string(Layer::<4, 10, PhalanxKey>::ferris_sweep_string()),
-// 		}
-// 	}
-// }
 
 /// SerDe isn't implemented for Layout / Layer, so adapting those structs from strings for now
 /// don't create this directly, as it only serves to translate the actual layout / layer stucts to toml. Instead, only create it from LayoutOptimizer
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct LayoutOptimizerTomlAdapter {
 	pub layout_info: LayoutInfoTomlAdapter,
-	pub config: LayoutOptimizerConfig,
+	pub layout_optimizer_config: LayoutOptimizerConfig,
 }
-// impl Default for LayoutOptimizerTomlAdapter {
-// 	fn default() -> Self {
-// 		LayoutOptimizerTomlAdapter {
-// 			layout_info: LayoutInfoTomlAdapter::default(),
-// 			config: LayoutOptimizerConfig::default(),
-// 		}
-// 	}
-// }
 impl LayoutOptimizerTomlAdapter {
 	pub fn try_from_toml_file(filename: &str) -> Result<Self, AlcError> {
 		let contents = match fs::read_to_string(filename) {
@@ -217,7 +198,7 @@ impl LayoutOptimizerTomlAdapter {
 		};
 
 		LayoutOptimizerTomlAdapter {
-			config: lo.config.clone(),
+			layout_optimizer_config: lo.config.clone(),
 			layout_info,
 		}
 	}
@@ -284,33 +265,25 @@ use super::*;
 
 	#[test]
 	fn test_read_write() {
-		let mut optimizer_toml_object = LayoutOptimizerTomlAdapter::default();
-		optimizer_toml_object.config.genetic_options.generation_count = 100;
-		optimizer_toml_object.config.genetic_options.population_size = 200;
+		let mut lo: LayoutOptimizer<4, 12, AdvancedScoreFunction> = LayoutOptimizer::default();
+		lo.config.genetic_options.generation_count = 100;
+		lo.config.genetic_options.population_size = 200;
+		let optimizer_toml_object = LayoutOptimizerTomlAdapter::try_from_layout_optimizer(&lo);
 		// let optimizer_toml_string = optimizer_toml_object.try_to_toml_string().unwrap();
 		// println!("{}", optimizer_toml_string);
 		optimizer_toml_object.write_to_file("./templates/test.toml").unwrap();
 
 		let optimizer_toml_object_from_file = LayoutOptimizerTomlAdapter::try_from_toml_file("./templates/test.toml").unwrap();
 		assert_eq!(optimizer_toml_object, optimizer_toml_object_from_file);
-		assert_eq!(optimizer_toml_object_from_file.config.genetic_options.generation_count, 100);
-		assert_eq!(optimizer_toml_object_from_file.config.genetic_options.population_size, 200);
+		assert_eq!(optimizer_toml_object_from_file.layout_optimizer_config.genetic_options.generation_count, 100);
+		assert_eq!(optimizer_toml_object_from_file.layout_optimizer_config.genetic_options.population_size, 200);
+
+		let lo_from_toml: LayoutOptimizer<4, 12, AdvancedScoreFunction> = LayoutOptimizer::try_from_optimizer_toml_file("./templates/test.toml".to_string()).unwrap();
+		assert_eq!(lo, lo_from_toml);
 
 		let optimizer_toml_object_from_file = LayoutOptimizerTomlAdapter::try_from_toml_file("./templates/ferris_sweep.toml").unwrap();
 		optimizer_toml_object_from_file.write_to_file("./templates/ferris_sweep.toml").unwrap();
 		
-	}
-
-
-	#[test]
-	fn test_from_lo() {
-		let mut layout_optimizer = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::_ferris_sweep();
-		layout_optimizer.config.genetic_options.population_size = 111;
-		let optimizer_toml_object = LayoutOptimizerTomlAdapter::try_from_layout_optimizer(&layout_optimizer);
-		optimizer_toml_object.write_to_file("./templates/from_lo.toml").unwrap();
-		let new_lo = LayoutOptimizer::try_from_optimizer_toml_file("./templates/from_lo.toml".to_string()).unwrap();
-		assert_eq!(layout_optimizer, new_lo);
-		assert_eq!(new_lo.config.genetic_options.population_size, 111);
 	}
 	
 }
