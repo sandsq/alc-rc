@@ -1,4 +1,5 @@
 pub mod config;
+pub mod optimizer_presets;
 
 use std::cell::Cell;
 use std::collections::HashSet;
@@ -396,30 +397,6 @@ pub fn optimize_from_toml(filename: String) {
 	};
 }
 
-
-impl<T> LayoutOptimizer<4, 10, T> where T: Score<4, 10> {
-	fn _ferris_sweep() -> Self {
-		let base_layout = Layout::<4, 10>::ferris_sweep();
-		let effort_layer = Layer::<4, 10, f64>::ferris_sweep();
-		let phalanx_layer = Layer::<4, 10, PhalanxKey>::ferris_sweep();
-		let score_function = T::new();
-		let config = LayoutOptimizerConfig::default();	
-		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0, 0)))
-	}
-
-	
-}
-
-impl<T> Default for LayoutOptimizer<4, 12, T> where T: Score<4, 12> {
-	fn default() -> Self {
-		let base_layout = Layout::<4, 12>::default();
-		let effort_layer = Layer::<4, 12, f64>::default();
-		let phalanx_layer = Layer::<4, 12, PhalanxKey>::default();
-		let score_function = T::new();
-		let config = LayoutOptimizerConfig::default();	
-		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0, 0)))
-	}
-}
 
 fn arg_min(scores: &Vec<f64>) -> usize {
 	let min_index = match scores.iter().enumerate().min_by(|(_, a), (_, b)| a.total_cmp(b)).map(|(idx, _)| idx) {

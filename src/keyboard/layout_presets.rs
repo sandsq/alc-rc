@@ -1,4 +1,3 @@
-
 use super::{key::PhalanxKey, layer::Layer, layout::Layout};
 
 // #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter, Serialize, Deserialize)]
@@ -12,43 +11,34 @@ pub enum LayoutSizePresets {
 }
 
 
-impl Layout<4, 12> {
-
-}
-
-
-
-
 impl Default for Layout<4, 12> {
 	fn default() -> Self {
-		let layout_string = "
-___Layer 0___
-		0       1       2       3       4       5       6       7       8       9      10      11 
-0| __10  __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
-1| __10  __10    __10    __10    __10    __10    __10    __10    __10    __10    __10  __10
-2| SFT_11    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    SFT_11 
-3|   __10    __10    __10    __10    LS1_10  SPC_00  BSPC_00  LS2_10    __10    __10    __10    __10 
+		Layout::try_from(
+		"
+		___Layer 0___
+				0       1       2       3       4       5       6       7       8       9      10      11 
+		0| __10  __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		1| __10  __10    __10    __10    __10    __10    __10    __10    __10    __10    __10  __10
+		2| SFT_11    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    SFT_11 
+		3|   __10    __10    __10    __10    LS1_10  SPC_00  BSPC_00  LS2_10    __10    __10    __10    __10 
 
-___Layer 1___
-		0       1       2       3       4       5       6       7       8       9      10      11 
-0|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
-1|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
-2|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
-3|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		___Layer 1___
+				0       1       2       3       4       5       6       7       8       9      10      11 
+		0|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		1|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		2|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		3|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
 
-___Layer 2___
-		0       1       2       3       4       5       6       7       8       9      10      11 
-0|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
-1|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
-2|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
-3|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
-		";
-
-
-		let layout = Layout::try_from(layout_string).unwrap();
-		layout
+		___Layer 2___
+				0       1       2       3       4       5       6       7       8       9      10      11 
+		0|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		1|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		2|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		3|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
+		").unwrap()
 	}
 }
+
 impl Default for Layer<4, 12, f64> {
 	fn default() -> Self {
 		Layer::try_from("
@@ -59,7 +49,6 @@ impl Default for Layer<4, 12, f64> {
 		").unwrap()
 	}
 }
-
 impl Default for Layer<4, 12, PhalanxKey> {
 	fn default() -> Self {
 		Layer::try_from("
@@ -71,11 +60,9 @@ impl Default for Layer<4, 12, PhalanxKey> {
 	}
 }
 
-
-
-impl Layout<4, 10> {
-	pub fn ferris_sweep_string() -> String {
-		String::from("
+impl Default for Layout<4, 10> {
+	fn default() -> Self {
+		Layout::try_from("
 		___Layer 0___
 		__10 __10 __10 __10   __10   __10    __10   __10 __10 __10 
 		__10 __10 LS3_10 __10 __10   __10    __10 __10 __10 __10 
@@ -96,42 +83,28 @@ impl Layout<4, 10> {
 		__10 __10 __10 __10 __10 __10 __10 __10 __10 __10 
 		__10 __10 __10 __10 __10 __10 __10 __10 __10 __10 
 		__00 __00 __00 __10 __10 __10 __10 __00 __00 __00 
-		")
-	}
-
-	pub fn ferris_sweep() -> Self {
-		Layout::try_from(&Self::ferris_sweep_string()[..]).unwrap()
+		").unwrap()
 	}
 }
-
-
-impl Layer<4, 10, f64> {
-	pub fn ferris_sweep_string()-> String {
-		String::from("
+impl Default for Layer<4, 10, f64> {
+	fn default()-> Self {
+		Layer::try_from("
 		7  2  2  2  7  7  2  2  2  7
 		3  1  1  1  3  3  1  1  1  3
 		5  3  3  3  8  8  3  3  3  5
 		10 7  4  2  1  1  2  4  7  10
-		")
-	}
-
-	pub fn ferris_sweep() -> Self {
-		Layer::try_from(&Self::ferris_sweep_string()[..]).unwrap()
+		").unwrap()
 	}
 }
 
-impl Layer<4, 10, PhalanxKey> {
-	pub fn ferris_sweep_string() -> String {
-		String::from("
+impl Default for Layer<4, 10, PhalanxKey> {
+	fn default() -> Self {
+		Layer::try_from("
 		L:P L:R L:M L:I L:I R:I R:I R:M R:R R:P
 		L:P L:R L:M L:I L:I R:I R:I R:M R:R R:P
 		L:P L:R L:M L:I L:I R:I R:I R:M R:R R:P
 		L:P L:R L:T L:T L:T R:T R:T R:T R:R R:P
-		")
-	}
-
-	pub fn ferris_sweep() -> Self {
-		Layer::try_from(&Self::ferris_sweep_string()[..]).unwrap()
+		").unwrap()
 	}
 }
 
