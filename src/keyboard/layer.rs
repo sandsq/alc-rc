@@ -186,29 +186,6 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, PhalanxKey> {
 	}
 }
 
-
-// impl Default for Layer<4, 12, f64> {
-// 	fn default() -> Self {
-// 		Layer::try_from("
-// 		12 7 2 2 2 7 7 2 2 2 7 12
-// 		6 3 1 1 1 3 3 1 1 1 3 6
-// 		13 5 3 3 3 8 8 3 3 3 5 13
-// 		14 10 7 4 2 1 1 2 4 7 10 14
-// 		").unwrap()
-// 	}
-// }
-
-// impl Default for Layer<4, 12, PhalanxKey> {
-// 	fn default() -> Self {
-// 		Layer::try_from("
-// 		L:P L:P L:R L:M L:I L:I R:I R:I R:M R:R R:P R:P
-// 		L:P L:P L:R L:M L:I L:I R:I R:I R:M R:R R:P R:P
-// 		L:P L:P L:R L:M L:I L:I R:I R:I R:M R:R R:P R:P
-// 		L:J L:P L:R L:T L:T L:T R:T R:T R:T R:R R:P R:J
-// 		").unwrap()
-// 	}
-// }
-
 fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, AlcError> {
 	let mut rows = input_s.split("\n").filter(|s| s.trim().len() > 0);
 	let rows_vec: Vec<&str> = rows.clone().collect();

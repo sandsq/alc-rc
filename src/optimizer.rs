@@ -21,7 +21,7 @@ use crate::text_processor::*;
 use crate::objective::scoring::*;
 
 use self::config::LayoutOptimizerConfig;
-use self::config::OptimizerTomlObject;
+use self::config::LayoutOptimizerTomlAdapter;
 use self::dataset::FrequencyDataset;
 use self::frequency_holder::{SingleGramFrequencies, TopFrequenciesToTake::*};
 use self::keycode::{Keycode, generate_default_keycode_set};
@@ -354,7 +354,7 @@ impl<T> LayoutOptimizer<4, 10, T> where T: Score<4, 10> {
 		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0, 0)))
 	}
 
-	pub fn try_from_optimizer_toml_object(t: OptimizerTomlObject) -> Result<Self, AlcError> {
+	pub fn try_from_optimizer_toml_object(t: LayoutOptimizerTomlAdapter) -> Result<Self, AlcError> {
 		let num_rows = t.layout_info.num_rows;
 		let num_cols = t.layout_info.num_cols;
 		let panic_message = format!("{} x {} layout preset does not exist yet, choose the next largest layout and block key positions. List of available layout sizes should go here: ", num_rows, num_cols);
@@ -375,32 +375,14 @@ impl<T> LayoutOptimizer<4, 10, T> where T: Score<4, 10> {
 			effort_layer: effort_layer,
 			phalanx_layer: phalanx_layer,
 			score_function: T::new(),
-			config: t.layout_optimizer_config,
+			config: t.config,
 			operation_counter: Cell::new((0, 0, 0, 0)),
 		})
 	}
 	pub fn try_from_optimizer_toml_file(f: String) -> Result<Self, AlcError> {
-		let toml = OptimizerTomlObject::try_from_toml_file(f.as_str())?;
+		let toml = LayoutOptimizerTomlAdapter::try_from_toml_file(f.as_str())?;
 		// println!("{:?}", toml);
 		Self::try_from_optimizer_toml_object(toml)
-	}
-}
-
-
-impl<T> Default for LayoutOptimizer<2, 4, T> where T: Score<2, 4> {
-	fn default() -> Self {
-		let base_layout = Layout::<2, 4>::init_blank(2);
-		let effort_layer = Layer::<2, 4, f64>::try_from("
-			0.1 0.2 0.3 0.4
-			0.5 0.6 0.7 0.8
-		").unwrap();
-		let phalanx_layer = Layer::<2, 4, PhalanxKey>::try_from("
-			l:m l:i r:i r:m
-			l:m l:i r:i r:m
-		").unwrap();
-		let score_function = T::new();
-		let config = LayoutOptimizerConfig::default();
-		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0, 0)))
 	}
 }
 

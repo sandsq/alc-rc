@@ -3,7 +3,7 @@ use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use toml;
 
-use crate::{alc_error::AlcError, keyboard::{default_layouts::LayoutPreset, key::PhalanxKey}};
+use crate::{alc_error::AlcError, keyboard::key::PhalanxKey};
 use super::{keycode::{Keycode, KeycodeOptions}, Layer, Layout, LayoutOptimizer, Score};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Copy, Clone)]
@@ -70,7 +70,6 @@ impl Default for ScoreOptions {
 
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-// #[serde(default)]
 pub struct LayoutOptimizerConfig {
 	// make sure constructor puts limits on fields
 	pub genetic_options: GeneticOptions,
@@ -94,46 +93,47 @@ impl Default for LayoutOptimizerConfig {
 		 }
 	}
 }
-impl LayoutOptimizerConfig {
 
-}
 
+/// SerDe isn't implemented for Layout / Layer, so adapting those structs from strings for now
+/// don't create this directly, as it only serves to translate the actual layout / layer stucts to toml.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct LayoutInfoTomlObject {
+pub struct LayoutInfoTomlAdapter {
 	pub num_rows: usize,
 	pub num_cols: usize,
-	pub name: Option<LayoutPreset>,
 	pub layout: String,
 	pub effort_layer: String,
 	pub phalanx_layer: String,
 }
-impl Default for LayoutInfoTomlObject {
-	fn default() -> Self {
-		LayoutInfoTomlObject {
-			num_rows: 4,
-			num_cols: 10,
-			name: None,
-			layout: prettify_layer_string(Layout::<4, 10>::ferris_sweep_string()),
-			effort_layer: prettify_layer_string(Layer::<4, 10, f64>::ferris_sweep_string()),
-			phalanx_layer: prettify_layer_string(Layer::<4, 10, PhalanxKey>::ferris_sweep_string()),
-		}
-	}
-}
 
+// impl Default for LayoutInfoTomlAdapter {
+// 	fn default() -> Self {
+// 		LayoutInfoTomlAdapter {
+// 			num_rows: 4,
+// 			num_cols: 10,
+// 			layout: prettify_layer_string(Layout::<4, 10>::ferris_sweep_string()),
+// 			effort_layer: prettify_layer_string(Layer::<4, 10, f64>::ferris_sweep_string()),
+// 			phalanx_layer: prettify_layer_string(Layer::<4, 10, PhalanxKey>::ferris_sweep_string()),
+// 		}
+// 	}
+// }
+
+/// SerDe isn't implemented for Layout / Layer, so adapting those structs from strings for now
+/// don't create this directly, as it only serves to translate the actual layout / layer stucts to toml. Instead, only create it from LayoutOptimizer
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct OptimizerTomlObject {
-	pub layout_info: LayoutInfoTomlObject,
-	pub layout_optimizer_config: LayoutOptimizerConfig,
+pub struct LayoutOptimizerTomlAdapter {
+	pub layout_info: LayoutInfoTomlAdapter,
+	pub config: LayoutOptimizerConfig,
 }
-impl Default for OptimizerTomlObject {
-	fn default() -> Self {
-		OptimizerTomlObject {
-			layout_optimizer_config: LayoutOptimizerConfig::default(),
-			layout_info: LayoutInfoTomlObject::default(),
-		}
-	}
-}
-impl OptimizerTomlObject {
+// impl Default for LayoutOptimizerTomlAdapter {
+// 	fn default() -> Self {
+// 		LayoutOptimizerTomlAdapter {
+// 			layout_info: LayoutInfoTomlAdapter::default(),
+// 			config: LayoutOptimizerConfig::default(),
+// 		}
+// 	}
+// }
+impl LayoutOptimizerTomlAdapter {
 	pub fn try_from_toml_file(filename: &str) -> Result<Self, AlcError> {
 		let contents = match fs::read_to_string(filename) {
 			Ok(c) => c,
@@ -141,7 +141,7 @@ impl OptimizerTomlObject {
 				panic!("could not read file {}", filename)
 			}
 		};
-		let optimizer_object: OptimizerTomlObject = toml::from_str(&contents)?;
+		let optimizer_object: LayoutOptimizerTomlAdapter = toml::from_str(&contents)?;
 		Ok(optimizer_object)
 	}
 
@@ -208,18 +208,17 @@ impl OptimizerTomlObject {
 		let effort_layer_string = format!("{}", lo.effort_layer);
 		let phalanx_layer_string = format!("{}", lo.phalanx_layer);
 
-		let layout_info = LayoutInfoTomlObject {
+		let layout_info = LayoutInfoTomlAdapter {
 			num_rows: R,
 			num_cols: C,
-			name: None,
 			layout: base_layout_string,
 			effort_layer: effort_layer_string,
 			phalanx_layer: phalanx_layer_string,
 		};
 
-		OptimizerTomlObject {
-			layout_optimizer_config: lo.config.clone(),
-			layout_info: layout_info,
+		LayoutOptimizerTomlAdapter {
+			config: lo.config.clone(),
+			layout_info,
 		}
 	}
 
@@ -253,7 +252,7 @@ pub fn option_descriptions() -> HashMap<String, String> {
 	options_map.insert(String::from("include_brackets"), String::from("Whether to include ()[]{}<>. Recommended to set to false and manually place brackets yourself, as optimized layouts cannot guarantee corresponding brackets will appear next to each other."));
 	options_map.insert(String::from("include_misc_symbols"), String::from("Whether to include -=\\;'`/[]. Recommended to set to true, as these are generally needed for typing."));
 	options_map.insert(String::from("include_misc_symbols_shifted"), String::from("Whether to include shifted versions of misc. symbols, i.e., _+|:\"~?{}. Recommended to set to false and access through shift."));
-	options_map.insert(String::from("explicit_inclusions"), String::from("Keycodes to explicitly include. If no combination of options cover exactly what you want, add them here."));
+	options_map.insert(String::from("explicit_inclusions"), String::from("Keycodes to explicitly include. If no combination of options covers exactly what you want, add them here."));
 	options_map.insert(String::from("dataset_paths"), String::from("Path to directories containing files of text data. Currently only looks in the immediate directory and does not look recursively. Eventually will have presets."));
 	options_map.insert(String::from("dataset_weights"), String::from("Ratio of datasets' importance. For example, with two datasets at a 2:1 ratio, the first dataset will constitute 2/(2 + 1) of the score and the second will constitute 1/(2 + 1)."));
 	options_map.insert(String::from("max_ngram_size"), String::from("Maximum length of ngrams to extract from text."));
@@ -285,20 +284,20 @@ use super::*;
 
 	#[test]
 	fn test_read_write() {
-		let mut optimizer_toml_object = OptimizerTomlObject::default();
-		optimizer_toml_object.layout_optimizer_config.genetic_options.generation_count = 100;
-		optimizer_toml_object.layout_optimizer_config.genetic_options.population_size = 200;
+		let mut optimizer_toml_object = LayoutOptimizerTomlAdapter::default();
+		optimizer_toml_object.config.genetic_options.generation_count = 100;
+		optimizer_toml_object.config.genetic_options.population_size = 200;
 		// let optimizer_toml_string = optimizer_toml_object.try_to_toml_string().unwrap();
 		// println!("{}", optimizer_toml_string);
 		optimizer_toml_object.write_to_file("./templates/test.toml").unwrap();
 
-		let optimizer_toml_object_from_file = OptimizerTomlObject::try_from_toml_file("./templates/test.toml").unwrap();
+		let optimizer_toml_object_from_file = LayoutOptimizerTomlAdapter::try_from_toml_file("./templates/test.toml").unwrap();
 		assert_eq!(optimizer_toml_object, optimizer_toml_object_from_file);
-		assert_eq!(optimizer_toml_object_from_file.layout_optimizer_config.genetic_options.generation_count, 100);
-		assert_eq!(optimizer_toml_object_from_file.layout_optimizer_config.genetic_options.population_size, 200);
+		assert_eq!(optimizer_toml_object_from_file.config.genetic_options.generation_count, 100);
+		assert_eq!(optimizer_toml_object_from_file.config.genetic_options.population_size, 200);
 
-		// let optimizer_toml_object_from_file = OptimizerTomlObject::try_from_toml_file("./templates/ferris_sweep.toml").unwrap();
-		// optimizer_toml_object_from_file.write_to_file("./templates/ferris_sweep.toml").unwrap();
+		let optimizer_toml_object_from_file = LayoutOptimizerTomlAdapter::try_from_toml_file("./templates/ferris_sweep.toml").unwrap();
+		optimizer_toml_object_from_file.write_to_file("./templates/ferris_sweep.toml").unwrap();
 		
 	}
 
@@ -307,7 +306,7 @@ use super::*;
 	fn test_from_lo() {
 		let mut layout_optimizer = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::_ferris_sweep();
 		layout_optimizer.config.genetic_options.population_size = 111;
-		let optimizer_toml_object = OptimizerTomlObject::try_from_layout_optimizer(&layout_optimizer);
+		let optimizer_toml_object = LayoutOptimizerTomlAdapter::try_from_layout_optimizer(&layout_optimizer);
 		optimizer_toml_object.write_to_file("./templates/from_lo.toml").unwrap();
 		let new_lo = LayoutOptimizer::try_from_optimizer_toml_file("./templates/from_lo.toml".to_string()).unwrap();
 		assert_eq!(layout_optimizer, new_lo);

@@ -2,9 +2,14 @@ use serde_derive::{Deserialize, Serialize};
 
 use super::{key::PhalanxKey, layer::Layer, layout::Layout};
 
-#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter, Serialize, Deserialize)]
-pub enum LayoutPreset {
-	FerrisSweep,
+// #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter, Serialize, Deserialize)]
+// pub enum LayoutPreset {
+// 	FerrisSweep,
+// }
+
+pub enum LayoutSizePresets {
+	FourByTen,
+	FourByTwelve,
 }
 
 
@@ -15,19 +20,6 @@ impl Layout<4, 12> {
 
 
 
-// ___Layer 1___
-// 		0       1       2       3       4       5       6       7       8       9      10      11 
-// 0|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
-// 1|   __10    __10    LBRC_00    LCBR_00    LPRN_00    __10    __10    RPRN_00    RCBR_00    RBRC_00    __10    __10 
-// 2|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
-// 3|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
-
-// ___Layer 2___
-// 		0       1       2       3       4       5       6       7       8       9      10      11 
-// 0|   __10    1_00    2_00    3_00    4_00    5_00    __10    __10    __10    __10    __10    __10 
-// 1|   __10    6_00    7_00    8_00    9_00    ZERO_00    __10    LEFT_00    DOWN_00    UP_00    RGHT_00    __10 
-// 2|   __10    __10    __10    __10    __10    __10    __10    HOME_00    PGDN_00    PGUP_00  END_00    __10 
-// 3|   __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10    __10 
 impl Default for Layout<4, 12> {
 	fn default() -> Self {
 		let layout_string = "
