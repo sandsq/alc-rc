@@ -1,11 +1,11 @@
-use std::{collections::HashMap, fs, option};
+use std::{collections::HashMap, fs};
 use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use toml;
 use strum::IntoEnumIterator;
 
-use crate::{alc_error::AlcError, keyboard::{default_layouts::LayoutPreset, key::PhalanxKey, layout}};
-use super::{keycode::{generate_default_keycode_set, Keycode, KeycodeOptions}, Layer, Layout, LayoutOptimizer, Score};
+use crate::{alc_error::AlcError, keyboard::{default_layouts::LayoutPreset, key::PhalanxKey}};
+use super::{keycode::{Keycode, KeycodeOptions}, Layer, Layout, LayoutOptimizer, Score};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Copy, Clone)]
 pub struct GeneticOptions {
@@ -71,7 +71,7 @@ impl Default for ScoreOptions {
 
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(default)]
+// #[serde(default)]
 pub struct LayoutOptimizerConfig {
 	// make sure constructor puts limits on fields
 	pub genetic_options: GeneticOptions,
@@ -101,19 +101,19 @@ impl LayoutOptimizerConfig {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct LayoutInfoTomlObject {
-	num_rows: usize,
-	num_cols: usize,
-	name: Option<LayoutPreset>,
-	layout: String,
-	effort_layer: String,
-	phalanx_layer: String,
+	pub num_rows: usize,
+	pub num_cols: usize,
+	pub name: Option<LayoutPreset>,
+	pub layout: String,
+	pub effort_layer: String,
+	pub phalanx_layer: String,
 }
 impl Default for LayoutInfoTomlObject {
 	fn default() -> Self {
 		LayoutInfoTomlObject {
 			num_rows: 4,
 			num_cols: 10,
-			name: Some(LayoutPreset::FerrisSweep),
+			name: None,
 			layout: prettify_layer_string(Layout::<4, 10>::ferris_sweep_string()),
 			effort_layer: prettify_layer_string(Layer::<4, 10, f64>::ferris_sweep_string()),
 			phalanx_layer: prettify_layer_string(Layer::<4, 10, PhalanxKey>::ferris_sweep_string()),
@@ -123,8 +123,8 @@ impl Default for LayoutInfoTomlObject {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct OptimizerTomlObject {
-	layout_optimizer_config: LayoutOptimizerConfig,
-	layout_info: LayoutInfoTomlObject,
+	pub layout_info: LayoutInfoTomlObject,
+	pub layout_optimizer_config: LayoutOptimizerConfig,
 }
 impl Default for OptimizerTomlObject {
 	fn default() -> Self {
@@ -135,7 +135,7 @@ impl Default for OptimizerTomlObject {
 	}
 }
 impl OptimizerTomlObject {
-	pub fn try_from_toml(filename: &str) -> Result<Self, AlcError> {
+	pub fn try_from_toml_file(filename: &str) -> Result<Self, AlcError> {
 		let contents = match fs::read_to_string(filename) {
 			Ok(c) => c,
 			Err(_) => {
@@ -146,33 +146,21 @@ impl OptimizerTomlObject {
 		Ok(optimizer_object)
 	}
 
-	pub fn try_to_toml(&self) -> Result<String, AlcError> {
+	pub fn try_to_toml_string(&self) -> Result<String, AlcError> {
 		let option_to_description = option_descriptions();
-		let layout_info_string = toml::to_string(&self.layout_info).unwrap();
-		let mut layout_info_string_formatted = String::from("");
-		// layout_info_string_formatted.push_str(&layout_info_string);
-		layout_info_string_formatted.push_str(&prettify_layer_string(layout_info_string));
+		let toml_string = toml::to_string(&self).unwrap();
 		
-		let layout_optimizer_config_string = toml::to_string(&self.layout_optimizer_config).unwrap();
-		let mut available_layouts = String::from("");
-		for (i, preset_name) in LayoutPreset::iter().enumerate() {
-			available_layouts.push_str(&preset_name.to_string());
-			if i < LayoutPreset::iter().len() - 1 {
-				available_layouts.push_str(", ")
-			}
-		}
-		let mut comments_string = format!("\
-		# [layout_info]\n\
-		# name: Name of a preset. If left out, will use `num_rows` and `num_cols` instead. Available options: {}\n\
-		# num_rows: If preset is not used, specify the number of rows in the layout.\n\
-		# num_cols: If preset is not used, specify the number of columns in the layout.\n\
-		# layout: Collection of layers. Each key is of the format {{keycode}}_{{moveability flag}}{{symmetry flag}}. Keycode reference should be available here: . Moveability of 1 means the optimizer can change the key in the given position; otherwise, the key will be fixed. Symmetry of 1 means it and its corresponding symmetric key will be locked in symmetry -- if one moves, the other will be moved to the corresponding symmetric location.\n\
-		# effort_layer: Specify the relative effort required to reach each key position. Smaller number means lower effort. Recommended to make the most accessible keys a weight of 1 and scale other keys accordingly. Does require some tinkering to create a grid that works for you.\n\
-		# phalanx_layer: Specify which hand and finger you want to use for each key. Used in calculating hand alternation bonuses, roll bonuses, and same finger penalties. Format is {{hand}}:{{finger}}, with hand options (L)eft and (R)ight and finger options (T)humb, (I)ndex, (M)iddle, (R)ing, (P)inkie, and (J)oint. Joint refers to where your pinkie meets your palm; some users use this part of their hand to hit the bottom left- / bottom right-most keys.\n\n\
-		", available_layouts);
+		// let mut available_layouts = String::from("");
+		// for (i, preset_name) in LayoutPreset::iter().enumerate() {
+		// 	available_layouts.push_str(&preset_name.to_string());
+		// 	if i < LayoutPreset::iter().len() - 1 {
+		// 		available_layouts.push_str(", ")
+		// 	}
+		// }
 
-		comments_string.push_str("# [layout_optimizer_config]\n");
-		for line in layout_optimizer_config_string.lines() {
+		let mut comments_string = String::from("");
+		
+		for line in toml_string.lines() {
 			match Regex::new(r"(?<option_name>.*) = (.*)") {
 				Ok(v) => {
 					match v.captures(line) {
@@ -192,11 +180,14 @@ impl OptimizerTomlObject {
 							comments_string.push_str("\n");
 						},
 						None => {
-							if line.trim().len() > 0 {
-								comments_string.push_str("# ");
+							if line.starts_with("[") {
+								comments_string.push_str("\n");
+								if line.trim().len() > 0 {
+									comments_string.push_str("# ");
+								}
+								comments_string.push_str(line);
+								comments_string.push_str("\n");
 							}
-							comments_string.push_str(line);
-							comments_string.push_str("\n");
 						},
 					}
 					
@@ -204,12 +195,12 @@ impl OptimizerTomlObject {
 				Err(e) => panic!("{}", e),
 			}
 		}
-		let output_string = format!("# See ending comments for field information.\n[layout_info]\n{}\n[layout_optimizer_config]\n{}\n# Option info (note: some descriptions may not be totally accurate due to complexity, but the general idea should be there.)\n{}", layout_info_string_formatted, layout_optimizer_config_string, comments_string);
+		let output_string = format!("# See ending comments for field information.\n{}\n# [Autogenerated]\n # Option info (note: some descriptions may not be totally accurate due to complexity, but the general idea should be present.)\n{}", toml_string, comments_string);
 		Ok(output_string)
 	}
 
 	pub fn write_to_file(&self, filename: &str) -> Result<(), AlcError> {
-		fs::write(filename, self.try_to_toml()?).expect(format!("Unable to write file {}", filename).as_str());
+		fs::write(filename, self.try_to_toml_string()?).expect(format!("Unable to write file {}", filename).as_str());
 		Ok(())
 	}
 
@@ -276,7 +267,12 @@ pub fn option_descriptions() -> HashMap<String, String> {
 	options_map.insert(String::from("same_finger_penalty_factor"), String::from("If the same finger (on the same hand, of course) is used twice in a row, multiply the effort by this factor. In other words, repeating the same finger is unfavorable."));
 	options_map.insert(String::from("extra_length_penalty"), String::from("If the keycode sequence is longer than the ngram (e.g., from layer switches or shifting), apply this penalty for each additional key, exponentially."));
 	options_map.insert(String::from("valid_keycodes"), String::from("Recommended to leave empty, as these will be generated from keycode options. If keycodes are supplied here, they will override keycode options; however, you can simply use the options + `explicit_inclusions` to fine tune the set you want, rather than having to list everything out here."));
-	
+	options_map.insert(String::from("num_rows"), String::from("Number of rows in the layout. Note that some row x column combinations may not exist, in which case use the next size up and block key positions as necessary. Available sizes should be listed here at some point: "));
+	options_map.insert(String::from("num_cols"), String::from("Number of columns in the layout."));
+	options_map.insert(String::from("layout"), String::from("Collection of layers. Each key is of the format {{keycode}}_{{moveability flag}}{{symmetry flag}}. Keycode reference should be available here: . Moveability of 1 means the optimizer can change the key in the given position; otherwise, the key will be fixed. Symmetry of 1 means it and its corresponding symmetric key will be locked in symmetry -- if one moves, the other will be moved to the corresponding symmetric location."));
+	options_map.insert(String::from("effort_layer"), String::from("Specify the relative effort required to reach each key position. Smaller number means lower effort. Recommended to make the most accessible keys a weight of 1 and scale other keys accordingly. Does require some tinkering to create a grid that works for you."));
+	options_map.insert(String::from("phalanx_layer"), String::from("Specify which hand and finger you want to use for each key. Used in calculating hand alternation bonuses, roll bonuses, and same finger penalties. Format is {{hand}}:{{finger}}, with hand options (L)eft and (R)ight and finger options (T)humb, (I)ndex, (M)iddle, (R)ing, (P)inkie, and (J)oint. Joint refers to where your pinkie meets your palm; some users use this part of their hand to hit the bottom left- / bottom right-most keys."));
+
 	options_map
 }
 
@@ -290,19 +286,23 @@ use super::*;
 
 	#[test]
 	fn test_read_write() {
-		let optimizer_toml_object = OptimizerTomlObject::default();
-		let optimizer_toml_string = optimizer_toml_object.try_to_toml().unwrap();
-		println!("{}", optimizer_toml_string);
+		let mut optimizer_toml_object = OptimizerTomlObject::default();
+		optimizer_toml_object.layout_optimizer_config.genetic_options.generation_count = 100;
+		optimizer_toml_object.layout_optimizer_config.genetic_options.population_size = 200;
+		// let optimizer_toml_string = optimizer_toml_object.try_to_toml_string().unwrap();
+		// println!("{}", optimizer_toml_string);
 		optimizer_toml_object.write_to_file("./templates/test.toml").unwrap();
 
-		let optimizer_toml_object_from_file = OptimizerTomlObject::try_from_toml("./templates/test.toml").unwrap();
+		let optimizer_toml_object_from_file = OptimizerTomlObject::try_from_toml_file("./templates/test.toml").unwrap();
 		assert_eq!(optimizer_toml_object, optimizer_toml_object_from_file);
+		assert_eq!(optimizer_toml_object_from_file.layout_optimizer_config.genetic_options.generation_count, 100);
+		assert_eq!(optimizer_toml_object_from_file.layout_optimizer_config.genetic_options.population_size, 200);
 
-
-		println!("{:?}", optimizer_toml_object_from_file);
-		let effort_layer = Layer::<4, 10, f64>::try_from(&optimizer_toml_object_from_file.layout_info.effort_layer[..]).unwrap();
-		println!("{}", effort_layer);
+		// let optimizer_toml_object_from_file = OptimizerTomlObject::try_from_toml_file("./templates/ferris_sweep.toml").unwrap();
+		// optimizer_toml_object_from_file.write_to_file("./templates/ferris_sweep.toml").unwrap();
+		
 	}
+
 
 	#[test]
 	fn test_from_lo() {

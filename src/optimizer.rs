@@ -21,6 +21,7 @@ use crate::text_processor::*;
 use crate::objective::scoring::*;
 
 use self::config::LayoutOptimizerConfig;
+use self::config::OptimizerTomlObject;
 use self::dataset::FrequencyDataset;
 use self::frequency_holder::{SingleGramFrequencies, TopFrequenciesToTake::*};
 use self::keycode::{Keycode, generate_default_keycode_set};
@@ -351,6 +352,37 @@ impl<T> LayoutOptimizer<4, 10, T> where T: Score<4, 10> {
 		let config = LayoutOptimizerConfig::default();	
 		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0, 0)))
 	}
+
+	pub fn try_from_optimizer_toml_object(t: OptimizerTomlObject) -> Result<Self, AlcError> {
+		let num_rows = t.layout_info.num_rows;
+		let num_cols = t.layout_info.num_cols;
+		let panic_message = format!("{} x {} layout preset does not exist yet, choose the next largest layout and block key positions.", num_rows, num_cols);
+		let base_layout = match (num_rows, num_cols) {
+			(4, 10) => Layout::<4, 10>::try_from(t.layout_info.layout.as_str())?,
+			_ => panic!("{}", panic_message)
+		};
+		let effort_layer = match (num_rows, num_cols) {
+			(4, 10) => Layer::<4, 10, f64>::try_from(t.layout_info.effort_layer.as_str())?,
+			_ => panic!("{}", panic_message)
+		};
+		let phalanx_layer = match (num_rows, num_cols) {
+			(4, 10) => Layer::<4, 10, PhalanxKey>::try_from(t.layout_info.phalanx_layer.as_str())?,
+			_ => panic!("{}", panic_message),
+		};
+		Ok(Self {
+			base_layout: base_layout,
+			effort_layer: effort_layer,
+			phalanx_layer: phalanx_layer,
+			score_function: T::new(),
+			config: t.layout_optimizer_config,
+			operation_counter: Cell::new((0, 0, 0, 0)),
+		})
+	}
+	pub fn try_from_optimizer_toml_file(f: String) -> Result<Self, AlcError> {
+		let toml = OptimizerTomlObject::try_from_toml_file(f.as_str())?;
+		println!("{:?}", toml);
+		Self::try_from_optimizer_toml_object(toml)
+	}
 }
 
 
@@ -482,21 +514,23 @@ mod tests {
 
 	#[test]
 	#[ignore = "expensive"] // cargo test -- --ignored to run ignored, cargo test -- --include-ignored to run all
-	fn test_choc_ferris_sweep() {
-		let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::ferris_sweep();
-		lo.config.genetic_options.generation_count = 100;
-		lo.config.genetic_options.population_size = 200;
-		lo.config.score_options.hand_alternation_weight = 1.0;
-		lo.config.score_options.hand_alternation_reduction_factor = 0.8;
-		lo.config.score_options.finger_roll_weight = 4.0;
-		lo.config.score_options.finger_roll_reduction_factor = 0.8;
-		lo.config.score_options.finger_roll_same_row_reduction_factor = 0.8;
-		lo.config.score_options.same_finger_penalty_factor = 5.0;
-		lo.config.genetic_options.swap_weight = 1.0;
-		lo.config.genetic_options.replace_weight = 1.0;
-		lo.config.dataset_options.dataset_paths = vec![String::from("./data/rust_book/"), String::from("./data/rust_book_test/")];
-		lo.config.dataset_options.dataset_weights = vec![1.0, 0.1];
-		lo.config.keycode_options.include_number_symbols = true;
+	fn test_ferris_sweep() {
+		// let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::ferris_sweep();
+		// lo.config.genetic_options.generation_count = 100;
+		// lo.config.genetic_options.population_size = 200;
+		// lo.config.score_options.hand_alternation_weight = 1.0;
+		// lo.config.score_options.hand_alternation_reduction_factor = 0.8;
+		// lo.config.score_options.finger_roll_weight = 4.0;
+		// lo.config.score_options.finger_roll_reduction_factor = 0.8;
+		// lo.config.score_options.finger_roll_same_row_reduction_factor = 0.8;
+		// lo.config.score_options.same_finger_penalty_factor = 5.0;
+		// lo.config.genetic_options.swap_weight = 1.0;
+		// lo.config.genetic_options.replace_weight = 1.0;
+		// lo.config.dataset_options.dataset_paths = vec![String::from("./data/rust_book/"), String::from("./data/rust_book_test/")];
+		// lo.config.dataset_options.dataset_weights = vec![1.0, 0.1];
+		// lo.config.keycode_options.include_number_symbols = true;
+
+		let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::try_from_optimizer_toml_file("./templates/ferris_sweep.toml".to_string()).unwrap();
 		
 		
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
