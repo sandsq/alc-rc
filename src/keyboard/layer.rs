@@ -248,7 +248,7 @@ fn cols_from_string(input_s: &str, c: usize) -> Result<Vec<&str>, AlcError> {
 	// let mut cols = input_s.split_whitespace();
 	let cols_vec: Vec<&str> = cols.clone().collect();
 	if cols_vec.len() != c {
-		return Err(AlcError::ColMismatchError(c, cols_vec.len()));
+		return Err(AlcError::ColMismatchError(c, cols_vec.len(), input_s.to_string()));
 	} else { 
 		Ok(cols_vec)
 	}

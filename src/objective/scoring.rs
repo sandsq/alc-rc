@@ -16,6 +16,7 @@ pub trait Score<const R: usize, const C: usize> {
 	fn score_layout_position_sequence(&self, layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>,  layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> f64;
 }
 
+#[derive(Debug, PartialEq)]
 pub struct SimpleScoreFunction {}
 impl SimpleScoreFunction {
 	pub fn new() -> Self {
@@ -46,6 +47,7 @@ impl<const R: usize, const C: usize> Score<R, C> for SimpleScoreFunction {
 	}
 }
 
+#[derive(Debug, PartialEq)]
 pub struct AdvancedScoreFunction {}
 impl AdvancedScoreFunction {
 	pub fn new() -> Self {

@@ -27,6 +27,7 @@ use self::frequency_holder::{SingleGramFrequencies, TopFrequenciesToTake::*};
 use self::keycode::{Keycode, generate_default_keycode_set};
 
 
+#[derive(Debug, PartialEq)]
 pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, C> {
 	pub base_layout: Layout<R, C>,
 	pub effort_layer: Layer<R, C, f64>,
@@ -344,7 +345,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 }
 impl<T> LayoutOptimizer<4, 10, T> where T: Score<4, 10> {
-	fn ferris_sweep() -> Self {
+	fn _ferris_sweep() -> Self {
 		let base_layout = Layout::<4, 10>::ferris_sweep();
 		let effort_layer = Layer::<4, 10, f64>::ferris_sweep();
 		let phalanx_layer = Layer::<4, 10, PhalanxKey>::ferris_sweep();
@@ -356,7 +357,7 @@ impl<T> LayoutOptimizer<4, 10, T> where T: Score<4, 10> {
 	pub fn try_from_optimizer_toml_object(t: OptimizerTomlObject) -> Result<Self, AlcError> {
 		let num_rows = t.layout_info.num_rows;
 		let num_cols = t.layout_info.num_cols;
-		let panic_message = format!("{} x {} layout preset does not exist yet, choose the next largest layout and block key positions.", num_rows, num_cols);
+		let panic_message = format!("{} x {} layout preset does not exist yet, choose the next largest layout and block key positions. List of available layout sizes should go here: ", num_rows, num_cols);
 		let base_layout = match (num_rows, num_cols) {
 			(4, 10) => Layout::<4, 10>::try_from(t.layout_info.layout.as_str())?,
 			_ => panic!("{}", panic_message)
@@ -380,7 +381,7 @@ impl<T> LayoutOptimizer<4, 10, T> where T: Score<4, 10> {
 	}
 	pub fn try_from_optimizer_toml_file(f: String) -> Result<Self, AlcError> {
 		let toml = OptimizerTomlObject::try_from_toml_file(f.as_str())?;
-		println!("{:?}", toml);
+		// println!("{:?}", toml);
 		Self::try_from_optimizer_toml_object(toml)
 	}
 }

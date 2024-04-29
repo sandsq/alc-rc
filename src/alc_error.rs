@@ -33,8 +33,8 @@ pub enum AlcError {
 	SymmetryError(usize, usize, usize, usize),
 	#[error("expected {0} rows but tried to create {1} rows instead")]
 	RowMismatchError(usize, usize),
-	#[error("expected {0} cols but tried to create {1} cols instead")]
-	ColMismatchError(usize, usize),
+	#[error("expected {0} cols but tried to create {1} cols instead, the row with the error is {2}")]
+	ColMismatchError(usize, usize, String),
 	#[error("layer string contains one more row than expected suggesting a column index header row its format is invalid {0}")]
 	FromStringHeaderError(String),
 
