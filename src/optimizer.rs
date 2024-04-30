@@ -377,10 +377,14 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			operation_counter: Cell::new((0, 0, 0, 0)),
 		})
 	}
-	pub fn try_from_optimizer_toml_file(f: String) -> Result<Self, AlcError> {
-		let toml = LayoutOptimizerTomlAdapter::try_from_toml_file(f.as_str())?;
+	pub fn try_from_optimizer_toml_file(f: &str) -> Result<Self, AlcError> {
+		let toml = LayoutOptimizerTomlAdapter::try_from_toml_file(f)?;
 		// println!("{:?}", toml);
 		Self::try_from_optimizer_toml_object(toml)
+	}
+
+	pub fn write_to_toml(&self, output_file: &str) -> Result<(), AlcError> {
+		LayoutOptimizerTomlAdapter::try_from_layout_optimizer(self).write_to_file(output_file)
 	}
 }
 
@@ -514,7 +518,7 @@ mod tests {
 		// lo.config.dataset_options.dataset_weights = vec![1.0, 0.1];
 		// lo.config.keycode_options.include_number_symbols = true;
 
-		let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::try_from_optimizer_toml_file("./templates/ferris_sweep.toml".to_string()).unwrap();
+		let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::try_from_optimizer_toml_file("./templates/ferris_sweep.toml").unwrap();
 		
 		
 		let mut rng = ChaCha8Rng::seed_from_u64(1);

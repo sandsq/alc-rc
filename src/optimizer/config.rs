@@ -278,11 +278,12 @@ use super::*;
 		assert_eq!(optimizer_toml_object_from_file.layout_optimizer_config.genetic_options.generation_count, 100);
 		assert_eq!(optimizer_toml_object_from_file.layout_optimizer_config.genetic_options.population_size, 200);
 
-		let lo_from_toml: LayoutOptimizer<4, 12, AdvancedScoreFunction> = LayoutOptimizer::try_from_optimizer_toml_file("./templates/test.toml".to_string()).unwrap();
+		let lo_from_toml: LayoutOptimizer<4, 12, AdvancedScoreFunction> = LayoutOptimizer::try_from_optimizer_toml_file("./templates/test.toml").unwrap();
 		assert_eq!(lo, lo_from_toml);
 
-		let optimizer_toml_object_from_file = LayoutOptimizerTomlAdapter::try_from_toml_file("./templates/ferris_sweep.toml").unwrap();
-		optimizer_toml_object_from_file.write_to_file("./templates/ferris_sweep.toml").unwrap();
+		// let optimizer_toml_object_from_file = LayoutOptimizerTomlAdapter::try_from_toml_file("./templates/ferris_sweep.toml").unwrap();
+		let optimizer: LayoutOptimizer<4, 10, AdvancedScoreFunction> = LayoutOptimizer::try_from_optimizer_toml_file("./templates/ferris_sweep.toml").unwrap();
+		optimizer.write_to_toml("./templates/ferris_sweep.toml").unwrap();
 		
 	}
 	

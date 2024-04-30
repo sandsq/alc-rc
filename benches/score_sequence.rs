@@ -1,4 +1,4 @@
-use alc::{keyboard::{key::PhalanxKey, layer::Layer, layout::Layout, LayoutPosition, LayoutPositionSequence}, objective::scoring::{ AdvancedScoreFunction, Score}, optimizer::LayoutOptimizerConfig};
+use alc::{keyboard::{key::PhalanxKey, layer::Layer, layout::Layout, LayoutPosition, LayoutPositionSequence}, objective::scoring::{ AdvancedScoreFunction, Score}, optimizer::config::LayoutOptimizerConfig};
 
 fn main() {
     // Run registered benchmarks.
@@ -21,11 +21,11 @@ fn score(n: u64) -> f64 {
 
 	let sf = AdvancedScoreFunction{};
 	let mut config = LayoutOptimizerConfig::default();
-	config.hand_alternation_reduction_factor = 0.9;
-	config.finger_roll_reduction_factor = 0.9;
-	config.hand_alternation_weight = 3.0;
-	config.finger_roll_weight = 2.0;
-	config.same_finger_penalty_factor = 3.0;
+	config.score_options.hand_alternation_reduction_factor = 0.9;
+	config.score_options.finger_roll_reduction_factor = 0.9;
+	config.score_options.hand_alternation_weight = 3.0;
+	config.score_options.finger_roll_weight = 2.0;
+	config.score_options.same_finger_penalty_factor = 3.0;
 	let mut final_score = 0.0;
 
 	for _ in 0..n {

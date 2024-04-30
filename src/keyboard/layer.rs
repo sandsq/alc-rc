@@ -267,7 +267,7 @@ impl<const R: usize, const C: usize> fmt::Display for Layer<R, C, f64> {
 		for (i, row) in self.layer.rows_iter().enumerate() {
 			write!(f, "{}|", i)?;
 			for element in row {
-				write!(f, "{:>4.2}", element)?;
+				write!(f, "{:>4.1}", element)?;
 				write!(f, " ")?;
 			}
 			writeln!(f)?;
