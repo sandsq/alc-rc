@@ -4,6 +4,7 @@ pub mod optimizer_presets;
 use std::cell::Cell;
 use std::collections::HashSet;
 use std::mem::discriminant;
+use std::thread;
 use std::time::SystemTime;
 use rand::prelude::*;
 use rand::Rng;
@@ -29,7 +30,7 @@ use self::keycode::{Keycode, generate_default_keycode_set};
 
 
 #[derive(Debug, PartialEq)]
-pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, C> {
+pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, C> + Send {
 	pub base_layout: Layout<R, C>,
 	pub effort_layer: Layer<R, C, f64>,
 	pub phalanx_layer: Layer<R, C, PhalanxKey>,
@@ -37,7 +38,7 @@ pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, 
 	pub config: LayoutOptimizerConfig,
 	operation_counter: Cell<(u32, u32, u32, u32)>, // swaps, replacements, nothings, total
 }
-impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> {
+impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> + Send {
 	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f64>, phalanx_layer: Layer<R, C, PhalanxKey>, score_function: S, config: LayoutOptimizerConfig, operation_counter: Cell<(u32, u32, u32, u32)>) -> Self {
 		LayoutOptimizer { base_layout, effort_layer, phalanx_layer, score_function, config, operation_counter }
 	}
@@ -268,17 +269,33 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 
 		let mut now = SystemTime::now();
 		let mut layouts_and_scores = self.generate_and_score_initial_population(rng, datasets);
-		let (mut best_layouts, mut best_scores) = self.take_best_layouts(layouts_and_scores);
-		println!("initial best layout\n{}", best_layouts[0]);
-		println!("initial, best score: {}, worst score {}", best_scores[0], best_scores[best_scores.len()-1]);
-		let mut layouts = self.generate_new_layouts(rng, best_layouts);
 		let initial_time = now.elapsed().unwrap().as_secs_f64();
-	
+
+		// println!("initial best layout\n{}", best_layouts[0]);
+		// println!("initial, best score: {}, worst score {}", best_scores[0], best_scores[best_scores.len()-1]);
+
+			// let chunks = input.chunks((input.len() / worker_count).max(1));
+		
+			// for chunk in chunks {
+			// 	// collect the data for the current chunk into an owned variable before sending it to the thread.
+			// 	let string = chunk.join("");
+			// 	thread::spawn(move || {
+			// 		// solve the problem for the current chunk
+			// 	});
+			// }
+		// let chunks = layouts.chunks((layouts.len() / 8).max(1));
+		// for chunk in chunks {
+		// 	let layout = chunk.clone();
+		// 	thread::spawn(move || {
+		// 		let (score, _) = self.score_datasets(&layout[0], datasets, false);
+		// 	});
+		// }
+		let mut layouts: Vec<Layout<R, C>>; // = Default::default();
+		let mut best_layouts;
+		let mut best_scores: Vec<f64> = Default::default();
+
 		for i in tqdm(0..self.config.genetic_options.generation_count) {
-			now = SystemTime::now();
-			layouts_and_scores = self.score_population(&layouts, datasets);
-			avg_score_time += now.elapsed().unwrap().as_secs_f64();
-			
+
 			now = SystemTime::now();
 			(best_layouts, best_scores) = self.take_best_layouts(layouts_and_scores);
 			avg_take_time +=  now.elapsed().unwrap().as_secs_f64();
@@ -286,10 +303,14 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			now = SystemTime::now();
 			layouts = self.generate_new_layouts(rng, best_layouts);
 			avg_gen_time +=  now.elapsed().unwrap().as_secs_f64();
-			// println!("after {} generation(s), layout\n{}\n score: {}", i, printclone[0], best_scores[0]);
+
+			now = SystemTime::now();
+			layouts_and_scores = self.score_population(&layouts, datasets);
+			avg_score_time += now.elapsed().unwrap().as_secs_f64();
+			
 			println!("after {} generation(s), best score: {}, worst score {}", i, best_scores[0], best_scores[best_scores.len()-1]);
+			
 		}
-		layouts_and_scores = self.score_population(&layouts, datasets);
 		(best_layouts, best_scores) = self.take_best_layouts(layouts_and_scores);
 		let mut final_layout = best_layouts[0].clone();
 		println!("final layout pre removal\n{}score: {}", final_layout, best_scores[0]);

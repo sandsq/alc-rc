@@ -7,7 +7,7 @@ use super::Layout;
 use super::LayoutOptimizer;
 use super::Score;
 
-impl<S> Default for LayoutOptimizer<4, 12, S> where S: Score<4, 12> {
+impl<S> Default for LayoutOptimizer<4, 12, S> where S: Score<4, 12> + Send {
 	fn default() -> Self {
 		let base_layout = Layout::<4, 12>::default();
 		let effort_layer = Layer::<4, 12, f64>::default();
@@ -18,7 +18,7 @@ impl<S> Default for LayoutOptimizer<4, 12, S> where S: Score<4, 12> {
 	}
 }
 
-impl<S> Default for LayoutOptimizer<4, 10, S> where S: Score<4, 10> {
+impl<S> Default for LayoutOptimizer<4, 10, S> where S: Score<4, 10> + Send {
 	fn default() -> Self {
 		let base_layout = Layout::<4, 10>::default();
 		let effort_layer = Layer::<4, 10, f64>::default();
