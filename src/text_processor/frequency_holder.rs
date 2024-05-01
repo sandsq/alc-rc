@@ -34,7 +34,8 @@ impl<T> SingleGramFrequencies<T> where T: Frequencies {
 		Self { 
 			frequencies:  Default::default(), 
 			n,
-			total: 0.0 }
+			total: 0.0 
+		}
 	}
 	pub fn get(&self, k: &Ngram) -> Option<&T> {
 		self.frequencies.get(k)

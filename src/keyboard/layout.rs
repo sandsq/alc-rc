@@ -125,6 +125,15 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 	/// returns true if a swap happened
 	pub fn swap(&mut self, p1: LayoutPosition, p2: LayoutPosition) -> bool {
 		// todo: make use of optimized keycode to position remapping computation where only the affected keycodes get are remapped
+
+		if cfg!(debug_assertions) {
+			self.verify_pathmap_correctness().unwrap();
+			let (s1, s2) = self.verify_layout_correctness();
+			if !s1.is_empty() || !s2.is_empty() {
+				panic!("swapping {} with {}, layer switch issues: {:?}, symmetry issues: {:?}\n{}", p1, p2, s1, s2, self)
+			}
+		}
+
 		#[allow(unused_assignments)]
 		let mut swap_happened = false;
 
@@ -203,8 +212,11 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 				// println!("Warning: attempted to swap a symmetric key with position x: {} and found that x's corresponding position {} was not moveable. Doing nothing instead.", p2, p2_counterpart);
 				return false;
 			}
-			if let _LS(_target_layer) = k2_counterpart_clone.value() {
-				// println!("Warning: attempted symmetric swap but p2 {}'s counterpart {} is a layer switch. Doing nothing instead.", p2, p2_counterpart);
+			// if let _LS(_target_layer) = k2_counterpart_clone.value() {
+			// 	// println!("Warning: attempted symmetric swap but p2 {}'s counterpart {} is a layer switch. Doing nothing instead.", p2, p2_counterpart);
+			// 	return false;
+			// }
+			if discriminant(&k2_counterpart_clone.value()) == discriminant(&_LS(0)) || discriminant(&k2_counterpart_clone.value()) == discriminant(&_LST(0, 0)) {
 				return false;
 			}
 			k1.replace_with(k2_clone);
@@ -225,15 +237,21 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		}
 		self.generate_pathmap().unwrap();
 		// self.keycode_pathmap = keycode_path_map_from_layout(self.layers.clone()).unwrap();
-		if cfg!(debug_assertions) {
-			// println!("verifying keycode path map during debugging");
-			self.verify_pathmap_correctness().unwrap();
-		}
+		
 		swap_happened
 	}
 
 	pub fn replace(&mut self, p: LayoutPosition, value: Keycode) -> bool {
 		// make use of optimized keycode to position remapping computation where only the affected keycodes get are remapped
+		if cfg!(debug_assertions) {
+			// println!("verifying keycode path map during debugging");
+			self.verify_pathmap_correctness().unwrap();
+			let (s1, s2) = self.verify_layout_correctness();
+			if !s1.is_empty() || !s2.is_empty() {
+				panic!("replacing {} with {}, layer switch issues: {:?}, symmetry issues: {:?}\n{}", p, value, s1, s2, self)
+			}
+		}
+		
 		#[allow(unused_assignments)]
 		let mut replace_happened = false;
 		let k = self[p];
@@ -252,7 +270,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		self.get_mut_from_layout_position(p).unwrap().set_value(value);
 		replace_happened = true;
 		self.generate_pathmap().unwrap();
-		// self.keycode_pathmap = keycode_path_map_from_layout(self.layers.clone()).unwrap();
+		
 		
 		replace_happened
 	}
