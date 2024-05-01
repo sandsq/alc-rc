@@ -77,6 +77,7 @@ pub struct LayoutOptimizerConfig {
 	pub valid_keycodes: Vec<Keycode>,
 	pub dataset_options: DatasetOptions,
 	pub score_options: ScoreOptions,
+	pub num_threads: usize,
 
 }
 impl Default for LayoutOptimizerConfig {
@@ -90,6 +91,7 @@ impl Default for LayoutOptimizerConfig {
 			valid_keycodes: vec![],
 			dataset_options: DatasetOptions::default(),
 			score_options: ScoreOptions::default(),
+			num_threads: 1,
 		 }
 	}
 }

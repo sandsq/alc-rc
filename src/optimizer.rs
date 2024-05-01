@@ -287,7 +287,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		layouts
 	}
 
-	pub fn optimize(&mut self, rng: &mut impl Rng, threadcount: usize) -> Result<Layout<R, C>, AlcError> {
+	pub fn optimize(&mut self, rng: &mut impl Rng) -> Result<Layout<R, C>, AlcError> {
 		let datasets = &self.compute_datasets();
 		if datasets.len() != self.config.dataset_options.dataset_weights.len() {
 			return Err(AlcError::DatasetWeightsMismatchError(datasets.len(), self.config.dataset_options.dataset_weights.len()));
@@ -319,7 +319,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let mut best_scores: Vec<f64>;
 
 		// let tcount = 20;
-		rayon::ThreadPoolBuilder::new().num_threads(threadcount).build_global().unwrap();
+		rayon::ThreadPoolBuilder::new().num_threads(self.config.num_threads).build_global().unwrap();
 		for i in tqdm(0..self.config.genetic_options.generation_count) {
 
 			now = SystemTime::now();
@@ -529,7 +529,7 @@ mod tests {
 		// test_layout.randomize(&mut rng, &lo.config.valid_keycodes).unwrap();
 		// println!("initial randomized layout\n{:#}", test_layout);
 		println!("effort layer\n{}", lo.effort_layer);
-		let _final_layout = lo.optimize(&mut rng, 1).unwrap();
+		let _final_layout = lo.optimize(&mut rng).unwrap();
 		// println!("final layout\n{:b}", final_layout);
 	}
 
@@ -544,7 +544,7 @@ mod tests {
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
 		println!("effort layer\n{}", lo.effort_layer);
-		let _final_layout = lo.optimize(&mut rng, 1).unwrap();
+		let _final_layout = lo.optimize(&mut rng).unwrap();
 	}
 
 	#[test]
@@ -570,6 +570,6 @@ mod tests {
 		
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
 		println!("effort layer\n{}", lo.effort_layer);
-		let _final_layout = lo.optimize(&mut rng, 16).unwrap();
+		let _final_layout = lo.optimize(&mut rng).unwrap();
 	}
 }
