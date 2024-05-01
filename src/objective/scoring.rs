@@ -32,7 +32,7 @@ impl<const R: usize, const C: usize> Score<R, C> for SimpleScoreFunction {
 	}
 
 	fn cancel_layer_switches(&self, _layout: Layout<R, C>, _layout_position_sequence: LayoutPositionSequence) -> LayoutPositionSequence {
-		LayoutPositionSequence::from_tuples(vec![(0 as usize, 0 as usize, 0 as usize)])
+		LayoutPositionSequence::from_tuples(vec![(0_usize, 0_usize, 0_usize)])
 	}
 
 	fn score_small(&self, _effort_layer: &Layer<R, C, f64>, _phalanx_layer: &Layer<R, C, PhalanxKey>, _layout_position_sequence: LayoutPositionSequence, _config: &LayoutOptimizerConfig) -> Option<f64> {
@@ -41,7 +41,7 @@ impl<const R: usize, const C: usize> Score<R, C> for SimpleScoreFunction {
 
 	fn score_layout_position_sequence(&self, _layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, _phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, _config: &LayoutOptimizerConfig) -> f64 {
 		let mut score = 0.0;
-		for (_i, layout_position) in layout_position_sequence.into_iter().enumerate() {
+		for layout_position in layout_position_sequence.into_iter() {
 			let effort_value = effort_layer[layout_position];
 			score += effort_value;
 		}
@@ -78,7 +78,7 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		// for lp in layout_position_sequence {
 		// 	let layer = lp.layer_index;
 		// }
-		LayoutPositionSequence::from_tuples(vec![(0 as usize, 0 as usize, 0 as usize)])
+		LayoutPositionSequence::from_tuples(vec![(0_usize, 0_usize, 0_usize)])
 	}
 
 	fn score_small(&self, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> Option<f64> {
@@ -151,7 +151,7 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 			}
 			return Some(effort_layer[lp1] + effort_layer[lp2] + effort_layer[lp3]);
 		}
-		return None;
+		None
 	}
 
 	fn score_layout_position_sequence(&self, _layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> f64 {
@@ -168,9 +168,8 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		let alt_reduction = config.score_options.hand_alternation_reduction_factor;
 		let roll_reduction = config.score_options.finger_roll_reduction_factor;
 
-		match self.score_small(effort_layer, phalanx_layer, layout_position_sequence.clone(), config) {
-			Some(v) => return v,
-			None => (),
+		if let Some(v) = self.score_small(effort_layer, phalanx_layer, layout_position_sequence.clone(), config) {
+			return v;
 		}
 
 
@@ -330,11 +329,7 @@ pub fn calculate_final_reduction(initial_reduction: f64, _n: usize, weight: f64)
 }
 
 fn same_hand_and_finger(current_hand: Hand, previous_hand: Hand, current_finger: Finger, previous_finger: Finger) -> bool {
-	if current_hand == previous_hand && current_finger == previous_finger {
-		true
-	} else {
-		false
-	}
+	current_hand == previous_hand && current_finger == previous_finger
 }
 
 

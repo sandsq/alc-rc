@@ -132,7 +132,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		(score, visited_positions)
 	}
 
-	fn score_datasets(&self, layout: &Layout<R, C>, datasets: &Vec<FrequencyDataset<u32>>, save_positions: bool) -> (f64, HashSet<LayoutPosition>) {
+	fn score_datasets(&self, layout: &Layout<R, C>, datasets: &[FrequencyDataset<u32>], save_positions: bool) -> (f64, HashSet<LayoutPosition>) {
 		let mut score: f64 = 0.0;
 		let mut visited_positions: HashSet<LayoutPosition> = HashSet::default();
 		// let mut d_ind: usize = 0;
@@ -154,7 +154,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 
 
-	fn score_population(&self, layouts: Vec<Layout<R, C>>, datasets: &Vec<FrequencyDataset<u32>>) -> Vec<(Layout<R, C>, f64)> {
+	fn score_population(&self, layouts: Vec<Layout<R, C>>, datasets: &[FrequencyDataset<u32>]) -> Vec<(Layout<R, C>, f64)> {
 
 		let scores: Vec<f64> = layouts.par_iter()
 			.map(|x| self.score_datasets(x, datasets, false).0)
@@ -171,7 +171,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 	
 
-	fn generate_and_score_initial_population(&self, rng: &mut impl Rng, datasets: &Vec<FrequencyDataset<u32>>) -> Vec<(Layout<R, C>, f64)> {
+	fn generate_and_score_initial_population(&self, rng: &mut impl Rng, datasets: &[FrequencyDataset<u32>]) -> Vec<(Layout<R, C>, f64)> {
 		let valid_keycodes = &self.config.valid_keycodes;
 		let mut initial_population: Vec<(Layout<R, C>, f64)> = Default::default();
 		for _i in 0..self.config.genetic_options.population_size {
@@ -349,9 +349,10 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				for col_index in 0..C {
 					let current_pos = LayoutPosition::new(layer_index, row_index, col_index);
 					let k = final_layout[current_pos];
-					if visited.contains(&current_pos) {
-						continue;
-					} else if !k.is_moveable() || k.is_symmetric() || discriminant(&k.value()) == discriminant(&Keycode::_LS(0)) || discriminant(&k.value()) == discriminant(&Keycode::_LST(0, 0,)) {
+					// if visited.contains(&current_pos) {
+					// 	continue;
+					// } else 
+					if visited.contains(&current_pos) || !k.is_moveable() || k.is_symmetric() || discriminant(&k.value()) == discriminant(&Keycode::_LS(0)) || discriminant(&k.value()) == discriminant(&Keycode::_LST(0, 0,)) {
 						continue;
 					} else {
 						final_layout.get_mut(layer_index, row_index, col_index).unwrap().set_value(Keycode::_NO);

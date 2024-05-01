@@ -417,14 +417,14 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 							// 	panic!("LS in the higher layer should point back down to its source layer. For example, LS1 in layer 0 should be under LS0 in layer 1.")
 						
 						} else {
-							incorrect_layer_switch_locations.push((lp.clone(), lp_corresponding));
+							incorrect_layer_switch_locations.push((lp, lp_corresponding));
 						}
 					} else if let _LST(target_layer, source_layer) = key.value() {
 						let lp_corresponding = LayoutPosition::new(source_layer, row_index, col_index);
 						let key_corresponding = &self[lp_corresponding];
 						if let _LS(new_target_layer) = key_corresponding.value() {
 							if target_layer != new_target_layer {
-								incorrect_layer_switch_locations.push((lp.clone(), lp_corresponding));		
+								incorrect_layer_switch_locations.push((lp, lp_corresponding));		
 							}
 						}
 					}
@@ -457,7 +457,7 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 						continue;
 					}
 					let layout_position = LayoutPosition::new(layer_num, r, c);
-					let layout_position_sequence = LayoutPositionSequence::from_vector(vec![layout_position.clone()]);
+					let layout_position_sequence = LayoutPositionSequence::from_vector(vec![layout_position]);
 					if layer_num == 0 {
 						match key_value {
 							_LS(_i) => layer_switch_pathmap.entry(key_value).or_insert(vec![]).push(layout_position_sequence),
@@ -523,10 +523,10 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layout<R, C> {
 		layout.generate_pathmap()?;
 
 		let (v1, v2) = layout.verify_layout_correctness();
-		if v1.len() > 0 {
+		if !v1.is_empty() {
 			return Err(AlcError::LayoutLayerSwitchError(v1));
 		}
-		if v2.len() > 0 {
+		if !v2.is_empty() {
 			return Err(AlcError::LayoutSymmetryError(v2));
 		}
 		
@@ -544,7 +544,7 @@ impl<const R: usize, const C: usize> Index<(usize, usize, usize)> for Layout<R, 
 impl<const R: usize, const C: usize> Index<LayoutPosition> for Layout<R, C> {
 	type Output = KeycodeKey;
 	fn index(&self, index: LayoutPosition) -> &Self::Output {
-		&self.index((index.layer_index, index.row_index, index.col_index))
+		self.index((index.layer_index, index.row_index, index.col_index))
 	}
 }
 
@@ -557,7 +557,7 @@ impl<const R: usize, const C: usize> fmt::Display for Layout<R, C> {
 			writeln!(f, "{}", layer)?;
 		}
 		if f.alternate() {
-			let mut keys: Vec<&Keycode> = self.keycode_pathmap.keys().into_iter().collect();
+			let mut keys: Vec<&Keycode> = self.keycode_pathmap.keys().collect();
 			keys.sort();
 			for k in keys {
 				let key_text = match k {
@@ -568,7 +568,7 @@ impl<const R: usize, const C: usize> fmt::Display for Layout<R, C> {
 				for seq in self.keycode_pathmap[k].iter() {
 					write!(f, "{}, ", seq)?;
 				}
-				writeln!(f, "")?;
+				write!(f, "\n")?;
 			}
 		}
 		Ok(())
@@ -581,7 +581,7 @@ impl<const R: usize, const C: usize> fmt::Binary for Layout<R, C> {
 			writeln!(f, "{:b}", layer)?;
 		}
 		if f.alternate() {
-			let mut keys: Vec<&Keycode> = self.keycode_pathmap.keys().into_iter().collect();
+			let mut keys: Vec<&Keycode> = self.keycode_pathmap.keys().collect();
 			keys.sort();
 			for k in keys {
 				let key_text = match k {
@@ -592,7 +592,7 @@ impl<const R: usize, const C: usize> fmt::Binary for Layout<R, C> {
 				for seq in self.keycode_pathmap[k].iter() {
 					write!(f, "{}, ", seq)?;
 				}
-				writeln!(f, "")?;
+				write!(f, "\n")?;
 			}
 		}
 		Ok(())

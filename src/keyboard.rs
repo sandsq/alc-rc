@@ -41,7 +41,7 @@ impl LayoutPositionSequence {
 		LayoutPositionSequence { sequence: lps }
 	}
 	pub fn from_tuples(lps: Vec<(usize, usize, usize)>) -> Self {
-		let lps_vec = lps.into_iter().map(|v| LayoutPosition::from_tuple(v)).collect();
+		let lps_vec = lps.into_iter().map(LayoutPosition::from_tuple).collect();
 		LayoutPositionSequence { sequence: lps_vec }
 	}
 	pub fn append(&mut self, other: &mut Self) {

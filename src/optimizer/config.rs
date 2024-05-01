@@ -159,16 +159,16 @@ impl LayoutOptimizerTomlAdapter {
 							comments_string.push_str(option_name);
 							comments_string.push_str(": ");
 							comments_string.push_str(option_description);
-							comments_string.push_str("\n");
+							comments_string.push('\n');
 						},
 						None => {
-							if line.starts_with("[") {
-								comments_string.push_str("\n");
-								if line.trim().len() > 0 {
+							if line.starts_with('[') {
+								comments_string.push('\n');
+								if !line.trim().is_empty() {
 									comments_string.push_str("# ");
 								}
 								comments_string.push_str(line);
-								comments_string.push_str("\n");
+								comments_string.push('\n');
 							}
 						},
 					}
@@ -182,7 +182,7 @@ impl LayoutOptimizerTomlAdapter {
 	}
 
 	pub fn write_to_file(&self, filename: &str) -> Result<(), AlcError> {
-		fs::write(filename, self.try_to_toml_string()?).expect(format!("Unable to write file {}", filename).as_str());
+		fs::write(filename, self.try_to_toml_string()?).unwrap_or_else(|_| panic!("unable to write file {}", filename));
 		Ok(())
 	}
 
