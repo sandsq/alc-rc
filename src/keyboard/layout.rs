@@ -40,7 +40,7 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 		if self.keycode_pathmap.len() == 0 {
 			panic!("Error for the developer! Somehow created a layout without creating a pathmap.");
 		}
-		self.keycode_pathmap.get(&k)
+		self.keycode_pathmap.get(&k) // is there a possibility that the order could be non-deterministic? this could cause randomness despite fixed rng seed
 	}
 	pub fn symmetric_position(&self, lp: LayoutPosition) -> LayoutPosition {
 		self.layers.get(0).unwrap().symmetric_position(lp) // would panic if layout is empty but that shouldn't normally be possible

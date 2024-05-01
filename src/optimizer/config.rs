@@ -212,12 +212,12 @@ impl LayoutOptimizerTomlAdapter {
 pub fn prettify_layer_string(s: String) -> String {
 	let mut output_str = String::from("");
 	for line in s.lines() {
-		if line.trim().len() == 0 {
+		if line.trim().is_empty() {
 			continue;
 		}
-		let newline = &line.replace("\\t", "").replace("\t", "");
+		let newline = &line.replace("\\t", "").replace('\t', "");
 		output_str.push_str(newline);
-		output_str.push_str("\n");
+		output_str.push('\n');
 	}
 	output_str
 }

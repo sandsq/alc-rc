@@ -42,6 +42,7 @@ phalanx_layer = """
 
 [layout_optimizer_config]
 valid_keycodes = []
+num_threads = 1
 
 [layout_optimizer_config.genetic_options]
 population_size = 200
@@ -86,6 +87,7 @@ extra_length_penalty = 1.1
 
 # [layout_optimizer_config]
 # valid_keycodes: Recommended to leave empty, as these will be generated from keycode options. If keycodes are supplied here, they will override keycode options; however, you can simply use the options + `explicit_inclusions` to fine tune the set you want, rather than having to list everything out here.
+# num_threads: 
 
 # [layout_optimizer_config.genetic_options]
 # population_size: Number of layouts per generation.

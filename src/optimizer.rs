@@ -8,6 +8,7 @@ use std::sync::RwLock;
 use std::time::SystemTime;
 use rand::prelude::*;
 use rand::Rng;
+use rand_chacha::ChaCha8Rng;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 use tqdm::tqdm;
@@ -72,7 +73,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 
 	pub fn activate(&mut self) -> () {
-		if self.config.valid_keycodes.len() > 0 {
+		if !self.config.valid_keycodes.is_empty() {
 			println!("valid keycodes is non-empty, so assuming you have supplied the keycodes you want rather than generating the list from keycode options")	
 		} else {
 			self.config.valid_keycodes = generate_default_keycode_set(&self.config.keycode_options).into_iter().collect();
@@ -101,7 +102,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				if save_positions {
 					possible_sequences.push(sequence.clone());
 				}
-				let sequence_score = self.score_function.score_layout_position_sequence(layout, effort_layer, phalanx_layer, sequence, &self.config) * &self.config.score_options.extra_length_penalty.powf((sequence_len - ngram_len) as f64);
+				let sequence_score = self.score_function.score_layout_position_sequence(layout, effort_layer, phalanx_layer, sequence, &self.config) * self.config.score_options.extra_length_penalty.powf((sequence_len - ngram_len) as f64);
 				possible_scores.push(sequence_score);
 			}
 			
@@ -134,8 +135,8 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	fn score_datasets(&self, layout: &Layout<R, C>, datasets: &Vec<FrequencyDataset<u32>>, save_positions: bool) -> (f64, HashSet<LayoutPosition>) {
 		let mut score: f64 = 0.0;
 		let mut visited_positions: HashSet<LayoutPosition> = HashSet::default();
-		let mut d_ind: usize = 0;
-		for dataset in datasets {
+		// let mut d_ind: usize = 0;
+		for (d_ind, dataset) in datasets.iter().enumerate() {
 			let ngram_ratio = 1.0 / dataset.ngram_frequencies.len() as f64;
 			let mut dataset_score = 0.0;
 			for ngram_size in dataset.ngram_frequencies.keys() {
@@ -146,7 +147,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				}
 			}
 			dataset_score *= self.config.dataset_options.dataset_weights[d_ind];
-			d_ind += 1;
+			// d_ind += 1;
 			score += dataset_score;
 		}
 		(score, visited_positions)
@@ -362,25 +363,26 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let (score, _) = self.score_datasets(&final_layout, datasets, false);
 		println!("final layout post removal\n{:#} score: {}", final_layout, score);
 
-		println!("config\n{:?}", self.config);
+		// println!("config\n{:?}", self.config);
 		// println!("datasets {:?}", self.config.dataset_paths);
 		if score != best_scores[0] {
-			println!("removing unused key positions gave a different score, something went wrong")
+			println!("    removing unused key positions gave a different score, something went wrong")
 		} else {
-			println!("verified that removing unused positions has the same score")
+			println!("    verified that removing unused positions has the same score")
 		}
 		let (v1, v2) = final_layout.verify_layout_correctness();
-		if v1.len() > 0 {
-			println!("issue with layer switches {:?}", v1)
+		if !v1.is_empty() {
+			println!("    issue with layer switches {:?}", v1)
 		} else {
-			println!("layer switches checks passed")
+			println!("    layer switches checks passed")
 		}
-		if v2.len() > 0 {
-			println!("issue with symmetric keys {:?}", v2)
+		if !v2.is_empty() {
+			println!("    issue with symmetric keys {:?}", v2)
 		} else {
-			println!("symmetric keys checks passed")
+			println!("    symmetric keys checks passed")
 		}
-		println!("operations: {:?}", self.operation_counter);
+		let ops = self.operation_counter.ops.read().unwrap();
+		println!("operations:\n\tswap: {}, replace: {}, nothing: {}, total: {}", ops.0, ops.1, ops.2, ops.3);
 		println!("initial time: {}", initial_time);
 		println!("avg score time: {}", avg_score_time / self.config.genetic_options.generation_count as f64);
 		println!("avg take top time: {}", avg_take_time / self.config.genetic_options.generation_count as f64);
@@ -441,15 +443,25 @@ pub fn optimize_from_toml(filename: String) {
 	let num_cols = t.layout_info.num_cols;
 	let panic_message = format!("{} x {} layout preset does not exist yet, choose the next largest layout and block key positions. List of available layout sizes should go here: ", num_rows, num_cols);
 	
+	let mut rng = ChaCha8Rng::seed_from_u64(1);
+
 	match (num_rows, num_cols) {
-		(4, 10) => (),
-		(4, 12) => (),
+		(4, 10) => {
+			let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str()).unwrap();
+			lo.optimize(&mut rng).unwrap();
+		},
+		(4, 12) => {
+			let mut lo = LayoutOptimizer::<4, 12, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str()).unwrap();
+			lo.optimize(&mut rng).unwrap();
+		},
 		_ => panic!{"{}", panic_message},
 	};
+
+	
 }
 
 
-fn arg_min(scores: &Vec<f64>) -> usize {
+fn arg_min(scores: &[f64]) -> usize {
 	let min_index = match scores.iter().enumerate().min_by(|(_, a), (_, b)| a.total_cmp(b)).map(|(idx, _)| idx) {
 		Some(v) => v,
 		None => panic!("Error for the developer, couldn't find a min score index"),

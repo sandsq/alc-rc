@@ -8,6 +8,7 @@ debug = true
 
 [dependencies]
 array2d = "0.3.2"
+clap = { version = "4.5.4", features = ["derive"] }
 delegate = "0.12.0"
 divan = "0.1.14"
 rand = "0.8.5"
