@@ -1,13 +1,15 @@
 pub mod config;
 pub mod optimizer_presets;
 
-use std::cell::Cell;
 use std::collections::HashSet;
+use std::iter::zip;
 use std::mem::discriminant;
-use std::thread;
+use std::sync::RwLock;
 use std::time::SystemTime;
 use rand::prelude::*;
 use rand::Rng;
+use rayon::iter::IntoParallelRefIterator;
+use rayon::iter::ParallelIterator;
 use tqdm::tqdm;
 use std::path::PathBuf;
 
@@ -28,19 +30,40 @@ use self::dataset::FrequencyDataset;
 use self::frequency_holder::{SingleGramFrequencies, TopFrequenciesToTake::*};
 use self::keycode::{Keycode, generate_default_keycode_set};
 
+#[derive(Debug)]
+pub struct OperationCounter {
+	ops: RwLock<(u32, u32, u32, u32)>,
+}
+impl OperationCounter {
+	fn new(v: (u32, u32, u32, u32)) -> Self {
+		OperationCounter {
+			ops: RwLock::new(v)
+		}
+	}
+}
+impl PartialEq for OperationCounter {
+	fn eq(&self, other: &Self) -> bool {
+		let s = self.ops.read().unwrap();
+		let o = other.ops.read().unwrap();
+		s.0 == o.0 && s.1 == o.1 && s.2 == o.2 && s.3 == o.3
+	}
+}
 
 #[derive(Debug, PartialEq)]
-pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, C> + Send {
+pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, C> + Send + Sync {
 	pub base_layout: Layout<R, C>,
 	pub effort_layer: Layer<R, C, f64>,
 	pub phalanx_layer: Layer<R, C, PhalanxKey>,
 	score_function: S,
 	pub config: LayoutOptimizerConfig,
-	operation_counter: Cell<(u32, u32, u32, u32)>, // swaps, replacements, nothings, total
+	// operation_counter: Cell<(u32, u32, u32, u32)>, // swaps, replacements, nothings, total
+	operation_counter: OperationCounter,
 }
-impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> + Send {
-	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f64>, phalanx_layer: Layer<R, C, PhalanxKey>, score_function: S, config: LayoutOptimizerConfig, operation_counter: Cell<(u32, u32, u32, u32)>) -> Self {
-		LayoutOptimizer { base_layout, effort_layer, phalanx_layer, score_function, config, operation_counter }
+impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> + Send + Sync {
+	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f64>, phalanx_layer: Layer<R, C, PhalanxKey>, score_function: S, config: LayoutOptimizerConfig, operation_counter: OperationCounter) -> Self {
+		LayoutOptimizer { base_layout, effort_layer, phalanx_layer, score_function, config, 
+			operation_counter 
+		}
 	}
 
 	pub fn compute_datasets(&self) -> Vec<FrequencyDataset<u32>> {
@@ -130,13 +153,20 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 
 
-	fn score_population(&self, layouts: &Vec<Layout<R, C>>, datasets: &Vec<FrequencyDataset<u32>>) -> Vec<(Layout<R, C>, f64)> {
-		let mut new_population: Vec<(Layout<R, C>, f64)> = Default::default();
-		for layout in layouts {
-			let (score, _) = self.score_datasets(layout, datasets, false);
-			new_population.push((layout.clone(), score));
-		}
-		new_population
+	fn score_population(&self, layouts: Vec<Layout<R, C>>, datasets: &Vec<FrequencyDataset<u32>>) -> Vec<(Layout<R, C>, f64)> {
+
+		let scores: Vec<f64> = layouts.par_iter()
+			.map(|x| self.score_datasets(x, datasets, false).0)
+			.collect();
+			
+		zip(layouts, scores).collect()
+		
+		// let mut new_population: Vec<(Layout<R, C>, f64)> = Default::default();
+		// for layout in layouts {
+		// 	let (score, _) = self.score_datasets(layout, datasets, false);
+		// 	new_population.push((layout.clone(), score));
+		// }
+		// new_population
 	}
 	
 
@@ -147,7 +177,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			let mut initial_layout = self.base_layout.clone();
 			initial_layout.randomize(rng, valid_keycodes).unwrap();
 			let (initial_score, _) = self.score_datasets(&initial_layout, datasets, false);
-			initial_population.push((initial_layout.clone(), initial_score));
+			initial_population.push((initial_layout, initial_score));
 		}
 		initial_population
 	}
@@ -157,7 +187,6 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let num_to_take = (self.config.genetic_options.fitness_cutoff * (self.config.genetic_options.population_size as f64)).ceil() as usize;
 		let _ = population.split_off(num_to_take); // the returned value is the low score ones
 		let (left, right): (Vec<Layout<R, C>>, Vec<f64>) =  population.into_iter().unzip();
-		// println!("top scores of each generation {:?}", right);
 		(left, right)
 	}
 
@@ -167,8 +196,9 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let valid_keycodes = &self.config.valid_keycodes;
 		// modify surviving layouts
 		for layout in &mut layouts {
-			let op_counter = self.operation_counter.get();		
-			self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2, op_counter.3 + 1));
+			let mut op_counter = self.operation_counter.ops.write().unwrap();
+			op_counter.3 += 1;
+			// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2, op_counter.3 + 1));
 
 			let roll: f64 = rng.gen();
 			// println!("{}, {}", roll, swap_threshold);
@@ -180,32 +210,39 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				};
 				// println!("swapping {} and {}", p1, p2);
 				let swap_happened = layout.swap(p1, p2);
-				let op_counter = self.operation_counter.get();
+				// let op_counter = self.operation_counter.get();
 				if swap_happened {
-					self.operation_counter.set((op_counter.0 + 1, op_counter.1, op_counter.2, op_counter.3));
+					op_counter.0 += 1;
+					// self.operation_counter.set((op_counter.0 + 1, op_counter.1, op_counter.2, op_counter.3));
 				} else {
-					self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
+					op_counter.2 += 1;
+					// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 				}
 			} else {
 				if let Some(p) = layout.generate_valid_replace_position(rng) {
 					// println!("valid keycodes {:?}", valid_keycodes);
 					let keycode = valid_keycodes.choose(rng).unwrap();
 					let replace_happened = layout.replace(p, *keycode);
-					let op_counter = self.operation_counter.get();
+					// let op_counter = self.operation_counter.get();
 					if replace_happened {
-						self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2, op_counter.3));
+						op_counter.1 += 1;
+						// self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2, op_counter.3));
 					} else {
-						self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
+						op_counter.2 += 1;
+						// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 					}
 				} else {
-					self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
+					op_counter.2 += 1;
+					// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 				}
 			}
 		}
 		// fill up to population size
 		while layouts.len() < (population_size as usize) {
-			let op_counter = self.operation_counter.get();		
-			self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2, op_counter.3 + 1));
+			let mut op_counter = self.operation_counter.ops.write().unwrap();
+			op_counter.3 += 1;
+			// let op_counter = self.operation_counter.get();	
+			// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2, op_counter.3 + 1));
 
 			let mut new_layout = layouts.choose(rng).unwrap().clone();
 			let roll: f64 = rng.gen();
@@ -219,25 +256,30 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				};
 				// println!("swapping {} and {}", p1, p2);
 				let swap_happened = new_layout.swap(p1, p2);
-				let op_counter = self.operation_counter.get();
+				// let op_counter = self.operation_counter.get();
 				if swap_happened {
-					self.operation_counter.set((op_counter.0 + 1, op_counter.1, op_counter.2, op_counter.3));
+					op_counter.0 += 1;
+					// self.operation_counter.set((op_counter.0 + 1, op_counter.1, op_counter.2, op_counter.3));
 				} else {
-					self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
+					op_counter.2 += 1;
+					// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 				}
 			} else {
 				if let Some(p) = new_layout.generate_valid_replace_position(rng) {
 
 					let keycode = valid_keycodes.choose(rng).unwrap();
 					let replace_happened = new_layout.replace(p, *keycode);
-					let op_counter = self.operation_counter.get();
+					// let op_counter = self.operation_counter.get();
 					if replace_happened {
-						self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2, op_counter.3));
+						op_counter.1 += 1;
+						// self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2, op_counter.3));
 					} else {
-						self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
+						op_counter.2 += 1
+						// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 					}
 				} else {
-					self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
+					op_counter.2 += 1;
+					// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 				}
 			}
 			layouts.push(new_layout);
@@ -245,7 +287,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		layouts
 	}
 
-	pub fn optimize(&mut self, rng: &mut impl Rng) -> Result<Layout<R, C>, AlcError> {
+	pub fn optimize(&mut self, rng: &mut impl Rng, threadcount: usize) -> Result<Layout<R, C>, AlcError> {
 		let datasets = &self.compute_datasets();
 		if datasets.len() != self.config.dataset_options.dataset_weights.len() {
 			return Err(AlcError::DatasetWeightsMismatchError(datasets.len(), self.config.dataset_options.dataset_weights.len()));
@@ -271,29 +313,13 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let mut layouts_and_scores = self.generate_and_score_initial_population(rng, datasets);
 		let initial_time = now.elapsed().unwrap().as_secs_f64();
 
-		// println!("initial best layout\n{}", best_layouts[0]);
-		// println!("initial, best score: {}, worst score {}", best_scores[0], best_scores[best_scores.len()-1]);
-
-			// let chunks = input.chunks((input.len() / worker_count).max(1));
-		
-			// for chunk in chunks {
-			// 	// collect the data for the current chunk into an owned variable before sending it to the thread.
-			// 	let string = chunk.join("");
-			// 	thread::spawn(move || {
-			// 		// solve the problem for the current chunk
-			// 	});
-			// }
-		// let chunks = layouts.chunks((layouts.len() / 8).max(1));
-		// for chunk in chunks {
-		// 	let layout = chunk.clone();
-		// 	thread::spawn(move || {
-		// 		let (score, _) = self.score_datasets(&layout[0], datasets, false);
-		// 	});
-		// }
+			
 		let mut layouts: Vec<Layout<R, C>>; // = Default::default();
 		let mut best_layouts;
-		let mut best_scores: Vec<f64> = Default::default();
+		let mut best_scores: Vec<f64>;
 
+		// let tcount = 20;
+		rayon::ThreadPoolBuilder::new().num_threads(threadcount).build_global().unwrap();
 		for i in tqdm(0..self.config.genetic_options.generation_count) {
 
 			now = SystemTime::now();
@@ -305,7 +331,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			avg_gen_time +=  now.elapsed().unwrap().as_secs_f64();
 
 			now = SystemTime::now();
-			layouts_and_scores = self.score_population(&layouts, datasets);
+			layouts_and_scores = self.score_population(layouts, datasets);
 			avg_score_time += now.elapsed().unwrap().as_secs_f64();
 			
 			println!("after {} generation(s), best score: {}, worst score {}", i, best_scores[0], best_scores[best_scores.len()-1]);
@@ -395,7 +421,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			phalanx_layer: phalanx_layer,
 			score_function: S::new(),
 			config: t.layout_optimizer_config,
-			operation_counter: Cell::new((0, 0, 0, 0)),
+			operation_counter: OperationCounter::new((0, 0, 0, 0)),
 		})
 	}
 	pub fn try_from_optimizer_toml_file(f: &str) -> Result<Self, AlcError> {
@@ -464,7 +490,7 @@ mod tests {
 		let mut config = LayoutOptimizerConfig::default();
 		config.dataset_options.max_ngram_size = 2;
 		config.dataset_options.dataset_paths = vec![String::from("./data/small_test/")];
-		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, Cell::new((0, 0, 0, 0)));
+		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, OperationCounter::new((0, 0, 0, 0)));
 		let datasets = layout_optimizer.compute_datasets();
 		let twogram_frequency = datasets[0].ngram_frequencies.get(&(2 as usize)).unwrap();
 		println!("{:?}", twogram_frequency);
@@ -503,7 +529,7 @@ mod tests {
 		// test_layout.randomize(&mut rng, &lo.config.valid_keycodes).unwrap();
 		// println!("initial randomized layout\n{:#}", test_layout);
 		println!("effort layer\n{}", lo.effort_layer);
-		let _final_layout = lo.optimize(&mut rng).unwrap();
+		let _final_layout = lo.optimize(&mut rng, 1).unwrap();
 		// println!("final layout\n{:b}", final_layout);
 	}
 
@@ -518,7 +544,7 @@ mod tests {
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
 		println!("effort layer\n{}", lo.effort_layer);
-		let _final_layout = lo.optimize(&mut rng).unwrap();
+		let _final_layout = lo.optimize(&mut rng, 1).unwrap();
 	}
 
 	#[test]
@@ -544,6 +570,6 @@ mod tests {
 		
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
 		println!("effort layer\n{}", lo.effort_layer);
-		let _final_layout = lo.optimize(&mut rng).unwrap();
+		let _final_layout = lo.optimize(&mut rng, 16).unwrap();
 	}
 }

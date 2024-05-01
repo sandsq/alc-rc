@@ -184,7 +184,7 @@ impl LayoutOptimizerTomlAdapter {
 		Ok(())
 	}
 
-	pub fn try_from_layout_optimizer<const R: usize, const C: usize, S>(lo: &LayoutOptimizer<R, C, S>) -> Self where S: Score<R, C> + Send {
+	pub fn try_from_layout_optimizer<const R: usize, const C: usize, S>(lo: &LayoutOptimizer<R, C, S>) -> Self where S: Score<R, C> + Send + Sync {
 		let base_layout_string = format!("{:b}", lo.base_layout);
 		let effort_layer_string = format!("{}", lo.effort_layer);
 		let phalanx_layer_string = format!("{}", lo.phalanx_layer);

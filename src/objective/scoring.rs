@@ -24,6 +24,7 @@ impl SimpleScoreFunction {
 	}
 }
 unsafe impl Send for SimpleScoreFunction{}
+unsafe impl Sync for SimpleScoreFunction{}
 
 impl<const R: usize, const C: usize> Score<R, C> for SimpleScoreFunction {
 	fn new() -> Self {
@@ -56,6 +57,7 @@ impl AdvancedScoreFunction {
 	}
 }
 unsafe impl Send for AdvancedScoreFunction{}
+unsafe impl Sync for AdvancedScoreFunction{}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum RollDirection {
