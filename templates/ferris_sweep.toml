@@ -49,10 +49,10 @@ phalanx_layer = """
 
 [layout_optimizer_config]
 valid_keycodes = []
-num_threads = 16
+num_threads = 20
 
 [layout_optimizer_config.genetic_options]
-population_size = 500
+population_size = 1000
 generation_count = 150
 fitness_cutoff = 0.1
 swap_weight = 2.0
@@ -68,7 +68,7 @@ include_misc_symbols_shifted = false
 explicit_inclusions = ["_SPC", "_SFT", "_ENT"]
 
 [layout_optimizer_config.dataset_options]
-dataset_paths = ["./data/rust_book_test/", "./data/rust_book/"]
+dataset_paths = ["$HOME/coding/rustprog/alc-rs/data/rust_book_test/", "../alc-rs/data/rust_book/"]
 dataset_weights = [0.1, 1.0]
 max_ngram_size = 4
 top_n_ngrams_to_take = 100

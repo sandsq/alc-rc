@@ -253,6 +253,7 @@ pub fn option_descriptions() -> HashMap<String, String> {
 	options_map.insert(String::from("layout"), String::from("Collection of layers. Each key is of the format {{keycode}}_{{moveability flag}}{{symmetry flag}}. Keycode reference should be available here: . Moveability of 1 means the optimizer can change the key in the given position; otherwise, the key will be fixed. Symmetry of 1 means it and its corresponding symmetric key will be locked in symmetry -- if one moves, the other will be moved to the corresponding symmetric location."));
 	options_map.insert(String::from("effort_layer"), String::from("Specify the relative effort required to reach each key position. Smaller number means lower effort. Recommended to make the most accessible keys a weight of 1 and scale other keys accordingly. Does require some tinkering to create a grid that works for you."));
 	options_map.insert(String::from("phalanx_layer"), String::from("Specify which hand and finger you want to use for each key. Used in calculating hand alternation bonuses, roll bonuses, and same finger penalties. Format is {{hand}}:{{finger}}, with hand options (L)eft and (R)ight and finger options (T)humb, (I)ndex, (M)iddle, (R)ing, (P)inkie, and (J)oint. Joint refers to where your pinkie meets your palm; some users use this part of their hand to hit the bottom left- / bottom right-most keys."));
+	options_map.insert("num_threads".to_string(), "For each generation, score calculation can be parallelized over the layouts.".to_string());
 
 	options_map
 }
