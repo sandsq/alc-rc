@@ -49,9 +49,10 @@ phalanx_layer = """
 
 [layout_optimizer_config]
 valid_keycodes = []
+num_threads = 16
 
 [layout_optimizer_config.genetic_options]
-population_size = 200
+population_size = 1000
 generation_count = 100
 fitness_cutoff = 0.1
 swap_weight = 2.0

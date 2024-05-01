@@ -170,11 +170,11 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 			let k2_counterpart_clone = &self_clone[p2_counterpart];
 			// I think these are harder to handle in the calling function, so just have nothing happen here
 			if !k2_counterpart_clone.is_moveable() {
-				println!("Warning: attempted to swap a layer switch with position x: {} and found that x's corresponding position {} was not moveable. Doing nothing instead.", p2, p2_counterpart);
+				// println!("Warning: attempted to swap a layer switch with position x: {} and found that x's corresponding position {} was not moveable. Doing nothing instead.", p2, p2_counterpart);
 				return false;
 			}
 			if k2_counterpart_clone.is_symmetric() {
-				println!("Warning: attempted to swap a layer switch with position x: {} and found that x's corresponding position {} was symmetric, making the swap not valid. Doing nothing instead.", p2, p2_counterpart);
+				// println!("Warning: attempted to swap a layer switch with position x: {} and found that x's corresponding position {} was symmetric, making the swap not valid. Doing nothing instead.", p2, p2_counterpart);
 				return false;
 			}
 			// yeah gonna want to redo this section once I understand more
@@ -191,17 +191,17 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 		} else if k1_clone.is_symmetric() {
 			let p1_counterpart = self_clone.symmetric_position(p1);
 			if p2.col_index as f64 == (C as f64 - 1.0) / 2.0 {
-				println!("Warning: symmetric p1 {} is being swapped into the center column {}, meaning p1's counterpart {} has no where to go, doing nothing instead.", p1, p2, p1_counterpart);
+				// println!("Warning: symmetric p1 {} is being swapped into the center column {}, meaning p1's counterpart {} has no where to go, doing nothing instead.", p1, p2, p1_counterpart);
 				return false;
 			}
 			let p2_counterpart = self_clone.symmetric_position(p2);
 			let k2_counterpart_clone = &self_clone[p2_counterpart];
 			if !k2_counterpart_clone.is_moveable() {
-				println!("Warning: attempted to swap a symmetric key with position x: {} and found that x's corresponding position {} was not moveable. Doing nothing instead.", p2, p2_counterpart);
+				// println!("Warning: attempted to swap a symmetric key with position x: {} and found that x's corresponding position {} was not moveable. Doing nothing instead.", p2, p2_counterpart);
 				return false;
 			}
 			if let _LS(_target_layer) = k2_counterpart_clone.value() {
-				println!("Warning: attempted symmetric swap but p2 {}'s counterpart {} is a layer switch. Doing nothing instead.", p2, p2_counterpart);
+				// println!("Warning: attempted symmetric swap but p2 {}'s counterpart {} is a layer switch. Doing nothing instead.", p2, p2_counterpart);
 				return false;
 			}
 			k1.replace_with(&k2_clone);

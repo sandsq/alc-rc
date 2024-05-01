@@ -77,6 +77,7 @@ pub struct LayoutOptimizerConfig {
 	pub valid_keycodes: Vec<Keycode>,
 	pub dataset_options: DatasetOptions,
 	pub score_options: ScoreOptions,
+	pub num_threads: usize,
 
 }
 impl Default for LayoutOptimizerConfig {
@@ -90,6 +91,7 @@ impl Default for LayoutOptimizerConfig {
 			valid_keycodes: vec![],
 			dataset_options: DatasetOptions::default(),
 			score_options: ScoreOptions::default(),
+			num_threads: 1,
 		 }
 	}
 }
@@ -184,7 +186,7 @@ impl LayoutOptimizerTomlAdapter {
 		Ok(())
 	}
 
-	pub fn try_from_layout_optimizer<const R: usize, const C: usize, S>(lo: &LayoutOptimizer<R, C, S>) -> Self where S: Score<R, C> {
+	pub fn try_from_layout_optimizer<const R: usize, const C: usize, S>(lo: &LayoutOptimizer<R, C, S>) -> Self where S: Score<R, C> + Send + Sync {
 		let base_layout_string = format!("{:b}", lo.base_layout);
 		let effort_layer_string = format!("{}", lo.effort_layer);
 		let phalanx_layer_string = format!("{}", lo.phalanx_layer);
