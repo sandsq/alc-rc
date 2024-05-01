@@ -217,7 +217,7 @@ fn cols_from_string(input_s: &str, c: usize) -> Result<Vec<&str>, AlcError> {
 	// see note for rows_from_string
 	// | is used as a separator between the row index and the row
 	let cols = if input_s.contains("|") {
-		let cols_no_index: Vec<&str> = input_s.split("|").collect();
+		let cols_no_index: Vec<&str> = input_s.split('|').collect();
 		cols_no_index[1].split_whitespace()
 	} else {
 		input_s.split_whitespace()

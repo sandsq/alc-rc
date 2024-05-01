@@ -13,7 +13,7 @@ use super::layer::Layer;
 use super::{LayoutPosition, LayoutPositionSequence};
 
 type KeycodePathMap = HashMap<Keycode, Vec<LayoutPositionSequence>>;
-
+type CorrespondingPositions = Vec<(LayoutPosition, LayoutPosition)>;
 
 /// A keyboard layout is a collection of layers of KeycodeKeys, plus additional info specifying how to navigate the layout, etc. (fill in later)
 /// Layouts with multiple layers must have a way to access every layer.
@@ -23,7 +23,7 @@ pub struct Layout<const R: usize, const C: usize> {
 	layers: Vec<Layer<R, C, KeycodeKey>>,
 	keycode_pathmap: KeycodePathMap,
 }
-impl<'a, const R: usize, const C: usize> Layout<R, C> {
+impl<const R: usize, const C: usize> Layout<R, C> {
 	// pub fn get(&self, layer_index: usize, row_index: usize, col_index: usize) -> Option<&KeycodeKey> {
 	// 	self.layers.get(layer_index)?.get(row_index, col_index)
 	// }
@@ -37,13 +37,13 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 		self.layers.get_mut(lp.layer_index)?.get_mut(lp.row_index, lp.col_index)
 	}
 	pub fn paths_to_keycode(&self, k: Keycode) -> Option<&Vec<LayoutPositionSequence>> {
-		if self.keycode_pathmap.len() == 0 {
+		if self.keycode_pathmap.is_empty() {
 			panic!("Error for the developer! Somehow created a layout without creating a pathmap.");
 		}
 		self.keycode_pathmap.get(&k) // is there a possibility that the order could be non-deterministic? this could cause randomness despite fixed rng seed
 	}
 	pub fn symmetric_position(&self, lp: LayoutPosition) -> LayoutPosition {
-		self.layers.get(0).unwrap().symmetric_position(lp) // would panic if layout is empty but that shouldn't normally be possible
+		self.layers.first().unwrap().symmetric_position(lp) // would panic if layout is empty but that shouldn't normally be possible
 	}
 	pub fn init_blank(num_layers: usize) -> Self {
 		let mut layers: Vec<Layer<R, C, KeycodeKey>> = vec![];
@@ -62,11 +62,11 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 
 
 	/// Randomly places [Keycode]s from `valid_keycodes` into the layout. Keys can be blocked off with __00 (_NO keycode, not moveable, not symmetric) to account for (currently) unsupported sizes and non-standard form factors. Prefilled keys are not randomized so that layouts can be "seeded" with "good" initial layouts.
-	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: &Vec<Keycode>) -> Result<(), AlcError> {
+	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: &[Keycode]) -> Result<(), AlcError> {
 		let mut used_all_keycodes_flag = false;
-		let mut valid_keycodes_all = VecDeque::from(valid_keycodes.clone());
+		let mut valid_keycodes_all = VecDeque::from(valid_keycodes.to_owned());
 		valid_keycodes_all.make_contiguous().shuffle(rng);
-		let mut valid_keycodes_to_draw_from = VecDeque::from(valid_keycodes.clone());
+		let mut valid_keycodes_to_draw_from = VecDeque::from(valid_keycodes.to_owned());
 		valid_keycodes_to_draw_from.make_contiguous().shuffle(rng);
 		for layer_num in 0..self.layers.len() {
 			let layer = self.layers.get_mut(layer_num).unwrap();
@@ -100,7 +100,7 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 					return None;
 				},
 			};
-			if output_sequences_to_ngram.len() == 0 {
+			if output_sequences_to_ngram.is_empty() {
 				output_sequences_to_ngram = sequences_to_keycode.to_vec();
 				// output_sequences_to_ngram = sequences_to_keycode.clone();
 			} else {
@@ -130,8 +130,8 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 			// panic!("Error for the developer! Don't try to swap the same positions {} and {}.", p1, p2)
 			return false;
 		}
-		let k1 = &self[p1.clone()];
-		let k2 = &self[p2.clone()];
+		let k1 = &self[p1];
+		let k2 = &self[p2];
 		if !k1.is_moveable() || !k2.is_moveable() {
 			panic!("Error for the developer! Don't try to swap unmoveable positions.")
 		}
@@ -178,15 +178,15 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 				return false;
 			}
 			// yeah gonna want to redo this section once I understand more
-			k1.replace_with(&k2_clone);
+			k1.replace_with(k2_clone);
 			let k2 = self.get_mut_from_layout_position(p2).unwrap();
-			k2.replace_with(&k1_clone);
+			k2.replace_with(k1_clone);
 
 			let k1_counterpart = self.get_mut_from_layout_position(p1_counterpart).unwrap();
-			k1_counterpart.replace_with(&k2_counterpart_clone);
+			k1_counterpart.replace_with(k2_counterpart_clone);
 			let k2_counterpart = self.get_mut_from_layout_position(p2_counterpart).unwrap();
 			let k1_counterpart_clone = &self_clone[p1_counterpart];
-			k2_counterpart.replace_with(&k1_counterpart_clone);
+			k2_counterpart.replace_with(k1_counterpart_clone);
 			swap_happened = true;
 		} else if k1_clone.is_symmetric() {
 			let p1_counterpart = self_clone.symmetric_position(p1);
@@ -204,20 +204,20 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 				// println!("Warning: attempted symmetric swap but p2 {}'s counterpart {} is a layer switch. Doing nothing instead.", p2, p2_counterpart);
 				return false;
 			}
-			k1.replace_with(&k2_clone);
+			k1.replace_with(k2_clone);
 			let k2 = self.get_mut_from_layout_position(p2).unwrap();
-			k2.replace_with(&k1_clone);
+			k2.replace_with(k1_clone);
 
 			let k1_counterpart = self.get_mut_from_layout_position(p1_counterpart).unwrap();
-			k1_counterpart.replace_with(&k2_counterpart_clone);
+			k1_counterpart.replace_with(k2_counterpart_clone);
 			let k2_counterpart = self.get_mut_from_layout_position(p2_counterpart).unwrap();
 			let k1_counterpart_clone = &self_clone[p1_counterpart];
-			k2_counterpart.replace_with(&k1_counterpart_clone);
+			k2_counterpart.replace_with(k1_counterpart_clone);
 			swap_happened = true;
 		} else {
-			k1.replace_with(&k2_clone);
+			k1.replace_with(k2_clone);
 			let k2 = self.get_mut_from_layout_position(p2).unwrap();
-			k2.replace_with(&k1_clone);
+			k2.replace_with(k1_clone);
 			swap_happened = true;
 		}
 		self.generate_pathmap().unwrap();
@@ -308,7 +308,7 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 					panic!("key 1 was a layer switch and either i) no non-symmetric key 2s could be found or ii) no key 2s could be found in the same layer or iii) not non-layer switch key 2s could be found");
 				}
 			}
-			return Some((p1, p2));
+			Some((p1, p2))
 		} else {
 			while std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LS(1)) || (!k1.is_symmetric() && k2.is_symmetric()) || std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LST(1, 2)) {
 				p2 = self.generate_random_moveable_position(rng)?;
@@ -320,7 +320,7 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 					panic!("key 1 was not a layer switch but proper k2 could not be found");
 				}
 			}
-			return Some((p1, p2))
+			Some((p1, p2))
 		}
 	}
 
@@ -377,11 +377,12 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 				for col_index in 0..C {
 					let current_position = LayoutPosition::new(layer_index, row_index, col_index);
 					let current_key_value = self[current_position].value();
-					if visited_positions.contains(&current_position) {
-						continue;
-					} else if discriminant(&current_key_value) == discriminant(&_LST(0, 0)) {
-						continue;
-					} else if current_key_value == _NO {
+					// if visited_positions.contains(&current_position) {
+					// 	continue;
+					// } else if discriminant(&current_key_value) == discriminant(&_LST(0, 0)) {
+					// 	continue;
+					// } else 
+					if visited_positions.contains(&current_position) || discriminant(&current_key_value) == discriminant(&_LST(0, 0)) || current_key_value == _NO {
 						continue;
 					} else {
 						return Err(AlcError::IncompletePathmapError(current_key_value, current_position));
@@ -393,8 +394,9 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 		Ok(true)
 	}
 
+	
 	/// layer switches, symmetry
-	pub fn verify_layout_correctness(&self) -> (Vec<(LayoutPosition, LayoutPosition)>, Vec<(LayoutPosition, LayoutPosition)>) {
+	pub fn verify_layout_correctness(&self) -> (CorrespondingPositions, CorrespondingPositions) {
 		let mut incorrect_layer_switch_locations: Vec<(LayoutPosition, LayoutPosition)> = vec![];
 		let mut incorrect_symmetry_locations: Vec<(LayoutPosition, LayoutPosition)> = vec![];
 		for layer_index in 0..self.layers.len() {
@@ -491,6 +493,9 @@ impl<'a, const R: usize, const C: usize> Layout<R, C> {
 	pub fn len(&self) -> usize {
 		self.layers.len()
 	}
+	pub fn is_empty(&self) -> bool {
+		self.layers.is_empty()
+	}
 }
 
 impl<const R: usize, const C: usize> TryFrom<&str> for Layout<R, C> {
@@ -568,7 +573,7 @@ impl<const R: usize, const C: usize> fmt::Display for Layout<R, C> {
 				for seq in self.keycode_pathmap[k].iter() {
 					write!(f, "{}, ", seq)?;
 				}
-				write!(f, "\n")?;
+				writeln!(f)?;
 			}
 		}
 		Ok(())
@@ -592,7 +597,7 @@ impl<const R: usize, const C: usize> fmt::Binary for Layout<R, C> {
 				for seq in self.keycode_pathmap[k].iter() {
 					write!(f, "{}, ", seq)?;
 				}
-				write!(f, "\n")?;
+				writeln!(f)?;
 			}
 		}
 		Ok(())

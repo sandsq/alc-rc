@@ -53,6 +53,9 @@ impl LayoutPositionSequence {
 	pub fn len(&self) -> usize {
 		self.sequence.len()
 	}
+	pub fn is_empty(&self) -> bool {
+		self.sequence.is_empty()
+	}
 
 }
 impl Index<usize> for LayoutPositionSequence {

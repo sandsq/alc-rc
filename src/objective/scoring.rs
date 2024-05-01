@@ -23,6 +23,11 @@ impl SimpleScoreFunction {
 		SimpleScoreFunction{}
 	}
 }
+impl Default for SimpleScoreFunction {
+	fn default() -> Self {
+		Self::new()
+	}
+}
 unsafe impl Send for SimpleScoreFunction{}
 unsafe impl Sync for SimpleScoreFunction{}
 
@@ -54,6 +59,11 @@ pub struct AdvancedScoreFunction {}
 impl AdvancedScoreFunction {
 	pub fn new() -> Self {
 		AdvancedScoreFunction {}
+	}
+}
+impl Default for AdvancedScoreFunction {
+	fn default() -> Self {
+		Self::new()
 	}
 }
 unsafe impl Send for AdvancedScoreFunction{}
