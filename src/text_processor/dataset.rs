@@ -31,7 +31,9 @@ impl FrequencyDataset<u32> {
 	}
 
 	/// Because some ngrams are so infrequent and would only serve to increase computation time without affecting layout score very much, `top_n_to_take` allows you to choose how many of the most frequent ngrams you want to include.
-	pub fn try_from_dir(dir: PathBuf, max_ngram_size: usize, top_frequencies_to_take: TopFrequenciesToTake, options: &KeycodeOptions) -> Result<Self, AlcError> {
+	pub fn try_from_dir(dir_string: &str, max_ngram_size: usize, top_frequencies_to_take: TopFrequenciesToTake, options: &KeycodeOptions) -> Result<Self, AlcError> {
+		let dir_expanded: String = shellexpand::env(dir_string).unwrap().to_string();
+		let dir = PathBuf::try_from(dir_expanded).unwrap();
 		let metadata = dir.metadata().unwrap_or_else(|e| panic!("{}, {:?}", e, dir));
 		if !metadata.is_dir() {
 			Err(AlcError::ExpectedDirectoryError(dir))
@@ -79,7 +81,7 @@ mod tests {
 
 	#[test]
 	fn test_from_directory() {
-		let frequency_dataset = FrequencyDataset::try_from_dir(PathBuf::try_from("./data/rust_book_test/").unwrap(), 4, All, &KeycodeOptions::default()).unwrap();
+		let frequency_dataset = FrequencyDataset::try_from_dir("./data/rust_book_test/", 4, All, &KeycodeOptions::default()).unwrap();
 		let twogram_frequency = &frequency_dataset.ngram_frequencies[&2];
 		assert_eq!(twogram_frequency[Ngram::new(vec![_H, _E])], 145 + 201);
 		assert_eq!(twogram_frequency[Ngram::new(vec![_B, _E])], 34 + 23);

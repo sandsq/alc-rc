@@ -68,7 +68,7 @@ include_misc_symbols_shifted = false
 explicit_inclusions = ["_SPC", "_SFT", "_ENT"]
 
 [layout_optimizer_config.dataset_options]
-dataset_paths = ["$HOME/coding/rustprog/alc-rs/data/rust_book_test/", "../alc-rs/data/rust_book/"]
+dataset_paths = ["~/coding/rustprog/alc-rs/data/rust_book_test/", "~/coding/rustprog/alc-rs/data/rust_book/"]
 dataset_weights = [0.1, 1.0]
 max_ngram_size = 4
 top_n_ngrams_to_take = 100

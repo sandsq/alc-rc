@@ -12,7 +12,6 @@ use rand_chacha::ChaCha8Rng;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 use tqdm::tqdm;
-use std::path::PathBuf;
 
 
 use crate::alc_error::AlcError;
@@ -69,7 +68,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 
 	pub fn compute_datasets(&self) -> Vec<FrequencyDataset<u32>> {
 		self.config.dataset_options.dataset_paths.iter()
-			.map(|x| FrequencyDataset::<u32>::try_from_dir(PathBuf::from(x), self.config.dataset_options.max_ngram_size, Num(self.config.dataset_options.top_n_ngrams_to_take), &self.config.keycode_options).unwrap()).collect::<Vec<FrequencyDataset<u32>>>()
+			.map(|x| FrequencyDataset::<u32>::try_from_dir(x, self.config.dataset_options.max_ngram_size, Num(self.config.dataset_options.top_n_ngrams_to_take), &self.config.keycode_options).unwrap()).collect::<Vec<FrequencyDataset<u32>>>()
 	}
 
 	pub fn activate(&mut self) {
