@@ -32,7 +32,7 @@ impl FrequencyDataset<u32> {
 
 	/// Because some ngrams are so infrequent and would only serve to increase computation time without affecting layout score very much, `top_n_to_take` allows you to choose how many of the most frequent ngrams you want to include.
 	pub fn try_from_dir(dir_string: &str, max_ngram_size: usize, top_frequencies_to_take: TopFrequenciesToTake, options: &KeycodeOptions) -> Result<Self, AlcError> {
-		let dir_expanded: String = shellexpand::env(dir_string).unwrap().to_string();
+		let dir_expanded: String = shellexpand::full(dir_string).unwrap().to_string();
 		let dir = PathBuf::try_from(dir_expanded).unwrap();
 		let metadata = dir.metadata().unwrap_or_else(|e| panic!("{}, {:?}", e, dir));
 		if !metadata.is_dir() {
