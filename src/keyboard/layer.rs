@@ -73,7 +73,7 @@ impl<const R: usize, const C: usize, T> Index<LayoutPosition> for Layer<R, C, T>
 impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 	pub fn init_blank() -> Self {
 		let default_key = KeycodeKey::default_from_keycode(_NO);
-		let layer_array2d = Array2D::filled_with(default_key.clone(), R, C);
+		let layer_array2d = Array2D::filled_with(default_key, R, C);
 		Layer::<R, C, KeycodeKey> { layer: layer_array2d }
 	}
 	/// give layout access to this but not anything else to ensure valid_keycodes is already randomized
@@ -86,7 +86,7 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 				if  !key.is_randomizeable() || key.value() != _NO {
 					continue;
 				}
-				if valid_keycodes_to_draw_from.len() == 0 {
+				if valid_keycodes_to_draw_from.is_empty() {
 					valid_keycodes_to_draw_from = valid_keycodes_all.clone();
 					used_all_keycodes_flag = true;
 				}
@@ -153,7 +153,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, PhalanxKey> {
 		for (i, row) in rows.iter().enumerate() {
 			let cols = cols_from_string(row, C)?;
 			for (j, col) in cols.iter().enumerate() {
-				let mut phalanx = col.split(":");
+				let mut phalanx = col.split(':');
 				let hand_str = match phalanx.next() {
 					Some(v) => match v {
 						"l" | "L" => "Left",
@@ -187,7 +187,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layer<R, C, PhalanxKey> {
 }
 
 fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, AlcError> {
-	let mut rows = input_s.split("\n").filter(|s| s.trim().len() > 0);
+	let mut rows = input_s.split('\n').filter(|s| !s.trim().is_empty());
 	let rows_vec: Vec<&str> = rows.clone().collect();
 	let mut rows_vec_len = rows_vec.len();
 	if rows_vec_len == r + 1 {
@@ -199,15 +199,14 @@ fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, AlcError> {
 		let previous_char = first_row_chars.next().unwrap();
 		for _c_ind in 0..first_row.len() - 1 {
 			let current_char = first_row_chars.next().unwrap();
-			if previous_char.is_digit(10) && current_char.is_digit(10) {
-				if previous_char.to_digit(10).unwrap() + 1 != current_char.to_digit(10).unwrap() {
-					return Err(AlcError::FromStringHeaderError(String::from(first_row)));
-				}
+			if (previous_char.is_ascii_digit() && current_char.is_ascii_digit()) && (previous_char.to_digit(10).unwrap() + 1 != current_char.to_digit(10).unwrap()) {
+				return Err(AlcError::FromStringHeaderError(String::from(first_row)));
 			}
+			
 		}
 	}
 	if rows_vec_len != r {
-		return Err(AlcError::RowMismatchError(r, rows_vec_len));
+		panic!("{}", AlcError::RowMismatchError(r, rows_vec_len));
 	}
 	else {
 		Ok(rows.collect())
@@ -216,7 +215,7 @@ fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, AlcError> {
 fn cols_from_string(input_s: &str, c: usize) -> Result<Vec<&str>, AlcError> {
 	// see note for rows_from_string
 	// | is used as a separator between the row index and the row
-	let cols = if input_s.contains("|") {
+	let cols = if input_s.contains('|') {
 		let cols_no_index: Vec<&str> = input_s.split('|').collect();
 		cols_no_index[1].split_whitespace()
 	} else {

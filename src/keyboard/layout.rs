@@ -55,7 +55,10 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			layers[0].get_mut_row_major(j).unwrap().set_value(_LS(j + 1));
 			layers[j + 1].get_mut_row_major(j).unwrap().set_value(_LST(j + 1, 0));
 		}
-		let mut layout = Layout { layers: layers, keycode_pathmap: KeycodePathMap::default() };
+		let mut layout = Layout { 
+			layers,
+			keycode_pathmap: KeycodePathMap::default() 
+		};
 		layout.generate_pathmap().unwrap();
 		layout
 	}

@@ -31,7 +31,10 @@ pub struct SingleGramFrequencies<T> where T: Frequencies {
 }
 impl<T> SingleGramFrequencies<T> where T: Frequencies {
 	pub fn new(n: usize) -> Self {
-		Self { frequencies:  Default::default(), n: n, total: 0.0 }
+		Self { 
+			frequencies:  Default::default(), 
+			n,
+			total: 0.0 }
 	}
 	pub fn get(&self, k: &Ngram) -> Option<&T> {
 		self.frequencies.get(k)
@@ -61,7 +64,8 @@ impl SingleGramFrequencies<u32> {
 			Err(AlcError::NgramMatchError(key.len(), self.n))
 		} else {
 			self.total += value as f64;
-			Ok(*self.frequencies.entry(key).or_insert(0) += value)
+			*self.frequencies.entry(key).or_insert(0) += value;
+			Ok(())
 		}
 	}
 	/// This might be faster if the bigger holder is on the left?
@@ -74,7 +78,7 @@ impl SingleGramFrequencies<u32> {
 		Ok(())
 	}
 
-	pub fn take_top_frequencies(&mut self, amount: TopFrequenciesToTake) -> () {
+	pub fn take_top_frequencies(&mut self, amount: TopFrequenciesToTake) {
 		let mut hash_vec: Vec<(&Ngram, &u32)> = self.frequencies.iter().collect();
     	hash_vec.sort_by(|a, b| b.1.cmp(a.1));
 		let amount_to_take = match amount {
@@ -83,11 +87,10 @@ impl SingleGramFrequencies<u32> {
 		};
 		let mut temp_freqs: HashMap<Ngram, u32> = Default::default();
 		let mut new_total = 0.0;
-		for i in 0..amount_to_take {
-			let item = hash_vec[i];
+		for item in hash_vec.iter().take(amount_to_take) {
 			// println!("{:?}", item);
 			let k = item.0.clone();
-			let v = item.1.clone();
+			let v = *item.1;
 			new_total += v as f64;
 			temp_freqs.insert(k, v);
 		}
@@ -113,7 +116,11 @@ impl SingleGramFrequencies<u32> {
 			*ngram_to_counts.entry(ngram).or_insert(0) += 1;
 			total += 1.0;
 		}
-		Some(SingleGramFrequencies { frequencies: ngram_to_counts, n: n, total: total})
+		Some(SingleGramFrequencies { 
+			frequencies: ngram_to_counts, 
+			n, 
+			total,
+		})
 	}
 
 	pub fn try_from_file<P>(filename: P, n: usize, options: &KeycodeOptions) -> Result<SingleGramFrequencies<u32>, AlcError> where P: AsRef<Path> {
@@ -123,7 +130,7 @@ impl SingleGramFrequencies<u32> {
 		};
 		let lines = io::BufReader::new(file).lines();
 		let mut ngram_to_counts = Self::new(n);
-		for line in lines.flatten() {
+		for line in lines.map_while(Result::ok) {
 			if let Some(holder_from_line) = Self::try_from_string(line.as_str(), n, options) {
 				ngram_to_counts.combine_with(holder_from_line).unwrap(); // ngram size is given as input so this should always succeed
 			}
@@ -137,6 +144,9 @@ impl SingleGramFrequencies<u32> {
 
 	pub fn len(&self) -> usize {
 		self.frequencies.len()
+	}
+	pub fn is_empty(&self) -> bool {
+		self.frequencies.is_empty()
 	}
 }
 impl<T> Index<Ngram> for SingleGramFrequencies<T> where T: Frequencies {

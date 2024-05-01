@@ -120,7 +120,7 @@ pub fn generate_default_keycode_set(options: &KeycodeOptions) -> HashSet<Keycode
 			_UNDS, _PLUS, _PIPE, _COLN, _DQUO, _TILD, _QUES, _LCBR, _RCBR,
 		]));
 	}
-	if options.explicit_inclusions.len() > 0 {
+	if !options.explicit_inclusions.is_empty() {
 		keycodes.extend(&options.explicit_inclusions);
 	}
 	
@@ -129,7 +129,7 @@ pub fn generate_default_keycode_set(options: &KeycodeOptions) -> HashSet<Keycode
 
 
 impl Keycode {
-	fn to_char(&self) -> Option<char> {
+	fn to_char(self) -> Option<char> {
 		let c = match self {
 			_SPC => ' ',
 			_ENT => '\n',

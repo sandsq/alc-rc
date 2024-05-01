@@ -72,7 +72,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			.map(|x| FrequencyDataset::<u32>::try_from_dir(PathBuf::from(x), self.config.dataset_options.max_ngram_size, Num(self.config.dataset_options.top_n_ngrams_to_take), &self.config.keycode_options).unwrap()).collect::<Vec<FrequencyDataset<u32>>>()
 	}
 
-	pub fn activate(&mut self) -> () {
+	pub fn activate(&mut self) {
 		if !self.config.valid_keycodes.is_empty() {
 			println!("valid keycodes is non-empty, so assuming you have supplied the keycodes you want rather than generating the list from keycode options")	
 		} else {
@@ -219,24 +219,23 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 					op_counter.2 += 1;
 					// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 				}
-			} else {
-				if let Some(p) = layout.generate_valid_replace_position(rng) {
-					// println!("valid keycodes {:?}", valid_keycodes);
-					let keycode = valid_keycodes.choose(rng).unwrap();
-					let replace_happened = layout.replace(p, *keycode);
-					// let op_counter = self.operation_counter.get();
-					if replace_happened {
-						op_counter.1 += 1;
-						// self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2, op_counter.3));
-					} else {
-						op_counter.2 += 1;
-						// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
-					}
+			} else if let Some(p) = layout.generate_valid_replace_position(rng) {
+				// println!("valid keycodes {:?}", valid_keycodes);
+				let keycode = valid_keycodes.choose(rng).unwrap();
+				let replace_happened = layout.replace(p, *keycode);
+				// let op_counter = self.operation_counter.get();
+				if replace_happened {
+					op_counter.1 += 1;
+					// self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2, op_counter.3));
 				} else {
 					op_counter.2 += 1;
 					// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 				}
+			} else {
+				op_counter.2 += 1;
+				// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 			}
+			
 		}
 		// fill up to population size
 		while layouts.len() < (population_size as usize) {
@@ -265,24 +264,23 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 					op_counter.2 += 1;
 					// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 				}
-			} else {
-				if let Some(p) = new_layout.generate_valid_replace_position(rng) {
+			} else if let Some(p) = new_layout.generate_valid_replace_position(rng) {
 
-					let keycode = valid_keycodes.choose(rng).unwrap();
-					let replace_happened = new_layout.replace(p, *keycode);
-					// let op_counter = self.operation_counter.get();
-					if replace_happened {
-						op_counter.1 += 1;
-						// self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2, op_counter.3));
-					} else {
-						op_counter.2 += 1
-						// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
-					}
+				let keycode = valid_keycodes.choose(rng).unwrap();
+				let replace_happened = new_layout.replace(p, *keycode);
+				// let op_counter = self.operation_counter.get();
+				if replace_happened {
+					op_counter.1 += 1;
+					// self.operation_counter.set((op_counter.0, op_counter.1 + 1, op_counter.2, op_counter.3));
 				} else {
-					op_counter.2 += 1;
+					op_counter.2 += 1
 					// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 				}
+			} else {
+				op_counter.2 += 1;
+				// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 			}
+			
 			layouts.push(new_layout);
 		}
 		layouts
@@ -419,9 +417,9 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		// 	_ => panic!("{}", panic_message),
 		// };
 		Ok(Self {
-			base_layout: base_layout,
-			effort_layer: effort_layer,
-			phalanx_layer: phalanx_layer,
+			base_layout,
+			effort_layer,
+			phalanx_layer,
 			score_function: S::new(),
 			config: t.layout_optimizer_config,
 			operation_counter: OperationCounter::new((0, 0, 0, 0)),
