@@ -1,15 +1,20 @@
 use super::{key::PhalanxKey, layer::Layer, layout::Layout};
-
+use strum::IntoEnumIterator;
 // #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter, Serialize, Deserialize)]
 // pub enum LayoutPreset {
 // 	FerrisSweep,
 // }
 
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter)]
 pub enum LayoutSizePresets {
 	FourByTen,
 	FourByTwelve,
 }
-
+impl LayoutSizePresets {
+	pub fn get_all() -> Vec<Self> {
+		LayoutSizePresets::iter().collect()
+	}
+}
 
 impl Default for Layout<4, 12> {
 	fn default() -> Self {
