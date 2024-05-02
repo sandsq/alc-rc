@@ -1,11 +1,12 @@
 use super::{key::PhalanxKey, layer::Layer, layout::Layout};
+use serde_derive::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 // #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter, Serialize, Deserialize)]
 // pub enum LayoutPreset {
 // 	FerrisSweep,
 // }
 
-#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter)]
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter, Serialize, Deserialize)]
 pub enum LayoutSizePresets {
 	FourByTen,
 	FourByTwelve,
