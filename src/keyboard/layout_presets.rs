@@ -10,11 +10,11 @@ pub enum LayoutSizePresets {
 	FourByTen,
 	FourByTwelve,
 }
-impl LayoutSizePresets {
-	pub fn get_all() -> Vec<Self> {
-		LayoutSizePresets::iter().collect()
-	}
+
+pub fn get_all_layout_size_presets() -> Vec<LayoutSizePresets> {
+	LayoutSizePresets::iter().collect()
 }
+
 
 impl Default for Layout<4, 12> {
 	fn default() -> Self {
