@@ -2,6 +2,8 @@ use core::num;
 use std::num::ParseFloatError;
 use std::path::PathBuf;
 
+use serde_derive::{Deserialize, Serialize};
+
 use crate::keyboard::LayoutPosition;
 use crate::text_processor::keycode::Keycode;
 use crate::text_processor::ngram::Ngram;
@@ -65,3 +67,12 @@ pub enum AlcError {
 	#[error("unsupported layout size {0:?}; valid sizes are {1:?}, use the next largest and block out positions")]
 	UnsupportedSizeError((usize, usize), Vec<(usize, usize)>),
 }
+
+impl serde::Serialize for AlcError {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+	  S: serde::ser::Serializer,
+	{
+	  serializer.serialize_str(self.to_string().as_ref())
+	}
+  }
