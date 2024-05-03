@@ -459,6 +459,10 @@ pub fn optimize_from_toml(filename: String) -> Result<(), AlcError> {
 			let mut lo = LayoutOptimizer::<4, 12, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
 			lo.optimize(&mut rng)?;
 		},
+		LayoutSizePresets::FiveByFifteen => {
+			let mut lo = LayoutOptimizer::<5, 15, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
+			lo.optimize(&mut rng)?;
+		}
 	};
 
 	Ok(())

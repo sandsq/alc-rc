@@ -28,6 +28,7 @@ impl Default for KeycodeOptions {
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter, Serialize, Deserialize)]
 pub enum Keycode {
+	_NO,
 	_A, _B, _C, _D, _E,
 	_F, _G, _H, _I, _J,
 	_K, _L, _M, _N, _O,
@@ -78,7 +79,6 @@ pub enum Keycode {
 	_PSCR,
 	_DEL,
 	_PLACEHOLDER,
-	_NO,
 }
 use Keycode::*;
 
