@@ -17,6 +17,8 @@ use tqdm::tqdm;
 use crate::alc_error::AlcError;
 use crate::keyboard::key::KeyValue;
 use crate::keyboard::key::PhalanxKey;
+use crate::keyboard::layout_presets::get_size_variant;
+use crate::keyboard::layout_presets::LayoutSizePresets;
 use crate::keyboard::LayoutPosition;
 use crate::keyboard::LayoutPositionSequence;
 use crate::keyboard::{layout::*, layer::*};
@@ -435,27 +437,31 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 }
 
-pub fn optimize_from_toml(filename: String) {
-	let t = LayoutOptimizerTomlAdapter::try_from_toml_file(filename.as_str()).unwrap();
+pub fn optimize_from_toml(filename: String) -> Result<(), AlcError> {
+	let t = LayoutOptimizerTomlAdapter::try_from_toml_file(filename.as_str())?;
 	let num_rows = t.layout_info.num_rows;
 	let num_cols = t.layout_info.num_cols;
-	let panic_message = format!("{} x {} layout preset does not exist yet, choose the next largest layout and block key positions. List of available layout sizes should go here: ", num_rows, num_cols);
 	
 	let mut rng = ChaCha8Rng::seed_from_u64(1);
 
-	match (num_rows, num_cols) {
-		(4, 10) => {
-			let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str()).unwrap();
-			lo.optimize(&mut rng).unwrap();
+	let size_variant = get_size_variant((num_rows, num_cols))?;
+
+	match size_variant {
+		LayoutSizePresets::TwoByFour => {
+			let mut lo = LayoutOptimizer::<2, 4, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
+			lo.optimize(&mut rng)?;
+		}
+		LayoutSizePresets::FourByTen => {
+			let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
+			lo.optimize(&mut rng)?;
 		},
-		(4, 12) => {
-			let mut lo = LayoutOptimizer::<4, 12, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str()).unwrap();
-			lo.optimize(&mut rng).unwrap();
+		LayoutSizePresets::FourByTwelve => {
+			let mut lo = LayoutOptimizer::<4, 12, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
+			lo.optimize(&mut rng)?;
 		},
-		_ => panic!{"{}", panic_message},
 	};
 
-	
+	Ok(())
 }
 
 

@@ -1,3 +1,7 @@
+use std::collections::HashSet;
+
+use crate::alc_error::AlcError;
+
 use super::{key::PhalanxKey, layer::Layer, layout::Layout};
 use serde_derive::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
@@ -8,14 +12,47 @@ use strum::IntoEnumIterator;
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter, Serialize, Deserialize)]
 pub enum LayoutSizePresets {
+	TwoByFour,
 	FourByTen,
 	FourByTwelve,
 }
-
-pub fn get_all_layout_size_presets() -> Vec<LayoutSizePresets> {
-	LayoutSizePresets::iter().collect()
+use LayoutSizePresets::*;
+pub fn get_all_layout_size_presets() -> Vec<(usize, usize)> {
+	let mut sizes: Vec<(usize, usize)> = vec![];
+	for size in LayoutSizePresets::iter() {
+		match size {
+			TwoByFour => sizes.push((2, 4)),
+			FourByTen => sizes.push((4, 10)),
+			FourByTwelve => sizes.push((4, 12)),
+		}
+	}
+	sizes	
 }
-
+pub fn get_size_variant(s: (usize, usize)) -> Result<LayoutSizePresets, AlcError> {
+	let o = match s {
+		(2, 4) => {
+			TwoByFour
+		},
+		(4, 10) => {
+			FourByTen
+		},
+		(4, 12) => {
+			FourByTwelve
+		},
+		_ => return Err(AlcError::UnsupportedSizeError(s, get_all_layout_size_presets())),
+	};
+	Ok(o)
+}
+// pub fn get_all_layout_size_presets() -> Vec<String> {
+// 	let mut sizes: Vec<String> = vec![];
+// 	for size in LayoutSizePresets::iter() {
+// 		match size {
+// 			FourByTen => sizes.push("4x10".to_string()),
+// 			FourByTwelve => sizes.push("4x12".to_string()),
+// 		}
+// 	}
+// 	sizes
+// }
 
 impl Default for Layout<4, 12> {
 	fn default() -> Self {
