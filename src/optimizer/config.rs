@@ -288,6 +288,10 @@ use super::*;
 		let optimizer: LayoutOptimizer<4, 10, AdvancedScoreFunction> = LayoutOptimizer::try_from_optimizer_toml_file("./templates/ferris_sweep.toml").unwrap();
 		optimizer.write_to_toml("./templates/ferris_sweep.toml").unwrap();
 		
+		let lo: LayoutOptimizer<2, 4, AdvancedScoreFunction> = LayoutOptimizer::default();
+		let optimizer_toml_object = LayoutOptimizerTomlAdapter::try_from_layout_optimizer(&lo);
+		optimizer_toml_object.write_to_file("./templates/2x4.toml").unwrap();
+
 	}
 	
 }

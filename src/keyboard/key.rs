@@ -14,7 +14,7 @@ pub trait KeyValue {
 	type Item;
 	fn value(&self) -> Self::Item;
 }
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize)]
 pub struct KeycodeKey {
 	value: Keycode,
 	is_moveable: bool,
@@ -188,6 +188,7 @@ pub enum Hand {
 	Right,
 	PlaceholderHand,
 }
+use serde_derive::Serialize;
 use Hand::*;
 
 /// depending on your keyboard, you may be able to press the bottom left / bottom right corner key with the upper palm / joint of your pinkie finger, hence Joint

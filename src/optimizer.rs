@@ -51,6 +51,9 @@ impl PartialEq for OperationCounter {
 	}
 }
 
+// pub trait Opt: erased_serde::Serialize {}
+// impl<const R: usize, const C: usize, S> Opt for LayoutOptimizer<R, C, S> where S: Score<R, C> + Send + Sync {}
+
 #[derive(Debug, PartialEq)]
 pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, C> + Send + Sync {
 	pub base_layout: Layout<R, C>,

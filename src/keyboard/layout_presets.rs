@@ -59,6 +59,41 @@ pub fn get_size_variant(s: (usize, usize)) -> Result<LayoutSizePresets, AlcError
 // 	sizes
 // }
 
+
+impl Default for Layout<2, 4> {
+	fn default() -> Self {
+		Layout::try_from(
+		"
+		___Layer 0___
+			0       1       2       3
+		0| LS1_00  H_10    E_10    L_10
+		1| L_10  O_10    T_10    H_10
+
+		___Layer 1___
+			0       1       2       3
+		0| __00  E_11    R_11    E_10
+		1| __10  __10    __10    __10
+		").unwrap()
+	}
+}
+
+impl Default for Layer<2, 4, f64> {
+	fn default() -> Self {
+		Layer::try_from("
+		5 2 2 5
+		6 4 4 6
+		").unwrap()
+	}
+}
+impl Default for Layer<2, 4, PhalanxKey> {
+	fn default() -> Self {
+		Layer::try_from("
+		L:R L:M R:M R:R
+		L:R L:M R:M R:R
+		").unwrap()
+	}
+}
+
 impl Default for Layout<4, 12> {
 	fn default() -> Self {
 		Layout::try_from(
