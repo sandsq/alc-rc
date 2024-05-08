@@ -58,15 +58,18 @@ impl TryFrom<&str> for KeycodeKey {
 			key_details.next();
 		} else if &key_string[0..3] == "LST" {
 			// this shouldn't get run since LST shouldn't appear in the layout string
-			let layer_target = &key_string[3..4].parse::<usize>()?;
-			let layer_source = &key_string[5..6].parse::<usize>()?;
-			key.set_value(_LST(*layer_target, *layer_source));
-			key_details.next();
-			key_details.next();
+			// let layer_target = &key_string[3..4].parse::<usize>()?;
+			// let layer_source = &key_string[5..6].parse::<usize>()?;
+			// key.set_value(_LST(*layer_target, *layer_source));
+			// key_details.next();
+			// key_details.next();
 		} else if &key_string[0..2] == "LS" {
-
 			let ls_string = key_details.next().unwrap();
-			let layer_target = &ls_string[2..].parse::<usize>()?;
+			let parsed_layer = &ls_string[2..].parse::<usize>();
+			let layer_target = match parsed_layer {
+				Ok(v) => v,
+				Err(e) => return Err(AlcError::ParseIntError(e.clone(), format!("tried to find the target layer of {} (i.e., the X in LSX)", ls_string))),
+			};
 			key.set_value(_LS(*layer_target));
 			
 		} else if let Some(key_value_string) = key_details.next() {

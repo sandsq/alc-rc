@@ -537,6 +537,12 @@ mod tests {
 	}
 
 	#[test]
+	fn test_saved() -> Result<(), AlcError> {
+		let mut lo = LayoutOptimizer::<2, 4, AdvancedScoreFunction>::try_from_optimizer_toml_file("/home/sand/.config/alc/saved.toml")?;
+		Ok(())
+	}
+
+	#[test]
 	#[ignore = "expensive"] // cargo test -- --ignored to run ignored, cargo test -- --include-ignored to run all
 	fn test_optimize() {
 		let mut lo = LayoutOptimizer::<4, 12, SimpleScoreFunction>::default();

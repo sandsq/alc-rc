@@ -17,7 +17,7 @@ ___Layer 1___
 effort_layer = """
      0    1    2    3 
 0| 5.0  2.0  2.0  5.0 
-1| 6.0  4.0  4.0  6.0 
+1| 16.0  4.0  4.0  16.0 
 """
 phalanx_layer = """
      0    1    2    3 
@@ -40,13 +40,13 @@ replace_weight = 1.0
 include_alphas = true
 include_numbers = false
 include_number_symbols = false
-include_brackets = false
+include_brackets = true
 include_misc_symbols = true
 include_misc_symbols_shifted = false
 explicit_inclusions = ["_SPC", "_SFT", "_ENT"]
 
 [layout_optimizer_config.dataset_options]
-dataset_paths = ["./data/rust_book_test/"]
+dataset_paths = ["./data/rust_book_test/", "./data/rust_book/"]
 dataset_weights = [1.0]
 max_ngram_size = 4
 top_n_ngrams_to_take = 100

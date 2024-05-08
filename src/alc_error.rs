@@ -2,8 +2,6 @@ use core::num;
 use std::num::ParseFloatError;
 use std::path::PathBuf;
 
-use serde_derive::{Deserialize, Serialize};
-
 use crate::keyboard::LayoutPosition;
 use crate::text_processor::keycode::Keycode;
 use crate::text_processor::ngram::Ngram;
@@ -12,8 +10,8 @@ use crate::text_processor::ngram::Ngram;
 pub enum AlcError {
 	#[error(transparent)]
 	ParseError(#[from] strum::ParseError),
-	#[error(transparent)]
-	ParseIntError(#[from] num::ParseIntError),
+	#[error("{0}, {1}")]
+	ParseIntError(num::ParseIntError, String),
 	#[error(transparent)]
 	ParseFloatError(#[from] ParseFloatError),
 	#[error(transparent)]
