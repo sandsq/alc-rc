@@ -106,7 +106,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				if save_positions {
 					possible_sequences.push(sequence.clone());
 				}
-				let sequence_score = self.score_function.score_layout_position_sequence(layout, effort_layer, phalanx_layer, sequence, &self.config) * self.config.score_options.extra_length_penalty.powf((sequence_len - ngram_len) as f64);
+				let sequence_score = self.score_function.score_layout_position_sequence(layout, effort_layer, phalanx_layer, sequence, &self.config) * self.config.score_options.extra_length_penalty_factor.powf((sequence_len - ngram_len) as f64);
 				possible_scores.push(sequence_score);
 			}
 			
@@ -538,7 +538,7 @@ mod tests {
 
 	#[test]
 	fn test_saved() -> Result<(), AlcError> {
-		let mut lo = LayoutOptimizer::<2, 4, AdvancedScoreFunction>::try_from_optimizer_toml_file("/home/sand/.config/alc/saved.toml")?;
+		let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::try_from_optimizer_toml_file("/home/sand/.config/alc/autosave.toml")?;
 		Ok(())
 	}
 

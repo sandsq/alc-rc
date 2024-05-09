@@ -121,7 +121,8 @@ pub fn generate_default_keycode_set(options: &KeycodeOptions) -> HashSet<Keycode
 		]));
 	}
 	if !options.explicit_inclusions.is_empty() {
-		keycodes.extend(&options.explicit_inclusions);
+		let ei = options.explicit_inclusions.iter().filter(|x| **x != _NO);
+		keycodes.extend(ei);
 	}
 	
 	keycodes

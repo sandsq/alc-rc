@@ -47,12 +47,12 @@ impl Default for DatasetOptions {
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct ScoreOptions {
 	pub hand_alternation_weight: f64, // determines the relative weight of hand alternation bonus vs finger roll bonus. 
-	pub hand_alternation_reduction_factor: f64, // say this is 0.9. Then a hand alternation of left-right-left would reduce the effort of that sequence by 0.9 * 0.9x. Min length 3.
 	pub finger_roll_weight: f64,
+	pub hand_alternation_reduction_factor: f64, // say this is 0.9. Then a hand alternation of left-right-left would reduce the effort of that sequence by 0.9 * 0.9x. Min length 3.
 	pub finger_roll_reduction_factor: f64, // say this is 0.9. Then a roll of length 3 would reduce the effort by 0.9 * 0.9x. Min length 3.
 	pub finger_roll_same_row_reduction_factor: f64,
 	pub same_finger_penalty_factor: f64,
-	pub extra_length_penalty: f64,
+	pub extra_length_penalty_factor: f64,
 }
 impl Default for ScoreOptions {
 	fn default() -> Self {
@@ -63,7 +63,7 @@ impl Default for ScoreOptions {
 			finger_roll_reduction_factor: 0.9,
 			finger_roll_same_row_reduction_factor: 0.9,
 			same_finger_penalty_factor: 5.0,
-			extra_length_penalty: 1.1,
+			extra_length_penalty_factor: 1.1,
 		}
 	}
 }
@@ -246,7 +246,7 @@ pub fn option_descriptions() -> HashMap<String, String> {
 	options_map.insert(String::from("finger_roll_reduction_factor"), String::from("When a sequence of at least 3 keys is a finger roll, multiply the effort of that sequence by this factor. Sequential keys that cross two or more rows are not eligible for rolls. Inner and outer rolls are weighed the same (for now)."));
 	options_map.insert(String::from("finger_roll_same_row_reduction_factor"), String::from("If a roll occurs where all fingers are in the same row, multiply the effort of that sequence by this factor, on top of the standard roll reduction factor. In other words, rolls where all keys are in the same row are extra favorable."));
 	options_map.insert(String::from("same_finger_penalty_factor"), String::from("If the same finger (on the same hand, of course) is used twice in a row, multiply the effort by this factor. In other words, repeating the same finger is unfavorable."));
-	options_map.insert(String::from("extra_length_penalty"), String::from("If the keycode sequence is longer than the ngram (e.g., from layer switches or shifting), apply this penalty for each additional key, exponentially."));
+	options_map.insert(String::from("extra_length_penalty_factor"), String::from("If the keycode sequence is longer than the ngram (e.g., from layer switches or shifting), apply this penalty for each additional key, exponentially."));
 	options_map.insert(String::from("valid_keycodes"), String::from("Recommended to leave empty, as these will be generated from keycode options. If keycodes are supplied here, they will override keycode options; however, you can simply use the options + `explicit_inclusions` to fine tune the set you want, rather than having to list everything out here."));
 	options_map.insert(String::from("num_rows"), String::from("Number of rows in the layout. Note that some row x column combinations may not exist, in which case use the next size up and block key positions as necessary. Available sizes should be listed here at some point: "));
 	options_map.insert(String::from("num_cols"), String::from("Number of columns in the layout."));
