@@ -9,6 +9,7 @@ use std::time::SystemTime;
 use rand::prelude::*;
 use rand::Rng;
 use rand_chacha::ChaCha8Rng;
+use rayon::iter::IndexedParallelIterator;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 use tqdm::tqdm;
@@ -86,7 +87,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		println!("initial valid keycodes {:?}", self.config.valid_keycodes);
 	}
 
-	fn score_single_grams(&self, layout: &Layout<R, C>, frequencies: SingleGramFrequencies<u32>, save_positions: bool) -> (f64, HashSet<LayoutPosition>) {
+	fn score_single_grams(&self, layout: &Layout<R, C>, frequencies: SingleGramFrequencies<u32>, save_positions: bool) -> Result<(f64, HashSet<LayoutPosition>), AlcError> {
 		let mut score: f64 = 0.0;
 		let total = frequencies.total;
 		let mut visited_positions: HashSet<LayoutPosition> = HashSet::default();
@@ -96,7 +97,8 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			let ngram_len = ngram.len();
 			let sequences = match layout.ngram_to_sequences(&ngram) {
 				Some(v) => v,
-				None => panic!("unable to find typeable sequence from {}, check that every keycode is present in the layout or toggled as valid", ngram),
+				None => return Err(AlcError::UntypeableNgramError(ngram)),
+				// panic!("unable to find typeable sequence from {}, check that every keycode is present in the layout or toggled as valid", ngram),
 				// return 0.0
 			};
 			let mut possible_scores: Vec<f64> = vec![];
@@ -133,10 +135,10 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			
 			score += min_score * (ngram_frequency as f64) / total; // should be slightly more efficient to precompute counts / total, but lazy for now
 		}
-		(score, visited_positions)
+		Ok((score, visited_positions))
 	}
 
-	fn score_datasets(&self, layout: &Layout<R, C>, datasets: &[FrequencyDataset<u32>], save_positions: bool) -> (f64, HashSet<LayoutPosition>) {
+	fn score_datasets(&self, layout: &Layout<R, C>, datasets: &[FrequencyDataset<u32>], save_positions: bool) -> Result<(f64, HashSet<LayoutPosition>), AlcError> {
 		let mut score: f64 = 0.0;
 		let mut visited_positions: HashSet<LayoutPosition> = HashSet::default();
 		// let mut d_ind: usize = 0;
@@ -144,7 +146,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			let ngram_ratio = 1.0 / dataset.ngram_frequencies.len() as f64;
 			let mut dataset_score = 0.0;
 			for ngram_size in dataset.ngram_frequencies.keys() {
-				let (calculated_score, calculated_positions) = self.score_single_grams(layout, dataset.ngram_frequencies[ngram_size].clone(), save_positions); // this clone might be expensive
+				let (calculated_score, calculated_positions) = self.score_single_grams(layout, dataset.ngram_frequencies[ngram_size].clone(), save_positions)?; // this clone might be expensive
 				dataset_score += calculated_score * ngram_ratio; // each ngram length has equal weight to score, can change in the future
 				if save_positions {
 					visited_positions.extend(calculated_positions);
@@ -154,22 +156,30 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			// d_ind += 1;
 			score += dataset_score;
 		}
-		(score, visited_positions)
+		Ok((score, visited_positions))
 	}
 
 
-	fn score_population(&self, layouts: Vec<Layout<R, C>>, datasets: &[FrequencyDataset<u32>]) -> Vec<(Layout<R, C>, f64)> {
+	fn score_population(&self, layouts: Vec<Layout<R, C>>, datasets: &[FrequencyDataset<u32>]) -> Result<Vec<(Layout<R, C>, f64)>, AlcError> {
 
 		println!("num threads {}", self.config.num_threads);
 		let pool = rayon::ThreadPoolBuilder::new().num_threads(self.config.num_threads).build().unwrap();
-		let mut scores: Vec<f64> = Default::default();
+		let mut scores: Vec<Result<f64, AlcError>> = Default::default();
 		pool.install(|| {
-			scores = layouts.par_iter()
-				.map(|x| self.score_datasets(x, datasets, false).0)
-				.collect();
-			
+			layouts.par_iter()
+				.map(|x| {
+					let computed_scores = self.score_datasets(x, datasets, false);
+					match computed_scores {
+						Ok(v) => Ok(v.0),
+						Err(e) => return Err(e),
+					}
+				}).collect_into_vec(&mut scores)
 		});
-		zip(layouts, scores).collect()
+		let mut scores2: Vec<f64> = Default::default();
+		for score in scores {
+			scores2.push(score?);
+		}
+		Ok(zip(layouts, scores2).collect())
 		// let mut new_population: Vec<(Layout<R, C>, f64)> = Default::default();
 		// for layout in layouts {
 		// 	let (score, _) = self.score_datasets(layout, datasets, false);
@@ -179,16 +189,16 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 	
 
-	fn generate_and_score_initial_population(&self, rng: &mut impl Rng, datasets: &[FrequencyDataset<u32>]) -> Vec<(Layout<R, C>, f64)> {
+	fn generate_and_score_initial_population(&self, rng: &mut impl Rng, datasets: &[FrequencyDataset<u32>]) -> Result<Vec<(Layout<R, C>, f64)>, AlcError> {
 		let valid_keycodes = &self.config.valid_keycodes;
 		let mut initial_population: Vec<(Layout<R, C>, f64)> = Default::default();
 		for _i in 0..self.config.genetic_options.population_size {
 			let mut initial_layout = self.base_layout.clone();
 			initial_layout.randomize(rng, valid_keycodes).unwrap();
-			let (initial_score, _) = self.score_datasets(&initial_layout, datasets, false);
+			let (initial_score, _) = self.score_datasets(&initial_layout, datasets, false)?;
 			initial_population.push((initial_layout, initial_score));
 		}
-		initial_population
+		Ok(initial_population)
 	}
 
 	fn take_best_layouts(&self, mut population: Vec<(Layout<R, C>, f64)>) -> (Vec<Layout<R, C>>, Vec<f64>) {
@@ -317,12 +327,12 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let mut avg_gen_time = 0.0;
 
 		let mut now = SystemTime::now();
-		let mut layouts_and_scores = self.generate_and_score_initial_population(rng, datasets);
+		let mut layouts_and_scores = self.generate_and_score_initial_population(rng, datasets)?;
 		let initial_time = now.elapsed().unwrap().as_secs_f64();
 
 			
 		let mut layouts: Vec<Layout<R, C>>; // = Default::default();
-		let mut best_layouts;
+		let mut best_layouts: Vec<Layout<R, C>>;
 		let mut best_scores: Vec<f64>;
 
 		// let tcount = 20;
@@ -338,7 +348,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			avg_gen_time +=  now.elapsed().unwrap().as_secs_f64();
 
 			now = SystemTime::now();
-			layouts_and_scores = self.score_population(layouts, datasets);
+			layouts_and_scores = self.score_population(layouts, datasets)?;
 			avg_score_time += now.elapsed().unwrap().as_secs_f64();
 			
 			println!("after {} generation(s), best score: {}, worst score {}", i, best_scores[0], best_scores[best_scores.len()-1]);
@@ -348,7 +358,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let mut final_layout = best_layouts[0].clone();
 		println!("final layout pre removal\n{}score: {}", final_layout, best_scores[0]);
 
-		let (score, visited) = self.score_datasets(&final_layout, datasets, true);
+		let (score, visited) = self.score_datasets(&final_layout, datasets, true)?;
 		assert_eq!(score, best_scores[0]);
 		for layer_index in 0..final_layout.len() {
 			for row_index in 0..R {
@@ -367,7 +377,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			}
 		}
 		final_layout.generate_pathmap().unwrap();
-		let (score, _) = self.score_datasets(&final_layout, datasets, false);
+		let (score, _) = self.score_datasets(&final_layout, datasets, false)?;
 		println!("final layout post removal\n{:#} score: {}", final_layout, score);
 
 		// println!("config\n{:?}", self.config);
@@ -498,7 +508,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_ngram_scoring() {
+	fn test_ngram_scoring() -> Result<(), AlcError> {
 		let base_layout = Layout::<1, 4>::init_blank(2);
 		let effort_layer = Layer::<1, 4, f64>::try_from("
 			0.1 0.4 0.3 0.2
@@ -521,7 +531,7 @@ mod tests {
 		let datasets = layout_optimizer.compute_datasets();
 		let twogram_frequency = datasets[0].ngram_frequencies.get(&(2 as usize)).unwrap();
 		println!("{:?}", twogram_frequency);
-		let (s, poss) = layout_optimizer.score_single_grams(&test_layout, twogram_frequency.clone(), true);
+		let (s, poss) = layout_optimizer.score_single_grams(&test_layout, twogram_frequency.clone(), true)?;
 		// 3 * he + 1 * be + 2 * eh + 1 + eb
 		let mut expected_two_score = (3.0 * (0.1 + 0.2 + 0.1) + 1.0 * (0.3 + 0.2 + 0.1) + 2.0 * (0.2 + 0.1 + 0.1) + 1.0 * (0.2 + 0.1 + 0.3)) / 7.0;
 		expected_two_score *= 1.1;
@@ -532,12 +542,13 @@ mod tests {
 		]);
 		assert_eq!(poss, expected_poss);
 		
-		let (full_score, _) = layout_optimizer.score_datasets(&test_layout, &datasets, true);
+		let (full_score, _) = layout_optimizer.score_datasets(&test_layout, &datasets, true)?;
 		let expected_one_score = (3.0 * 0.1 + 4.0 * (0.2 + 0.1) * 1.1 + 1.0 * 0.3) / 8.0;
 		// onegrams and twograms have equal weight
 		let expected_score = 0.5 * expected_one_score + 0.5 * expected_two_score;
 		assert_eq!(format!("{full_score:.3}"), format!("{expected_score:.3}"));
 		// layout_optimizer.optimize(&mut rng, config);
+		Ok(())
 	}
 
 	#[test]

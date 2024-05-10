@@ -330,7 +330,7 @@ impl Keycode {
 					if !c_to_test.is_ascii() {
 						println!("non-ascii character {} found", c_to_test);
 					} else {
-						panic!("keycode for {} doesn't exist. This will not be an error in the future and just use some placeholder code.", c);
+						panic!("keycode for {} doesn't exist. This will not be an error in the future and just use some placeholder keycode.", c);
 					}
 				},
 			}

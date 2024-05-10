@@ -49,7 +49,7 @@ pub enum AlcError {
 	#[error("expected {0} to be a directory")]
 	ExpectedDirectoryError(PathBuf),
 
-	#[error("ngram {0} cannot be typed on the layout")]
+	#[error("ngram {0} cannot be typed on the layout, check to make sure all keycodes are present in the layout or that the relevant options are checked")]
 	UntypeableNgramError(Ngram),
 	#[error("the number of dataset weights {0} must match the number of datasets {1}")]
 	DatasetWeightsMismatchError(usize, usize),
