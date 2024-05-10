@@ -788,7 +788,7 @@ use super::*;
 	}
 
 	#[test]
-	fn test_swap() {
+	fn test_swap() -> Result<(), AlcError> {
 		let mut layout = Layout::<1, 4>::try_from("
 			___Layer 0___
 			A_10 B_10 C_10 LS1_10
@@ -796,15 +796,15 @@ use super::*;
 			D_10 E_10 H_10 LST1_0_10
 		").unwrap();
 		println!("{}", layout);
-		layout.swap(LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 2));
+		layout.swap(LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 2))?;
 		assert_eq!(layout[(0, 0, 0)].value(), _C);
 		assert_eq!(layout[(0, 0, 2)].value(), _A);
 		
-		layout.swap(LayoutPosition::new(0, 0, 1), LayoutPosition::new(1, 0, 2));
+		layout.swap(LayoutPosition::new(0, 0, 1), LayoutPosition::new(1, 0, 2))?;
 		assert_eq!(layout[(0, 0, 1)].value(), _H);
 		assert_eq!(layout[(1, 0, 2)].value(), _B);
 
-		layout.swap(LayoutPosition::new(0, 0, 3), LayoutPosition::new(0, 0, 2));
+		layout.swap(LayoutPosition::new(0, 0, 3), LayoutPosition::new(0, 0, 2))?;
 		assert_eq!(layout[(0, 0, 3)].value(), _A);
 		assert_eq!(layout[(0, 0, 2)].value(), _LS(1));
 		assert_eq!(layout[(1, 0, 3)].value(), _B);
@@ -817,20 +817,21 @@ use super::*;
 			___Layer 1___
 			D_10 E_10 H_10 LST1_0_10
 		").unwrap();
-		layout.swap(LayoutPosition::new(0, 0, 1), LayoutPosition::new(0, 0, 2));
+		layout.swap(LayoutPosition::new(0, 0, 1), LayoutPosition::new(0, 0, 2))?;
 		assert_eq!(layout[(0, 0, 1)].value(), _C);
 		assert_eq!(layout[(0, 0, 2)].value(), _B);
 
-		layout.swap(LayoutPosition::new(0, 0, 1), LayoutPosition::new(1, 0, 2));
+		layout.swap(LayoutPosition::new(0, 0, 1), LayoutPosition::new(1, 0, 2))?;
 		assert_eq!(layout[(0, 0, 1)].value(), _H);
 		assert_eq!(layout[(0, 0, 2)].value(), _E);
 		assert_eq!(layout[(1, 0, 1)].value(), _B);
 		assert_eq!(layout[(1, 0, 2)].value(), _C);
 		println!("{}", layout);
+		Ok(())
 	}
 
 	#[test]
-	fn test_replace() {
+	fn test_replace() -> Result<(), AlcError> {
 		let mut layout = Layout::<1, 4>::try_from("
 			___Layer 0___
 			A_10 B_11 C_11 LS1_10
@@ -839,8 +840,9 @@ use super::*;
 		").unwrap();
 		// layout.replace(&LayoutPosition::for_layout(0, 0, 3), _E);
 		// layout.replace(&LayoutPosition::for_layout(0, 0, 0), _E);
-		layout.replace(LayoutPosition::new(1, 0, 1), _C);
+		layout.replace(LayoutPosition::new(1, 0, 1), _C)?;
 		assert_eq!(layout[(1, 0, 1)].value(), _C);
+		Ok(())
 	}
 
 	#[test]

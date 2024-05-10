@@ -3,7 +3,6 @@ pub mod optimizer_presets;
 
 use std::collections::HashSet;
 use std::iter::zip;
-use std::mem::discriminant;
 use std::path::Path;
 use std::sync::RwLock;
 use std::time::SystemTime;
@@ -17,7 +16,6 @@ use tqdm::tqdm;
 
 
 use crate::alc_error::AlcError;
-use crate::keyboard::key::KeyValue;
 use crate::keyboard::key::PhalanxKey;
 use crate::keyboard::layout_presets::get_size_variant;
 use crate::keyboard::layout_presets::LayoutSizePresets;
@@ -32,7 +30,7 @@ use self::config::LayoutOptimizerConfig;
 use self::config::LayoutOptimizerTomlAdapter;
 use self::dataset::FrequencyDataset;
 use self::frequency_holder::{SingleGramFrequencies, TopFrequenciesToTake::*};
-use self::keycode::{Keycode, generate_default_keycode_set};
+use self::keycode::generate_default_keycode_set;
 
 #[derive(Debug)]
 pub struct OperationCounter {
@@ -204,6 +202,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 
 	fn take_best_layouts(&self, mut population: Vec<(Layout<R, C>, f64)>) -> (Vec<Layout<R, C>>, Vec<f64>) {
     	population.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+		// will always take at least one layout
 		let num_to_take = (self.config.genetic_options.fitness_cutoff * (self.config.genetic_options.population_size as f64)).ceil() as usize;
 		let _ = population.split_off(num_to_take); // the returned value is the low score ones
 		let (left, right): (Vec<Layout<R, C>>, Vec<f64>) =  population.into_iter().unzip();
@@ -215,7 +214,10 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let swap_threshold = self.config.genetic_options.swap_weight / (self.config.genetic_options.swap_weight + self.config.genetic_options.replace_weight);
 		let valid_keycodes = &self.config.valid_keycodes;
 		// modify surviving layouts
-		for layout in &mut layouts {
+		
+		// if there is only one layout, modify it otherwise no change will happen
+		if population_size == 1 {
+			let layout = &mut layouts[0];
 			let mut op_counter = self.operation_counter.ops.write().unwrap();
 			op_counter.3 += 1;
 			// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2, op_counter.3 + 1));
@@ -254,7 +256,6 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				op_counter.2 += 1;
 				// self.operation_counter.set((op_counter.0, op_counter.1, op_counter.2 + 1, op_counter.3));
 			}
-			
 		}
 		// fill up to population size
 		while layouts.len() < (population_size as usize) {
@@ -604,7 +605,7 @@ mod tests {
 
 	#[test]
 	fn test_saved() -> Result<(), AlcError> {
-		let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::try_from_optimizer_toml_file("/home/sand/.config/alc/autosave.toml")?;
+		let mut _lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::try_from_optimizer_toml_file("/home/sand/.config/alc/autosave.toml")?;
 		Ok(())
 	}
 
