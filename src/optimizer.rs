@@ -398,6 +398,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				ith_layout.remove_unused_keys(&visited);
 				ith_layout.generate_pathmap()?;
 				let (score, _) = self.score_datasets(&ith_layout, datasets, false)?;
+				println!("layout score: {}", score);
 				if score != best_scores[i as usize] {
 					println!("    removing unused key positions gave a different score, something went wrong")
 				} else {
