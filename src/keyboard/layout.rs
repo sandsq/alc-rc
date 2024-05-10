@@ -1,7 +1,7 @@
 use std::ops::Index;
 use rand::prelude::*;
 use std::fmt;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use regex;
 use std::mem::discriminant;
 
@@ -123,7 +123,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 
 
 	/// returns true if a swap happened
-	pub fn swap(&mut self, p1: LayoutPosition, p2: LayoutPosition) -> bool {
+	pub fn swap(&mut self, p1: LayoutPosition, p2: LayoutPosition) -> Result<bool, AlcError> {
 		// todo: make use of optimized keycode to position remapping computation where only the affected keycodes get are remapped
 
 		if cfg!(debug_assertions) {
@@ -140,7 +140,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		// Bunch of checks for issues that should be easier to resolve in whatever calls swap rather than within swap.
 		if p1 == p2 {
 			// panic!("Error for the developer! Don't try to swap the same positions {} and {}.", p1, p2)
-			return false;
+			return Ok(false);
 		}
 		let k1 = &self[p1];
 		let k2 = &self[p2];
@@ -183,11 +183,11 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			// I think these are harder to handle in the calling function, so just have nothing happen here
 			if !k2_counterpart_clone.is_moveable() {
 				// println!("Warning: attempted to swap a layer switch with position x: {} and found that x's corresponding position {} was not moveable. Doing nothing instead.", p2, p2_counterpart);
-				return false;
+				return Ok(false);
 			}
 			if k2_counterpart_clone.is_symmetric() {
 				// println!("Warning: attempted to swap a layer switch with position x: {} and found that x's corresponding position {} was symmetric, making the swap not valid. Doing nothing instead.", p2, p2_counterpart);
-				return false;
+				return Ok(false);
 			}
 			// yeah gonna want to redo this section once I understand more
 			k1.replace_with(k2_clone);
@@ -204,20 +204,20 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			let p1_counterpart = self_clone.symmetric_position(p1);
 			if p2.col_index as f64 == (C as f64 - 1.0) / 2.0 {
 				// println!("Warning: symmetric p1 {} is being swapped into the center column {}, meaning p1's counterpart {} has no where to go, doing nothing instead.", p1, p2, p1_counterpart);
-				return false;
+				return Ok(false);
 			}
 			let p2_counterpart = self_clone.symmetric_position(p2);
 			let k2_counterpart_clone = &self_clone[p2_counterpart];
 			if !k2_counterpart_clone.is_moveable() {
 				// println!("Warning: attempted to swap a symmetric key with position x: {} and found that x's corresponding position {} was not moveable. Doing nothing instead.", p2, p2_counterpart);
-				return false;
+				return Ok(false);
 			}
 			// if let _LS(_target_layer) = k2_counterpart_clone.value() {
 			// 	// println!("Warning: attempted symmetric swap but p2 {}'s counterpart {} is a layer switch. Doing nothing instead.", p2, p2_counterpart);
 			// 	return false;
 			// }
 			if discriminant(&k2_counterpart_clone.value()) == discriminant(&_LS(0)) || discriminant(&k2_counterpart_clone.value()) == discriminant(&_LST(0, 0)) {
-				return false;
+				return Ok(false);
 			}
 			k1.replace_with(k2_clone);
 			let k2 = self.get_mut_from_layout_position(p2).unwrap();
@@ -235,13 +235,13 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			k2.replace_with(k1_clone);
 			swap_happened = true;
 		}
-		self.generate_pathmap().unwrap();
+		self.generate_pathmap()?;
 		// self.keycode_pathmap = keycode_path_map_from_layout(self.layers.clone()).unwrap();
 		
-		swap_happened
+		Ok(swap_happened)
 	}
 
-	pub fn replace(&mut self, p: LayoutPosition, value: Keycode) -> bool {
+	pub fn replace(&mut self, p: LayoutPosition, value: Keycode) -> Result<bool, AlcError> {
 		// make use of optimized keycode to position remapping computation where only the affected keycodes get are remapped
 		if cfg!(debug_assertions) {
 			// println!("verifying keycode path map during debugging");
@@ -269,10 +269,10 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		}
 		self.get_mut_from_layout_position(p).unwrap().set_value(value);
 		replace_happened = true;
-		self.generate_pathmap().unwrap();
+		self.generate_pathmap()?;
 		
 		
-		replace_happened
+		Ok(replace_happened)
 	}
 	pub fn generate_random_position(&self, rng: &mut impl Rng) -> LayoutPosition {
 		let layer_limit = self.layers.len();
@@ -490,7 +490,12 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 						continue;
 					} else {
 						// check that layer_num is reachable. If layer is currently not reachable, could pass until after the rest of the layout is processed in case there is a downward layer move, but not going to implement that now since QMK does not recommend having layer switches like that
-						let sequences_to_reach_layer = &layer_switch_pathmap.clone()[&_LS(layer_num)];
+						let layer_switches = layer_switch_pathmap.clone();
+						let sequences_to_reach_layer = match layer_switches.get(&_LS(layer_num)) {
+							Some(v) => v.clone(),
+							None => return Err(AlcError::LayerAccessError(layer_num)),
+						};
+						// let sequences_to_reach_layer = &layer_switch_pathmap.clone()[&_LS(layer_num)];
 						for sequence in sequences_to_reach_layer {
 							let mut sequence_clone = sequence.clone();
 							sequence_clone.push(layout_position);
@@ -516,6 +521,25 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 	}
 	pub fn is_empty(&self) -> bool {
 		self.layers.is_empty()
+	}
+
+	pub fn remove_unused_keys(&mut self, visited: &HashSet<LayoutPosition>) {
+		for layer_index in 0..self.len() {
+			for row_index in 0..R {
+				for col_index in 0..C {
+					let current_pos = LayoutPosition::new(layer_index, row_index, col_index);
+					let k = self[current_pos];
+					// if visited.contains(&current_pos) {
+					// 	continue;
+					// } else 
+					if visited.contains(&current_pos) || !k.is_moveable() || k.is_symmetric() || discriminant(&k.value()) == discriminant(&Keycode::_LS(0)) || discriminant(&k.value()) == discriminant(&Keycode::_LST(0, 0,)) {
+						continue;
+					} else {
+						self.get_mut(layer_index, row_index, col_index).unwrap().set_value(Keycode::_NO);
+					}
+				}
+			}
+		}
 	}
 }
 

@@ -4,6 +4,7 @@ pub mod optimizer_presets;
 use std::collections::HashSet;
 use std::iter::zip;
 use std::mem::discriminant;
+use std::path::Path;
 use std::sync::RwLock;
 use std::time::SystemTime;
 use rand::prelude::*;
@@ -65,7 +66,7 @@ pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, 
 	// operation_counter: Cell<(u32, u32, u32, u32)>, // swaps, replacements, nothings, total
 	operation_counter: OperationCounter,
 }
-impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> + Send + Sync {
+impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<R, C> + Send + Sync + Clone {
 	pub fn new(base_layout: Layout<R, C>, effort_layer: Layer<R, C, f64>, phalanx_layer: Layer<R, C, PhalanxKey>, score_function: S, config: LayoutOptimizerConfig, operation_counter: OperationCounter) -> Self {
 		LayoutOptimizer { base_layout, effort_layer, phalanx_layer, score_function, config, 
 			operation_counter 
@@ -194,7 +195,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let mut initial_population: Vec<(Layout<R, C>, f64)> = Default::default();
 		for _i in 0..self.config.genetic_options.population_size {
 			let mut initial_layout = self.base_layout.clone();
-			initial_layout.randomize(rng, valid_keycodes).unwrap();
+			initial_layout.randomize(rng, valid_keycodes)?;
 			let (initial_score, _) = self.score_datasets(&initial_layout, datasets, false)?;
 			initial_population.push((initial_layout, initial_score));
 		}
@@ -209,7 +210,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		(left, right)
 	}
 
-	fn generate_new_layouts(&self, rng: &mut impl Rng, mut layouts: Vec<Layout<R, C>>) -> Vec<Layout<R, C>> {
+	fn generate_new_layouts(&self, rng: &mut impl Rng, mut layouts: Vec<Layout<R, C>>) -> Result<Vec<Layout<R, C>>, AlcError> {
 		let population_size = self.config.genetic_options.population_size;
 		let swap_threshold = self.config.genetic_options.swap_weight / (self.config.genetic_options.swap_weight + self.config.genetic_options.replace_weight);
 		let valid_keycodes = &self.config.valid_keycodes;
@@ -228,7 +229,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 					None => (LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 0)), // swapping the same position doesn't change the layout
 				};
 				// println!("swapping {} and {}", p1, p2);
-				let swap_happened = layout.swap(p1, p2);
+				let swap_happened = layout.swap(p1, p2)?;
 				// let op_counter = self.operation_counter.get();
 				if swap_happened {
 					op_counter.0 += 1;
@@ -240,7 +241,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			} else if let Some(p) = layout.generate_valid_replace_position(rng) {
 				// println!("valid keycodes {:?}", valid_keycodes);
 				let keycode = valid_keycodes.choose(rng).unwrap();
-				let replace_happened = layout.replace(p, *keycode);
+				let replace_happened = layout.replace(p, *keycode)?;
 				// let op_counter = self.operation_counter.get();
 				if replace_happened {
 					op_counter.1 += 1;
@@ -273,7 +274,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 					//(LayoutPosition::for_layout(0, 0, 0), LayoutPosition::for_layout(0, 0, 0)), // swapping the same position doesn't change the layout
 				};
 				// println!("swapping {} and {}", p1, p2);
-				let swap_happened = new_layout.swap(p1, p2);
+				let swap_happened = new_layout.swap(p1, p2)?;
 				// let op_counter = self.operation_counter.get();
 				if swap_happened {
 					op_counter.0 += 1;
@@ -285,7 +286,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			} else if let Some(p) = new_layout.generate_valid_replace_position(rng) {
 
 				let keycode = valid_keycodes.choose(rng).unwrap();
-				let replace_happened = new_layout.replace(p, *keycode);
+				let replace_happened = new_layout.replace(p, *keycode)?;
 				// let op_counter = self.operation_counter.get();
 				if replace_happened {
 					op_counter.1 += 1;
@@ -301,10 +302,11 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			
 			layouts.push(new_layout);
 		}
-		layouts
+		Ok(layouts)
 	}
 
-	pub fn optimize(&mut self, rng: &mut impl Rng) -> Result<Layout<R, C>, AlcError> {
+	pub fn optimize(&mut self, rng: &mut impl Rng, base_filename: Option<String>) -> Result<Layout<R, C>, AlcError> {
+		
 		let datasets = &self.compute_datasets();
 		if datasets.len() != self.config.dataset_options.dataset_weights.len() {
 			return Err(AlcError::DatasetWeightsMismatchError(datasets.len(), self.config.dataset_options.dataset_weights.len()));
@@ -344,7 +346,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			avg_take_time +=  now.elapsed().unwrap().as_secs_f64();
 
 			now = SystemTime::now();
-			layouts = self.generate_new_layouts(rng, best_layouts);
+			layouts = self.generate_new_layouts(rng, best_layouts)?;
 			avg_gen_time +=  now.elapsed().unwrap().as_secs_f64();
 
 			now = SystemTime::now();
@@ -355,61 +357,103 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			
 		}
 		(best_layouts, best_scores) = self.take_best_layouts(layouts_and_scores);
-		let mut final_layout = best_layouts[0].clone();
-		println!("final layout pre removal\n{}score: {}", final_layout, best_scores[0]);
+		// let mut final_layout = best_layouts[0].clone();
+		// println!("final layout pre removal\n{}score: {}", final_layout, best_scores[0]);
 
-		let (score, visited) = self.score_datasets(&final_layout, datasets, true)?;
-		assert_eq!(score, best_scores[0]);
-		for layer_index in 0..final_layout.len() {
-			for row_index in 0..R {
-				for col_index in 0..C {
-					let current_pos = LayoutPosition::new(layer_index, row_index, col_index);
-					let k = final_layout[current_pos];
-					// if visited.contains(&current_pos) {
-					// 	continue;
-					// } else 
-					if visited.contains(&current_pos) || !k.is_moveable() || k.is_symmetric() || discriminant(&k.value()) == discriminant(&Keycode::_LS(0)) || discriminant(&k.value()) == discriminant(&Keycode::_LST(0, 0,)) {
-						continue;
-					} else {
-						final_layout.get_mut(layer_index, row_index, col_index).unwrap().set_value(Keycode::_NO);
-					}
+		// let (score, visited) = self.score_datasets(&final_layout, datasets, true)?;
+		// assert_eq!(score, best_scores[0]);
+		
+		// final_layout.remove_unused_keys(&visited);
+		// final_layout.generate_pathmap()?; //.unwrap();
+		// let (score, _) = self.score_datasets(&final_layout, datasets, false)?;
+		// println!("final layout post removal\n{:#} score: {}", final_layout, score);
+		// if score != best_scores[0] {
+		// 	println!("    removing unused key positions gave a different score, something went wrong")
+		// } else {
+		// 	println!("    verified that removing unused positions has the same score")
+		// }
+		// let (v1, v2) = final_layout.verify_layout_correctness();
+		// if !v1.is_empty() {
+		// 	println!("    issue with layer switches {:?}", v1)
+		// } else {
+		// 	println!("    layer switches checks passed")
+		// }
+		// if !v2.is_empty() {
+		// 	println!("    issue with symmetric keys {:?}", v2)
+		// } else {
+		// 	println!("    symmetric keys checks passed")
+		// }
+		// let bf = base_filename.clone();
+		let num_to_take = match base_filename.clone() {
+			Some(_v) => 10,
+			None => 1,
+		};
+		
+		
+		for i in 0..num_to_take {
+			if i < self.config.genetic_options.population_size {
+				let mut ith_layout = best_layouts[i as usize].clone();
+				let (score, visited) = self.score_datasets(&ith_layout, datasets, true)?;
+				assert_eq!(score, best_scores[i as usize]);
+				ith_layout.remove_unused_keys(&visited);
+				ith_layout.generate_pathmap()?;
+				let (score, _) = self.score_datasets(&ith_layout, datasets, false)?;
+				if score != best_scores[i as usize] {
+					println!("    removing unused key positions gave a different score, something went wrong")
+				} else {
+					println!("    verified that removing unused positions has the same score")
 				}
+				let (v1, v2) = ith_layout.verify_layout_correctness();
+				if !v1.is_empty() {
+					println!("    issue with layer switches {:?}", v1)
+				} else {
+					println!("    layer switches checks passed")
+				}
+				if !v2.is_empty() {
+					println!("    issue with symmetric keys {:?}", v2)
+				} else {
+					println!("    symmetric keys checks passed")
+				}
+				let mut conf = self.config.clone();
+				conf.valid_keycodes = vec![];
+				let new_lo = Self::new(ith_layout, self.effort_layer.clone(), self.phalanx_layer.clone(), self.score_function.clone(), conf, OperationCounter::new((0, 0, 0, 0)));
+
+				if num_to_take == 1 {
+				
+				} else {
+					let base = &base_filename.clone().unwrap();
+					let mut parent = Path::new(base).parent().unwrap().to_path_buf();
+					let mut no_ext = Path::file_stem(Path::new(base)).unwrap().to_os_string();
+					no_ext.push(format!("_{:0>2}.toml", i));
+					parent.push(no_ext);
+					println!("saving to {:?}", parent);
+					new_lo.write_to_toml(parent.to_str().unwrap())?;
+				}
+				
+			} else {
+				continue
 			}
 		}
-		final_layout.generate_pathmap().unwrap();
-		let (score, _) = self.score_datasets(&final_layout, datasets, false)?;
-		println!("final layout post removal\n{:#} score: {}", final_layout, score);
+			
 
-		// println!("config\n{:?}", self.config);
-		// println!("datasets {:?}", self.config.dataset_paths);
-		if score != best_scores[0] {
-			println!("    removing unused key positions gave a different score, something went wrong")
-		} else {
-			println!("    verified that removing unused positions has the same score")
-		}
-		let (v1, v2) = final_layout.verify_layout_correctness();
-		if !v1.is_empty() {
-			println!("    issue with layer switches {:?}", v1)
-		} else {
-			println!("    layer switches checks passed")
-		}
-		if !v2.is_empty() {
-			println!("    issue with symmetric keys {:?}", v2)
-		} else {
-			println!("    symmetric keys checks passed")
-		}
+
 		let ops = self.operation_counter.ops.read().unwrap();
 		println!("operations:\n\tswap: {}, replace: {}, nothing: {}, total: {}", ops.0, ops.1, ops.2, ops.3);
 		println!("initial time: {}", initial_time);
 		println!("avg score time: {}", avg_score_time / self.config.genetic_options.generation_count as f64);
 		println!("avg take top time: {}", avg_take_time / self.config.genetic_options.generation_count as f64);
 		println!("avg gen time: {}", avg_gen_time / self.config.genetic_options.generation_count as f64);
+
+
+		let mut final_layout = best_layouts[0].clone();
+		let (_score, visited) = self.score_datasets(&final_layout, datasets, true)?;
+		final_layout.remove_unused_keys(&visited);
+		println!("best layout\n{}", final_layout);
+
 		Ok(final_layout)
-		// symmetry check
-		// layer reachability check
-		// other sanity checks
-		
 	}
+
+	
 
 	pub fn try_from_optimizer_toml_object(t: LayoutOptimizerTomlAdapter) -> Result<Self, AlcError> {
 		// let num_rows = t.layout_info.num_rows;
@@ -454,7 +498,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 	}
 }
 
-pub fn optimize_from_toml(filename: String) -> Result<(), AlcError> {
+pub fn optimize_from_toml(filename: String) -> Result<String, AlcError> {
 	let t = LayoutOptimizerTomlAdapter::try_from_toml_file(filename.as_str())?;
 	let num_rows = t.layout_info.num_rows;
 	let num_cols = t.layout_info.num_cols;
@@ -462,27 +506,33 @@ pub fn optimize_from_toml(filename: String) -> Result<(), AlcError> {
 	let mut rng = ChaCha8Rng::seed_from_u64(1);
 
 	let size_variant = get_size_variant((num_rows, num_cols))?;
+	let fclone = filename.clone();
 
 	match size_variant {
 		LayoutSizePresets::TwoByFour => {
 			let mut lo = LayoutOptimizer::<2, 4, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
-			lo.optimize(&mut rng)?;
+			lo.optimize(&mut rng, Some(filename))?;
 		}
 		LayoutSizePresets::FourByTen => {
 			let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
-			lo.optimize(&mut rng)?;
+			lo.optimize(&mut rng, Some(filename))?;
 		},
 		LayoutSizePresets::FourByTwelve => {
 			let mut lo = LayoutOptimizer::<4, 12, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
-			lo.optimize(&mut rng)?;
+			lo.optimize(&mut rng, Some(filename))?;
 		},
 		LayoutSizePresets::FiveByFifteen => {
 			let mut lo = LayoutOptimizer::<5, 15, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
-			lo.optimize(&mut rng)?;
+			lo.optimize(&mut rng, Some(filename))?;
 		}
 	};
 
-	Ok(())
+	let mut parent = Path::new(&fclone.as_str()).parent().unwrap().to_path_buf();
+	let mut no_ext = Path::file_stem(Path::new(fclone.as_str())).unwrap().to_os_string();
+	no_ext.push(format!("_{:0>2}.toml", 0));
+	parent.push(no_ext);
+	let final_path = parent.to_str().unwrap().to_string();
+	Ok(final_path)
 }
 
 
@@ -573,7 +623,7 @@ mod tests {
 		// test_layout.randomize(&mut rng, &lo.config.valid_keycodes).unwrap();
 		// println!("initial randomized layout\n{:#}", test_layout);
 		println!("effort layer\n{}", lo.effort_layer);
-		let _final_layout = lo.optimize(&mut rng).unwrap();
+		let _final_layout = lo.optimize(&mut rng, None).unwrap();
 		// println!("final layout\n{:b}", final_layout);
 	}
 
@@ -588,7 +638,7 @@ mod tests {
 		println!("initial valid keycodes {:?}", lo.config.valid_keycodes);
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
 		println!("effort layer\n{}", lo.effort_layer);
-		let _final_layout = lo.optimize(&mut rng).unwrap();
+		let _final_layout = lo.optimize(&mut rng, None).unwrap();
 	}
 
 	#[test]
@@ -614,6 +664,6 @@ mod tests {
 		
 		let mut rng = ChaCha8Rng::seed_from_u64(1);
 		println!("effort layer\n{}", lo.effort_layer);
-		let _final_layout = lo.optimize(&mut rng).unwrap();
+		let _final_layout = lo.optimize(&mut rng, None).unwrap();
 	}
 }

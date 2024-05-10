@@ -53,7 +53,7 @@ num_threads = 16
 
 [layout_optimizer_config.genetic_options]
 population_size = 1000
-generation_count = 150
+generation_count = 10
 fitness_cutoff = 0.1
 swap_weight = 2.0
 replace_weight = 1.0

@@ -7,7 +7,7 @@ use super::Layout;
 use super::LayoutOptimizer;
 use super::Score;
 
-impl<S> Default for LayoutOptimizer<2, 4, S> where S: Score<2, 4> + Send + Sync {
+impl<S> Default for LayoutOptimizer<2, 4, S> where S: Score<2, 4> + Send + Sync + Clone {
 	fn default() -> Self {
 		let base_layout = Layout::<2, 4>::default();
 		let effort_layer = Layer::<2, 4, f64>::default();
@@ -18,7 +18,7 @@ impl<S> Default for LayoutOptimizer<2, 4, S> where S: Score<2, 4> + Send + Sync 
 	}
 }
 
-impl<S> Default for LayoutOptimizer<4, 10, S> where S: Score<4, 10> + Send + Sync {
+impl<S> Default for LayoutOptimizer<4, 10, S> where S: Score<4, 10> + Send + Sync + Clone {
 	fn default() -> Self {
 		let base_layout = Layout::<4, 10>::default();
 		let effort_layer = Layer::<4, 10, f64>::default();
@@ -29,7 +29,7 @@ impl<S> Default for LayoutOptimizer<4, 10, S> where S: Score<4, 10> + Send + Syn
 	}
 }
 
-impl<S> Default for LayoutOptimizer<4, 12, S> where S: Score<4, 12> + Send + Sync {
+impl<S> Default for LayoutOptimizer<4, 12, S> where S: Score<4, 12> + Send + Sync + Clone {
 	fn default() -> Self {
 		let base_layout = Layout::<4, 12>::default();
 		let effort_layer = Layer::<4, 12, f64>::default();
@@ -40,7 +40,7 @@ impl<S> Default for LayoutOptimizer<4, 12, S> where S: Score<4, 12> + Send + Syn
 	}
 }
 
-impl<S> Default for LayoutOptimizer<5, 15, S> where S: Score<5, 15> + Send + Sync {
+impl<S> Default for LayoutOptimizer<5, 15, S> where S: Score<5, 15> + Send + Sync + Clone {
 	fn default() -> Self {
 		let base_layout = Layout::<5, 15>::default();
 		let effort_layer = Layer::<5, 15, f64>::default();
