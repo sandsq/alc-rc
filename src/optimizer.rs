@@ -160,12 +160,16 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 
 	fn score_population(&self, layouts: Vec<Layout<R, C>>, datasets: &[FrequencyDataset<u32>]) -> Vec<(Layout<R, C>, f64)> {
 
-		let scores: Vec<f64> = layouts.par_iter()
-			.map(|x| self.score_datasets(x, datasets, false).0)
-			.collect();
+		println!("num threads {}", self.config.num_threads);
+		let pool = rayon::ThreadPoolBuilder::new().num_threads(self.config.num_threads).build().unwrap();
+		let mut scores: Vec<f64> = Default::default();
+		pool.install(|| {
+			scores = layouts.par_iter()
+				.map(|x| self.score_datasets(x, datasets, false).0)
+				.collect();
 			
+		});
 		zip(layouts, scores).collect()
-		
 		// let mut new_population: Vec<(Layout<R, C>, f64)> = Default::default();
 		// for layout in layouts {
 		// 	let (score, _) = self.score_datasets(layout, datasets, false);
@@ -322,7 +326,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let mut best_scores: Vec<f64>;
 
 		// let tcount = 20;
-		rayon::ThreadPoolBuilder::new().num_threads(self.config.num_threads).build().unwrap();
+		
 		for i in tqdm(0..self.config.genetic_options.generation_count) {
 
 			now = SystemTime::now();
