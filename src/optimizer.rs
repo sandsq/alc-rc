@@ -322,7 +322,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let mut best_scores: Vec<f64>;
 
 		// let tcount = 20;
-		rayon::ThreadPoolBuilder::new().num_threads(self.config.num_threads).build_global().unwrap();
+		rayon::ThreadPoolBuilder::new().num_threads(self.config.num_threads).build().unwrap();
 		for i in tqdm(0..self.config.genetic_options.generation_count) {
 
 			now = SystemTime::now();
