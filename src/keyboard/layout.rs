@@ -66,6 +66,8 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 
 	/// Randomly places [Keycode]s from `valid_keycodes` into the layout. Keys can be blocked off with __00 (_NO keycode, not moveable, not symmetric) to account for (currently) unsupported sizes and non-standard form factors. Prefilled keys are not randomized so that layouts can be "seeded" with "good" initial layouts.
 	pub fn randomize(&mut self, rng: &mut impl Rng, valid_keycodes: &[Keycode]) -> Result<(), AlcError> {
+		let keycode_set: HashSet<Keycode> = self.keycode_pathmap.keys().cloned().collect();
+		// println!("keycodes already in layout {:?}", keycode_set);
 		let mut used_all_keycodes_flag = false;
 		let mut valid_keycodes_all = VecDeque::from(valid_keycodes.to_owned());
 		valid_keycodes_all.make_contiguous().shuffle(rng);
@@ -74,7 +76,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		for layer_num in 0..self.layers.len() {
 			let layer = self.layers.get_mut(layer_num).unwrap();
 			// we want to fill out all valid keycodes over the entire layout, not just layer by layer
-			(valid_keycodes_to_draw_from, used_all_keycodes_flag) = layer.randomize(&valid_keycodes_all, &valid_keycodes_to_draw_from);
+			(valid_keycodes_to_draw_from, used_all_keycodes_flag) = layer.randomize(&valid_keycodes_all, &valid_keycodes_to_draw_from, &keycode_set);
 			if used_all_keycodes_flag {
 				break;
 			}

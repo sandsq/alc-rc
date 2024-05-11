@@ -104,7 +104,7 @@ impl SingleGramFrequencies<u32> {
 		let mut ngram_to_counts: HashMap<Ngram, u32> = HashMap::new();
 		let keycodes = Keycode::from_string(s, options);
 		// if keycodes.contains(&Keycode::_AMPR) {
-		// 	panic!("found &")
+		// 	panic!("found &");
 		// }
 		if keycodes.len() < n {
 			// this particular string was not long enough to create an N-gram out of

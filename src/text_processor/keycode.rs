@@ -21,7 +21,7 @@ impl Default for KeycodeOptions {
 			include_brackets: false,
 			include_misc_symbols: true,
 			include_misc_symbols_shifted: false,
-			explicit_inclusions: vec![_SPC, _SFT, _ENT],
+			explicit_inclusions: vec![_SPC, _SFT, _ENT, _TAB],
 		}
 	}
 }
@@ -78,6 +78,7 @@ pub enum Keycode {
 	_HOME,
 	_PSCR,
 	_DEL,
+	_TAB,
 	_PLACEHOLDER,
 }
 use Keycode::*;
@@ -134,7 +135,9 @@ impl Keycode {
 		let c = match self {
 			_SPC => ' ',
 			_ENT => '\n',
-			_ => return None,
+			_AMPR => '&',
+			_SFT => return None,
+			_ => panic!("{} is not a valid explicit inclusion yet", self), //return None,
 		};
 		Some(c)
 	}

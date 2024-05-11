@@ -2,7 +2,7 @@ use array2d::{Array2D, Error as Array2DError};
 use std::fmt;
 use std::ops::Index;
 use std::str;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 
 use crate::alc_error::AlcError;
 use crate::text_processor::keycode::Keycode::{self, *};
@@ -76,14 +76,26 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 		let layer_array2d = Array2D::filled_with(default_key, R, C);
 		Layer::<R, C, KeycodeKey> { layer: layer_array2d }
 	}
+
+	pub fn get_keycode_set(&self) -> HashSet<Keycode> {
+		let mut existing_keycodes: HashSet<Keycode> = Default::default();
+		for i in 0..R {
+			for j in 0..C {
+				existing_keycodes.insert(self[(i, j)].value());
+			}
+		}
+		existing_keycodes
+	}
 	/// give layout access to this but not anything else to ensure valid_keycodes is already randomized
-	pub (in super) fn randomize(&mut self, valid_keycodes_all: &VecDeque<Keycode>, valid_keycodes: &VecDeque<Keycode>) -> (VecDeque<Keycode>, bool) {
+	pub (in super) fn randomize(&mut self, valid_keycodes_all: &VecDeque<Keycode>, valid_keycodes: &VecDeque<Keycode>, keycode_set: &HashSet<Keycode>) -> (VecDeque<Keycode>, bool) {
+		
 		let mut used_all_keycodes_flag = false;
 		let mut valid_keycodes_to_draw_from = valid_keycodes.clone();
+		// println!("keycodes to draw from {:?}", valid_keycodes_to_draw_from);
 		for i in 0..R {
 			for j in 0..C {
 				let key = &self[(i, j)];
-				if  !key.is_randomizeable() || key.value() != _NO {
+				if !key.is_randomizeable() || key.value() != _NO {
 					continue;
 				}
 				if valid_keycodes_to_draw_from.is_empty() {
@@ -91,9 +103,24 @@ impl<const R: usize, const C: usize> Layer<R, C, KeycodeKey> {
 					used_all_keycodes_flag = true;
 				}
 				
-				if let Some(random_keycode) = valid_keycodes_to_draw_from.pop_front() {
-					let replacement_key = KeycodeKey::default_from_keycode(random_keycode);
-					self.set(i, j, replacement_key).unwrap(); // should always work
+				let mut random_keycode = valid_keycodes_to_draw_from.pop_front();
+				match random_keycode {
+					Some(_) => (),
+					None => continue,
+				};
+				while keycode_set.contains(&random_keycode.unwrap()) {
+					random_keycode = valid_keycodes_to_draw_from.pop_front();
+					match random_keycode {
+						Some(_) => (),
+						None => break,
+					};
+				}
+				match random_keycode {
+					Some(v) => {
+						let replacement_key = KeycodeKey::default_from_keycode(v);
+						self.set(i, j, replacement_key).unwrap(); // should always work
+					},
+					None => ()
 				}
 			}
 		}
@@ -371,7 +398,7 @@ mod tests {
 
 		layer.get_mut(1, 1).unwrap().set_is_moveable(false);
 		layer.get_mut(2, 0).unwrap().set_value(_LS(1)); // there is no layer switch to be had but use it to test that _LS does not get randomized
-		layer.randomize(&VecDeque::from(vec![_E, _E, _E]), &VecDeque::from(vec![_E, _E, _E]));
+		layer.randomize(&VecDeque::from(vec![_E, _E, _E]), &VecDeque::from(vec![_E, _E, _E]), &HashSet::default());
 		// println!("layer\n{}", layer);
 		assert_eq!(layer[(0, 0)].value(), _NO);
 		assert_eq!(layer[(0, 1)].value(), _NO);
@@ -384,7 +411,7 @@ mod tests {
 			D_00 __10 LS1_10
 		";
 		let mut layer = Layer::<2, 3, KeycodeKey>::try_from(layer_string).unwrap();
-		layer.randomize(&VecDeque::from(vec![_H]), &VecDeque::from(vec![_H]));
+		layer.randomize(&VecDeque::from(vec![_H]), &VecDeque::from(vec![_H]), &HashSet::default());
 		assert_eq!(layer[(0, 1)].value(), _B);
 		assert_eq!(layer[(1, 1)].value(), _H);
 	}
@@ -394,7 +421,7 @@ mod tests {
 		let mut layer = Layer::<5, 6, KeycodeKey>::init_blank();
 		layer.get_mut(0, 0).unwrap().set_value(_ENT);
 		layer.get_mut(0, 0).unwrap().set_is_moveable(false);
-		layer.randomize(&VecDeque::from(vec![_E]), &VecDeque::from(vec![_A, _B, _C, _D, _E]));
+		layer.randomize(&VecDeque::from(vec![_E]), &VecDeque::from(vec![_A, _B, _C, _D, _E]), &HashSet::default());
 		layer.get_mut(3, 5).unwrap().set_is_moveable(false);
 		println!("{}", layer);
 		println!("{:b}", layer);
