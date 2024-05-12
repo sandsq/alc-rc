@@ -171,7 +171,7 @@ impl Keycode {
 			_RBRC => ']',
 			_SFT => return Ok(None),
 			_TAB => return Ok(None),
-			_ => return Err(AlcError::GenericError(format!("{} is not a valid explicit inclusion yet", self))),
+			_ => return Err(AlcError::GenericError(format!("Error for the developer! {} is not a valid explicit inclusion yet.", self))),
 		};
 		Ok(Some(c))
 	}

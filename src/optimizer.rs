@@ -71,9 +71,13 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		}
 	}
 
-	pub fn compute_datasets(&self) -> Vec<FrequencyDataset<u32>> {
-		self.config.dataset_options.dataset_paths.iter()
-			.map(|x| FrequencyDataset::<u32>::try_from_dir(x, self.config.dataset_options.max_ngram_size, Num(self.config.dataset_options.top_n_ngrams_to_take), &self.config.keycode_options).unwrap()).collect::<Vec<FrequencyDataset<u32>>>()
+	pub fn compute_datasets(&self) -> Result<Vec<FrequencyDataset<u32>>, AlcError> {
+		let mut datasets: Vec<FrequencyDataset<u32>> = Default::default();
+		for path in &self.config.dataset_options.dataset_paths {
+			let f = FrequencyDataset::<u32>::try_from_dir(path.as_str(), self.config.dataset_options.max_ngram_size, Num(self.config.dataset_options.top_n_ngrams_to_take), &self.config.keycode_options)?;
+			datasets.push(f);
+		}
+		Ok(datasets)
 	}
 
 	pub fn activate(&mut self) {
@@ -309,7 +313,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 
 	pub fn optimize(&mut self, rng: &mut impl Rng, base_filename: Option<String>) -> Result<Layout<R, C>, AlcError> {
 		
-		let datasets = &self.compute_datasets();
+		let datasets = &self.compute_datasets()?;
 		if datasets.len() != self.config.dataset_options.dataset_weights.len() {
 			return Err(AlcError::DatasetWeightsMismatchError(datasets.len(), self.config.dataset_options.dataset_weights.len()));
 		}
@@ -566,7 +570,7 @@ mod tests {
 		config.dataset_options.max_ngram_size = 2;
 		config.dataset_options.dataset_paths = vec![String::from("./data/small_test/")];
 		let layout_optimizer = LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, OperationCounter::new((0, 0, 0, 0)));
-		let datasets = layout_optimizer.compute_datasets();
+		let datasets = layout_optimizer.compute_datasets()?;
 		let twogram_frequency = datasets[0].ngram_frequencies.get(&(2 as usize)).unwrap();
 		println!("{:?}", twogram_frequency);
 		let (s, poss) = layout_optimizer.score_single_grams(&test_layout, twogram_frequency.clone(), true)?;
