@@ -233,7 +233,7 @@ fn rows_from_string(input_s: &str, r: usize) -> Result<Vec<&str>, AlcError> {
 		}
 	}
 	if rows_vec_len != r {
-		panic!("{}", AlcError::RowMismatchError(r, rows_vec_len));
+		return Err(AlcError::RowMismatchError(r, rows_vec_len));
 	}
 	else {
 		Ok(rows.collect())
@@ -251,7 +251,7 @@ fn cols_from_string(input_s: &str, c: usize) -> Result<Vec<&str>, AlcError> {
 	// let mut cols = input_s.split_whitespace();
 	let cols_vec: Vec<&str> = cols.clone().collect();
 	if cols_vec.len() != c {
-		panic!("{}", AlcError::ColMismatchError(c, cols_vec.len(), input_s.to_string()));
+		return Err(AlcError::ColMismatchError(c, cols_vec.len(), input_s.to_string()));
 	} else { 
 		Ok(cols_vec)
 	}

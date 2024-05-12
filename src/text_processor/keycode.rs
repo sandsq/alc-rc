@@ -132,6 +132,7 @@ pub fn generate_default_keycode_set(options: &KeycodeOptions) -> HashSet<Keycode
 
 impl Keycode {
 	fn to_char(self) -> Option<char> {
+		panic!("random panic");
 		let c = match self {
 			_SPC => ' ',
 			_ENT => '\n',

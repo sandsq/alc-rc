@@ -64,6 +64,9 @@ pub enum AlcError {
 
 	#[error("unsupported layout size {0:?}; valid sizes are {1:?}, use the next largest and block out positions")]
 	UnsupportedSizeError((usize, usize), Vec<(usize, usize)>),
+
+	#[error("{0}")]
+	GenericError(String),
 }
 
 impl serde::Serialize for AlcError {

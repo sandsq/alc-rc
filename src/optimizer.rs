@@ -97,7 +97,6 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			let sequences = match layout.ngram_to_sequences(&ngram) {
 				Some(v) => v,
 				None => return Err(AlcError::UntypeableNgramError(ngram)),
-				// panic!("unable to find typeable sequence from {}, check that every keycode is present in the layout or toggled as valid", ngram),
 				// return 0.0
 			};
 			let mut possible_scores: Vec<f64> = vec![];
@@ -161,7 +160,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 
 	fn score_population(&self, layouts: Vec<Layout<R, C>>, datasets: &[FrequencyDataset<u32>]) -> Result<Vec<(Layout<R, C>, f64)>, AlcError> {
 
-		println!("num threads {}", self.config.num_threads);
+		// println!("num threads {}", self.config.num_threads);
 		let pool = rayon::ThreadPoolBuilder::new().num_threads(self.config.num_threads).build().unwrap();
 		let mut scores: Vec<Result<f64, AlcError>> = Default::default();
 		pool.install(|| {
@@ -227,7 +226,6 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			if roll <= swap_threshold {
 				let (p1, p2) = match layout.generate_random_valid_swap(rng) {
 					Some((x, y)) => (x, y),
-					// None => panic!("no swap found"),
 					None => (LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 0)), // swapping the same position doesn't change the layout
 				};
 				// println!("swapping {} and {}", p1, p2);
@@ -271,7 +269,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			if roll <= swap_threshold {
 				let (p1, p2) = match new_layout.generate_random_valid_swap(rng) {
 					Some((x, y)) => (x, y),
-					None => panic!("no swap found"),
+					None => return Err(AlcError::GenericError(String::from("no swap found, probably too many locked / symmetric positions"))),
 					//(LayoutPosition::for_layout(0, 0, 0), LayoutPosition::for_layout(0, 0, 0)), // swapping the same position doesn't change the layout
 				};
 				// println!("swapping {} and {}", p1, p2);
@@ -462,24 +460,8 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		// let num_cols = t.layout_info.num_cols;
 		// let panic_message = format!("{} x {} layout preset does not exist yet, choose the next largest layout and block key positions. List of available layout sizes should go here: ", R, C);
 		
-		// match (num_rows, num_cols) {
-		// 	(4, 10) => (),
-		// 	(4, 12) => (),
-		// 	_ => panic!{"{}", panic_message},
-		// };
 		let (base_layout, effort_layer, phalanx_layer) = (Layout::<R, C>::try_from(t.layout_info.layout.as_str())?, Layer::<R, C, f64>::try_from(t.layout_info.effort_layer.as_str())?, Layer::<R, C, PhalanxKey>::try_from(t.layout_info.phalanx_layer.as_str())?);
-		// let base_layout = match (num_rows, num_cols) {
-		// 	(4, 10) => Layout::<4, 10>::try_from(t.layout_info.layout.as_str())?,
-		// 	_ => panic!("{}", panic_message)
-		// };
-		// let effort_layer = match (num_rows, num_cols) {
-		// 	(4, 10) => Layer::<4, 10, f64>::try_from(t.layout_info.effort_layer.as_str())?,
-		// 	_ => panic!("{}", panic_message)
-		// };
-		// let phalanx_layer = match (num_rows, num_cols) {
-		// 	(4, 10) => Layer::<4, 10, PhalanxKey>::try_from(t.layout_info.phalanx_layer.as_str())?,
-		// 	_ => panic!("{}", panic_message),
-		// };
+
 		Ok(Self {
 			base_layout,
 			effort_layer,
