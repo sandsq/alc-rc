@@ -1,5 +1,5 @@
 use core::num;
-use std::num::ParseFloatError;
+use std::num::{ParseFloatError, ParseIntError};
 use std::path::PathBuf;
 
 use crate::keyboard::LayoutPosition;
@@ -67,6 +67,11 @@ pub enum AlcError {
 
 	#[error("{0}")]
 	GenericError(String),
+}
+impl From<ParseIntError> for AlcError {
+	fn from(value: ParseIntError) -> Self {
+		AlcError::GenericError(format!("{}", value))
+	}
 }
 
 impl serde::Serialize for AlcError {

@@ -94,11 +94,12 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let phalanx_layer = &self.phalanx_layer;
 		for (ngram, ngram_frequency) in frequencies {
 			let ngram_len = ngram.len();
-			let sequences = match layout.ngram_to_sequences(&ngram) {
-				Some(v) => v,
-				None => return Err(AlcError::UntypeableNgramError(ngram)),
-				// return 0.0
-			};
+			let sequences = layout.ngram_to_sequences(&ngram)?;
+			// let sequences = match layout.ngram_to_sequences(&ngram) {
+			// 	Some(v) => v,
+			// 	None => return Err(AlcError::UntypeableNgramError(ngram)),
+			// 	// return 0.0
+			// };
 			let mut possible_scores: Vec<f64> = vec![];
 			let mut possible_sequences: Vec<LayoutPositionSequence> = vec![];
 			for sequence in sequences {
@@ -115,7 +116,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			// 	Some(v) => v,
 			// 	None => 0,
 			// };
-			let min_index = arg_min(&possible_scores);
+			let min_index = arg_min(&possible_scores)?;
 			let min_score = possible_scores[min_index];
 			
 			if save_positions {
@@ -224,10 +225,11 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			let roll: f64 = rng.gen();
 			// println!("{}, {}", roll, swap_threshold);
 			if roll <= swap_threshold {
-				let (p1, p2) = match layout.generate_random_valid_swap(rng) {
-					Some((x, y)) => (x, y),
-					None => (LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 0)), // swapping the same position doesn't change the layout
-				};
+				let (p1, p2) = layout.generate_random_valid_swap(rng)?;
+				// let (p1, p2) = match layout.generate_random_valid_swap(rng) {
+				// 	Some((x, y)) => (x, y),
+				// 	None => (LayoutPosition::new(0, 0, 0), LayoutPosition::new(0, 0, 0)), // swapping the same position doesn't change the layout
+				// };
 				// println!("swapping {} and {}", p1, p2);
 				let swap_happened = layout.swap(p1, p2)?;
 				// let op_counter = self.operation_counter.get();
@@ -267,11 +269,12 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			// println!("{}", roll);
 			// println!("roll {} vs swap threshold {}", roll, swap_threshold);
 			if roll <= swap_threshold {
-				let (p1, p2) = match new_layout.generate_random_valid_swap(rng) {
-					Some((x, y)) => (x, y),
-					None => return Err(AlcError::GenericError(String::from("no swap found, probably too many locked / symmetric positions"))),
-					//(LayoutPosition::for_layout(0, 0, 0), LayoutPosition::for_layout(0, 0, 0)), // swapping the same position doesn't change the layout
-				};
+				let (p1, p2) = new_layout.generate_random_valid_swap(rng)?;
+				// let (p1, p2) = match  {
+				// 	Some((x, y)) => (x, y),
+				// 	None => return Err(AlcError::GenericError(String::from("no swap found, probably too many locked / symmetric positions"))),
+				// 	//(LayoutPosition::for_layout(0, 0, 0), LayoutPosition::for_layout(0, 0, 0)), // swapping the same position doesn't change the layout
+				// };
 				// println!("swapping {} and {}", p1, p2);
 				let swap_happened = new_layout.swap(p1, p2)?;
 				// let op_counter = self.operation_counter.get();
@@ -403,7 +406,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 				} else {
 					println!("    verified that removing unused positions has the same score")
 				}
-				let (v1, v2) = ith_layout.verify_layout_correctness();
+				let (v1, v2) = ith_layout.verify_layout_correctness()?;
 				if !v1.is_empty() {
 					println!("    issue with layer switches {:?}", v1)
 				} else {
@@ -520,12 +523,12 @@ pub fn optimize_from_toml(filename: String) -> Result<String, AlcError> {
 }
 
 
-fn arg_min(scores: &[f64]) -> usize {
+fn arg_min(scores: &[f64]) -> Result<usize, AlcError> {
 	let min_index = match scores.iter().enumerate().min_by(|(_, a), (_, b)| a.total_cmp(b)).map(|(idx, _)| idx) {
 		Some(v) => v,
-		None => panic!("Error for the developer, couldn't find a min score index"),
+		None => return Err(AlcError::GenericError(String::from("Error for the developer, couldn't find a min score index"))),
 	};
-	min_index
+	Ok(min_index)
 }
 
 
@@ -536,9 +539,10 @@ mod tests {
 	use rand_chacha::ChaCha8Rng;
 
 	#[test]
-	fn test_arg_min () {
+	fn test_arg_min () -> Result<(), AlcError> {
 		let v = vec![1.0, 5.5, 10.0, 0.5, 8.0];
-		assert_eq!(arg_min(&v), 3);
+		assert_eq!(arg_min(&v)?, 3);
+		Ok(())
 	}
 
 	#[test]

@@ -100,15 +100,16 @@ impl SingleGramFrequencies<u32> {
 	}
 
 	/// might want to rename because it isn't really a conversion, once something turns into frequencies it can't be turned back
-	pub fn try_from_string(s: &str, n: usize, options: &KeycodeOptions) -> Option<SingleGramFrequencies<u32>> {
+	pub fn try_from_string(s: &str, n: usize, options: &KeycodeOptions) -> Result<Option<SingleGramFrequencies<u32>>, AlcError> {
 		let mut ngram_to_counts: HashMap<Ngram, u32> = HashMap::new();
-		let keycodes = Keycode::from_string(s, options);
+		let keycodes = Keycode::from_string(s, options)?;
 		// if keycodes.contains(&Keycode::_AMPR) {
-		// 	panic!("found &");
+		// 	pnic!("found &");
 		// }
 		if keycodes.len() < n {
 			// this particular string was not long enough to create an N-gram out of
-			return None;
+			return Ok(None);
+			// return Err(AlcError::GenericError(format!("{} was not long enough to create an {}-gram out of", s, n)));
 		}
 		let mut total = 0.0;
 		for i in 0..(keycodes.len() - n + 1) {
@@ -117,23 +118,23 @@ impl SingleGramFrequencies<u32> {
 			*ngram_to_counts.entry(ngram).or_insert(0) += 1;
 			total += 1.0;
 		}
-		Some(SingleGramFrequencies { 
+		Ok(Some(SingleGramFrequencies { 
 			frequencies: ngram_to_counts, 
 			n, 
 			total,
-		})
+		}))
 	}
 
 	pub fn try_from_file<P>(filename: P, n: usize, options: &KeycodeOptions) -> Result<SingleGramFrequencies<u32>, AlcError> where P: AsRef<Path> {
 		let file = match File::open(filename) {
 			Ok(v) => v,
-			Err(e) => panic!("{}", e)
+			Err(e) => return Err(AlcError::GenericError(format!("{}", e))),
 		};
 		let lines = io::BufReader::new(file).lines();
 		let mut ngram_to_counts = Self::new(n);
 		for line in lines.map_while(Result::ok) {
-			if let Some(holder_from_line) = Self::try_from_string(line.as_str(), n, options) {
-				ngram_to_counts.combine_with(holder_from_line).unwrap(); // ngram size is given as input so this should always succeed
+			if let Some(holder_from_line) = Self::try_from_string(line.as_str(), n, options)? {
+				ngram_to_counts.combine_with(holder_from_line).unwrap();
 			}
 		}
 		Ok(ngram_to_counts)
@@ -204,7 +205,7 @@ mod tests {
 		let ngram = Ngram::new(vec![_A, _B]);
 		let mut expected_ngram_to_counts: HashMap<Ngram, u32> = HashMap::new();
 		expected_ngram_to_counts.insert(ngram, 1);
-		assert_eq!(SingleGramFrequencies::try_from_string("ab", 2, &KeycodeOptions::default()).unwrap(), SingleGramFrequencies { frequencies: expected_ngram_to_counts, n: 2, total: 1.0 });
+		assert_eq!(SingleGramFrequencies::try_from_string("ab", 2, &KeycodeOptions::default()).unwrap().unwrap(), SingleGramFrequencies { frequencies: expected_ngram_to_counts, n: 2, total: 1.0 });
 	}
 
 	#[test]
@@ -212,12 +213,12 @@ mod tests {
 		let ngram = Ngram::new(vec![_A, _B]);
 		// let map: HashMap<Ngram<2>, u32> = HashMap::new();
 		// let holder = NgramFrequencyHolder { frequencies: map };
-		let holder2 = SingleGramFrequencies::<u32>::try_from_string("abab", 2, &KeycodeOptions::default()).unwrap();
+		let holder2 = SingleGramFrequencies::<u32>::try_from_string("abab", 2, &KeycodeOptions::default()).unwrap().unwrap();
 		let holder2_ab = holder2[ngram];
 		assert_eq!(holder2_ab, 2);
 		let holder2_ba = holder2[Ngram::new(vec![_B, _A])];
 		assert_eq!(holder2_ba, 1);
-		let holder4 = SingleGramFrequencies::<u32>::try_from_string("abab", 4, &KeycodeOptions::default()).unwrap();
+		let holder4 = SingleGramFrequencies::<u32>::try_from_string("abab", 4, &KeycodeOptions::default()).unwrap().unwrap();
 		let holder4_val = holder4[Ngram::new(vec![_A, _B, _A, _B])];
 		assert_eq!(holder4_val, 1)
 	}

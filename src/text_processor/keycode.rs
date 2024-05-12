@@ -83,6 +83,8 @@ pub enum Keycode {
 }
 use Keycode::*;
 
+use crate::alc_error::AlcError;
+
 pub fn generate_default_keycode_set(options: &KeycodeOptions) -> HashSet<Keycode> {
 	let mut keycodes: HashSet<Keycode> = Default::default();
 	if options.include_alphas {
@@ -131,8 +133,7 @@ pub fn generate_default_keycode_set(options: &KeycodeOptions) -> HashSet<Keycode
 
 
 impl Keycode {
-	fn to_char(self) -> Option<char> {
-		panic!("random panic");
+	fn to_char(self) -> Result<Option<char>, AlcError> {
 		let c = match self {
 			_SPC => ' ',
 			_ENT => '\n',
@@ -168,19 +169,20 @@ impl Keycode {
 			_RCBR => '}',
 			_LBRC => '[',
 			_RBRC => ']',
-			_SFT => return None,
-			_ => panic!("{} is not a valid explicit inclusion yet", self), //return None,
+			_SFT => return Ok(None),
+			_TAB => return Ok(None),
+			_ => return Err(AlcError::GenericError(format!("{} is not a valid explicit inclusion yet", self))),
 		};
-		Some(c)
+		Ok(Some(c))
 	}
 
-	fn from_char(c: char, options: &KeycodeOptions) -> Vec<Keycode> {
+	fn from_char(c: char, options: &KeycodeOptions) -> Result<Vec<Keycode>, AlcError> {
 		let mut keycodes: Vec<Keycode> = vec![];
 		for inclusion in options.explicit_inclusions.clone() {
-			if let Some(k) = inclusion.to_char() {
+			if let Some(k) = inclusion.to_char()? {
 				if k == c {
 					keycodes.push(inclusion);
-					return keycodes;
+					return Ok(keycodes);
 				}
 			}
 		}
@@ -365,20 +367,20 @@ impl Keycode {
 					if !c_to_test.is_ascii() {
 						println!("non-ascii character {} found", c_to_test);
 					} else {
-						panic!("keycode for {} doesn't exist. This will not be an error in the future and just use some placeholder keycode.", c);
+						return Err(AlcError::GenericError(format!("keycode for {} doesn't exist. This will not be an error in the future and just use some placeholder keycode.", c)));
 					}
 				},
 			}
 		}
-		keycodes
+		Ok(keycodes)
 	}
 
-	pub fn from_string(s: &str, options: &KeycodeOptions) -> Vec<Keycode> {
+	pub fn from_string(s: &str, options: &KeycodeOptions) -> Result<Vec<Keycode>, AlcError> {
 		let mut keycodes: Vec<Keycode> = vec![];
 		for c in s.chars() {
-			keycodes.append(&mut Keycode::from_char(c, options));
+			keycodes.append(&mut Keycode::from_char(c, options)?);
 		}
-		keycodes
+		Ok(keycodes)
 	}
 }
 
@@ -393,27 +395,31 @@ mod tests {
 	}
 
 	#[test]
-	fn a_to_keycode() {
+	fn a_to_keycode() -> Result<(), AlcError> {
 		let res: Vec<Keycode> = vec![_A];
-		assert_eq!(Keycode::from_char('a', &KeycodeOptions::default()), res);
+		assert_eq!(Keycode::from_char('a', &KeycodeOptions::default())?, res);
+		Ok(())
 	}
 
 	#[test]
-	fn cap_e_to_keycode() {
+	fn cap_e_to_keycode() -> Result<(), AlcError> {
 		let res: Vec<Keycode> = vec![_SFT, _E];
-		assert_eq!(Keycode::from_char('E', &KeycodeOptions::default()), res);
+		assert_eq!(Keycode::from_char('E', &KeycodeOptions::default())?, res);
+		Ok(())
 	}
 
 	#[test]
-	fn newline_to_keycode() {
+	fn newline_to_keycode() -> Result<(), AlcError> {
 		let res: Vec<Keycode> = vec![_ENT];
-		assert_eq!(Keycode::from_char('\n', &KeycodeOptions::default()), res)
+		assert_eq!(Keycode::from_char('\n', &KeycodeOptions::default())?, res);
+		Ok(())
 	}
 
 	#[test]
-	fn acb_to_keycodes() {
+	fn acb_to_keycodes() -> Result<(), AlcError> {
 		let res: Vec<Keycode> = vec![_A, _SFT, _C, _B];
-		assert_eq!(Keycode::from_string("aCb", &KeycodeOptions::default()), res);
+		assert_eq!(Keycode::from_string("aCb", &KeycodeOptions::default())?, res);
+		Ok(())
 	}
 
 	#[test]

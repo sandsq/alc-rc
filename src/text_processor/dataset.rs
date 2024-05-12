@@ -34,7 +34,10 @@ impl FrequencyDataset<u32> {
 	pub fn try_from_dir(dir_string: &str, max_ngram_size: usize, top_frequencies_to_take: TopFrequenciesToTake, options: &KeycodeOptions) -> Result<Self, AlcError> {
 		let dir_expanded: String = shellexpand::full(dir_string).unwrap().to_string();
 		let dir = PathBuf::try_from(dir_expanded).unwrap();
-		let metadata = dir.metadata().unwrap_or_else(|e| panic!("{}, {:?}", e, dir));
+		let metadata = match dir.metadata(){
+			Ok(v) => v,
+			Err(e) => return Err(AlcError::GenericError(format!("{}, {:?}", e, dir))),
+		};
 		if !metadata.is_dir() {
 			Err(AlcError::ExpectedDirectoryError(dir))
 		} else {

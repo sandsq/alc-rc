@@ -36,11 +36,15 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 	pub fn get_mut_from_layout_position(&mut self, lp: LayoutPosition) -> Option<&mut KeycodeKey> {
 		self.layers.get_mut(lp.layer_index)?.get_mut(lp.row_index, lp.col_index)
 	}
-	pub fn paths_to_keycode(&self, k: Keycode) -> Option<&Vec<LayoutPositionSequence>> {
+	pub fn paths_to_keycode(&self, k: Keycode) -> Result<&Vec<LayoutPositionSequence>, AlcError> {
 		if self.keycode_pathmap.is_empty() {
-			panic!("Error for the developer! Somehow created a layout without creating a pathmap.");
+			return Err(AlcError::GenericError(String::from("Error for the developer! Somehow created a layout without creating a pathmap.")));
 		}
-		self.keycode_pathmap.get(&k) // is there a possibility that the order could be non-deterministic? this could cause randomness despite fixed rng seed
+		match self.keycode_pathmap.get(&k) {
+			Some(v) => Ok(v),
+			None => return Err(AlcError::GenericError(format!("can't find {} in the pathmap", k))),
+		}
+		// is there a possibility that the order could be non-deterministic? this could cause randomness despite fixed rng seed
 	}
 	pub fn symmetric_position(&self, lp: LayoutPosition) -> LayoutPosition {
 		self.layers.first().unwrap().symmetric_position(lp) // would panic if layout is empty but that shouldn't normally be possible
@@ -89,22 +93,23 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 	}
 
 	/// Within a layout there can be multiple ways to type a keycode, so there can be multiple ways to type an ngram. Keep track of all of these
-	pub fn ngram_to_sequences(&self, ngram: &Ngram) -> Option<Vec<LayoutPositionSequence>> {
+	pub fn ngram_to_sequences(&self, ngram: &Ngram) -> Result<Vec<LayoutPositionSequence>, AlcError> {
 		let mut output_sequences_to_ngram: Vec<LayoutPositionSequence> = vec![];
 
 		let ngram_iter = ngram.clone().into_iter();
 		for keycode in ngram_iter {
 			// if keycode == _AMPR {
-			// 	panic!("found &");
+			// 	pnic!("found &");
 			// }
 			// println!("output sequences {:?} at start,  keycode {}", output_sequences_to_ngram, keycode);
-			let sequences_to_keycode = match self.paths_to_keycode(keycode) {
-				Some(p) => p,
-				None => {
-					// println!("Warning: keycode {} is not typeable by the layout:\n{:#}\nIf this is unexpected, there is a bug somewhere.", keycode, self);
-					return None;
-				},
-			};
+			let sequences_to_keycode = self.paths_to_keycode(keycode)?;
+			// let sequences_to_keycode = match self.paths_to_keycode(keycode) {
+			// 	Some(p) => p,
+			// 	None => {
+			// 		// println!("Warning: keycode {} is not typeable by the layout:\n{:#}\nIf this is unexpected, there is a bug somewhere.", keycode, self);
+			// 		return None;
+			// 	},
+			// };
 			if output_sequences_to_ngram.is_empty() {
 				output_sequences_to_ngram = sequences_to_keycode.to_vec();
 				// output_sequences_to_ngram = sequences_to_keycode.clone();
@@ -120,7 +125,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			}
 			// println!("output sequences {:?} at end,  keycode {}", output_sequences_to_ngram, keycode);
 		}
-		Some(output_sequences_to_ngram)
+		Ok(output_sequences_to_ngram)
 	}
 
 
@@ -130,7 +135,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 
 		if cfg!(debug_assertions) {
 			self.verify_pathmap_correctness().unwrap();
-			let (s1, s2) = self.verify_layout_correctness();
+			let (s1, s2) = self.verify_layout_correctness()?;
 			if !s1.is_empty() || !s2.is_empty() {
 				panic!("swapping {} with {}, layer switch issues: {:?}, symmetry issues: {:?}\n{}", p1, p2, s1, s2, self)
 			}
@@ -141,35 +146,34 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 
 		// Bunch of checks for issues that should be easier to resolve in whatever calls swap rather than within swap.
 		if p1 == p2 {
-			// panic!("Error for the developer! Don't try to swap the same positions {} and {}.", p1, p2)
 			return Ok(false);
 		}
 		let k1 = &self[p1];
 		let k2 = &self[p2];
 		if !k1.is_moveable() || !k2.is_moveable() {
-			panic!("Error for the developer! Don't try to swap unmoveable positions.")
+			return Err(AlcError::GenericError(String::from("Error for the developer! Don't try to swap unmoveable positions.")));
 		}
 		if let _LS(_i) = k2.value() {
-			panic!("Error for the developer! Place layer switches in the first position of the swap and disallow swaps where both keys are layer switches.");
+			return Err(AlcError::GenericError(String::from("Error for the developer! Place layer switches in the first position of the swap and disallow swaps where both keys are layer switches.")));
 		}
 		if let _LST(_i, _j) = k1.value() {
-			panic!("Error for the developer! Only allow the source of the layer switch to be chosen for swapping");
+			return Err(AlcError::GenericError(String::from("Error for the developer! Only allow the source of the layer switch to be chosen for swapping")));
 		}
 		if let _LST(_i, _j) = k2.value() {
-			panic!("Error for the developer! Only allow the source of the layer switch to be chosen for swapping");
+			return Err(AlcError::GenericError(String::from("Error for the developer! Only allow the source of the layer switch to be chosen for swapping")));
 		}
 		if !k1.is_symmetric() && k2.is_symmetric() {
-			panic!("Error for the developer! Place symmetric keys in the first position of the swap.")
+			return Err(AlcError::GenericError(String::from("Error for the developer! Place symmetric keys in the first position of the swap.")));
 		}
 		if let _LS(_i) = k1.value() {
 			if p1.layer_index != p2.layer_index {
-				panic!("Error for the developer! Swaps involving layer switches must occur within the same layer otherwise layers could become unreachable.")
+				return Err(AlcError::GenericError(String::from("Error for the developer! Swaps involving layer switches must occur within the same layer otherwise layers could become unreachable.")));
 			}
 			if k2.is_symmetric() {
-				panic!("Error for the developer! Can't swap a layer switch key with a symmetric key.")
+				return Err(AlcError::GenericError(String::from("Error for the developer! Can't swap a layer switch key with a symmetric key.")));
 			}
 			if k1.is_symmetric() {
-				panic!("Error for the developer! Can't have a layer switch that is also symmetric due to additionaly complexity. This should be caught when reading in a Key from a string.")
+				return Err(AlcError::GenericError(String::from("Error for the developer! Can't have a layer switch that is also symmetric due to additionaly complexity. This should be caught when reading in a Key from a string.")));
 			}
 		}
 		// cursed things
@@ -248,7 +252,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		if cfg!(debug_assertions) {
 			// println!("verifying keycode path map during debugging");
 			self.verify_pathmap_correctness().unwrap();
-			let (s1, s2) = self.verify_layout_correctness();
+			let (s1, s2) = self.verify_layout_correctness()?;
 			if !s1.is_empty() || !s2.is_empty() {
 				panic!("replacing {} with {}, layer switch issues: {:?}, symmetry issues: {:?}\n{}", p, value, s1, s2, self)
 			}
@@ -258,16 +262,16 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		let mut replace_happened = false;
 		let k = self[p];
 		if k.value() != _NO && self.keycode_pathmap[&k.value()].len() == 1 {
-			panic!("Error for the developer! There is only one way to reach {}, not allowed to replace.", k)
+			return Err(AlcError::GenericError(format!("Error for the developer! There is only one way to reach {}, not allowed to replace.", k)));
 		}
 		if let _LST(_i, _j) = k.value() {
-			panic!("Error for the developer! Not allowed to replace LST");
+			return Err(AlcError::GenericError(String::from("Error for the developer! Not allowed to replace LST")));
 		}
 		if let _LS(_target_layer) = k.value() {
-			panic!("Error for the developer! Not allowed to replace the layer switch ({}).", p)
+			return Err(AlcError::GenericError(format!("Error for the developer! Not allowed to replace the layer switch ({}).", p)));
 		}
 		if !k.is_moveable() {
-			panic!("Error for the developer! Not allowed to replace a non-moveable key.")
+			return Err(AlcError::GenericError(String::from("Error for the developer! Not allowed to replace a non-moveable key.")));
 		}
 		self.get_mut_from_layout_position(p).unwrap().set_value(value);
 		replace_happened = true;
@@ -281,7 +285,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 		LayoutPosition::new(rng.gen_range(0..layer_limit), rng.gen_range(0..R), rng.gen_range(0..C))
 	}
 
-	fn generate_random_moveable_position(&self, rng: &mut impl Rng) -> Option<LayoutPosition> {
+	fn generate_random_moveable_position(&self, rng: &mut impl Rng) -> Result<LayoutPosition, AlcError> {
 		let fallback_count = 100;
 		let mut p = self.generate_random_position(rng);
 		let mut k = &self[p];
@@ -291,14 +295,14 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 			k = &self[p];
 			count += 1;
 			if count >= fallback_count {
-				return None
-				// return Err(AlcError::SwapFallbackError(fallback_count, String::from("could not find moveable first key")));
+				// return None
+				return Err(AlcError::SwapFallbackError(fallback_count, String::from("could not find moveable first key")));
 			}
 		}
-		Some(p)
+		Ok(p)
 	}
 
-	pub fn generate_random_valid_swap(&self, rng: &mut impl Rng) -> Option<(LayoutPosition, LayoutPosition)> {
+	pub fn generate_random_valid_swap(&self, rng: &mut impl Rng) -> Result<(LayoutPosition, LayoutPosition), AlcError> {
 		let mut p1 = self.generate_random_moveable_position(rng)?;
 		let mut k1 = &self[p1];
 		let mut p2 = self.generate_random_moveable_position(rng)?;
@@ -312,38 +316,34 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 
 			count += 1;
 			if count >= fallback_count {
-				panic!("Error for developer! Only finding _NO keycodes.")
+				return Err(AlcError::GenericError(String::from("Error for developer! Only finding _NO keycodes.")));
 			}
 		}
 		count = 0;
 
 		if let _LS(_i) = k1.value() {
 			if k1.is_symmetric() {
-				// return panic!("Error for the developer! Can't have a layer switch that is also symmetric due to additionaly complexity. This should be caught when reading in a Key from a string.");
+				return Err(AlcError::GenericError(String::from("Error for the developer! Can't have a layer switch that is also symmetric due to additionaly complexity. This should be caught when reading in a Key from a string.")));
 			}
 			while k2.is_symmetric() || (p1.layer_index != p2.layer_index) || std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LS(1)) || std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LST(1, 2)) {
 				p2 = self.generate_random_moveable_position(rng)?;
 				k2 = &self[p2];
 				count += 1;
 				if count >= fallback_count {
-					// return None;
-					// return Err(AlcError::SwapFallbackError(fallback_count, String::from("key 1 was a layer switch and either i) no non-symmetric key 2s could be found or ii) no key 2s could be found in the same layer or iii) not non-layer switch key 2s could be found")));
-					panic!("key 1 was a layer switch and either i) no non-symmetric key 2s could be found or ii) no key 2s could be found in the same layer or iii) not non-layer switch key 2s could be found");
+					return Err(AlcError::SwapFallbackError(fallback_count, String::from("key 1 was a layer switch and either i) no non-symmetric key 2s could be found or ii) no key 2s could be found in the same layer or iii) not non-layer switch key 2s could be found")));
 				}
 			}
-			Some((p1, p2))
+			Ok((p1, p2))
 		} else {
 			while std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LS(1)) || (!k1.is_symmetric() && k2.is_symmetric()) || std::mem::discriminant(&k2.value()) == std::mem::discriminant(&_LST(1, 2)) {
 				p2 = self.generate_random_moveable_position(rng)?;
 				k2 = &self[p2];
 				count += 1;
 				if count >= fallback_count {
-					// return Err(AlcError::SwapFallbackError(fallback_count, String::from("key 1 was not a layer switch but proper k2 could not be found")));
-					// return None;
-					panic!("key 1 was not a layer switch but proper k2 could not be found");
+					return Err(AlcError::SwapFallbackError(fallback_count, String::from("key 1 was not a layer switch but proper k2 could not be found")));
 				}
 			}
-			Some((p1, p2))
+			Ok((p1, p2))
 		}
 	}
 
@@ -419,7 +419,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 
 	
 	/// layer switches, symmetry
-	pub fn verify_layout_correctness(&self) -> (CorrespondingPositions, CorrespondingPositions) {
+	pub fn verify_layout_correctness(&self) -> Result<(CorrespondingPositions, CorrespondingPositions), AlcError> {
 		let mut incorrect_layer_switch_locations: Vec<(LayoutPosition, LayoutPosition)> = vec![];
 		let mut incorrect_symmetry_locations: Vec<(LayoutPosition, LayoutPosition)> = vec![];
 		for layer_index in 0..self.layers.len() {
@@ -431,16 +431,11 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 						// println!("position {}", lp);
 						let lp_corresponding = LayoutPosition::new(target_layer, row_index, col_index);
 						let key_corresponding = &self[lp_corresponding];
-						// if key_corresponding.value() != _NO {
-						// 	panic!("For layer switch at {}, it's corresponding position {} should be blank, not {}", lp, lp_corresponding, key_corresponding);
 						
 						if let _LST(new_target_layer, _source_layer) = key_corresponding.value() {
 							if new_target_layer != target_layer {
-								panic!("LS's linked to each other should have the same layer number. For example, LS1 in layer 0 should be under LST(1, 0) in layer 1.")
-							}
-							// if source_layer != layer_index {
-							// 	panic!("LS in the higher layer should point back down to its source layer. For example, LS1 in layer 0 should be under LS0 in layer 1.")
-						
+								return Err(AlcError::GenericError(String::from("LS's linked to each other should have the same layer number. For example, LS1 in layer 0 should be under LST(1, 0) in layer 1.")));
+							}						
 						} else {
 							incorrect_layer_switch_locations.push((lp, lp_corresponding));
 						}
@@ -465,7 +460,7 @@ impl<const R: usize, const C: usize> Layout<R, C> {
 				}
 			}
 		}
-		(incorrect_layer_switch_locations, incorrect_symmetry_locations)
+		Ok((incorrect_layer_switch_locations, incorrect_symmetry_locations))
 	}
 
 
@@ -574,7 +569,7 @@ impl<const R: usize, const C: usize> TryFrom<&str> for Layout<R, C> {
 		let mut layout = Layout { layers, keycode_pathmap: KeycodePathMap::default() };
 		layout.generate_pathmap()?;
 
-		let (v1, v2) = layout.verify_layout_correctness();
+		let (v1, v2) = layout.verify_layout_correctness()?;
 		if !v1.is_empty() {
 			return Err(AlcError::LayoutLayerSwitchError(v1));
 		}
