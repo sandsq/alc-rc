@@ -484,6 +484,19 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		Self::try_from_optimizer_toml_object(toml)
 	}
 
+	pub fn try_from_toml_string(s: &str) -> Result<Self, AlcError> {
+		let optimizer_object: LayoutOptimizerTomlAdapter = toml::from_str(s)?;
+		Self::try_from_optimizer_toml_object(optimizer_object)
+	}
+
+	pub fn try_from_toml(t: &str) -> Result<Self, AlcError> {
+		if Path::new(t).exists() {
+			Self::try_from_optimizer_toml_file(t)
+		} else {
+			Self::try_from_toml_string(t)
+		}
+	}
+
 	pub fn write_to_toml(&self, output_file: &str) -> Result<(), AlcError> {
 		LayoutOptimizerTomlAdapter::try_from_layout_optimizer(self).write_to_file(output_file)
 	}

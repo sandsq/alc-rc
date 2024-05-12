@@ -117,6 +117,12 @@ pub struct LayoutOptimizerTomlAdapter {
 	pub layout_optimizer_config: LayoutOptimizerConfig,
 }
 impl LayoutOptimizerTomlAdapter {
+
+	pub fn try_from_toml_string(s: &str) -> Result<Self, AlcError> {
+		let optimizer_object: LayoutOptimizerTomlAdapter = toml::from_str(&s)?;
+		Ok(optimizer_object)
+	}
+
 	pub fn try_from_toml_file(filename: &str) -> Result<Self, AlcError> {
 		let contents = match fs::read_to_string(filename) {
 			Ok(c) => c,
@@ -124,8 +130,7 @@ impl LayoutOptimizerTomlAdapter {
 				return Err(AlcError::GenericError(format!("could not read file {}", filename)))
 			}
 		};
-		let optimizer_object: LayoutOptimizerTomlAdapter = toml::from_str(&contents)?;
-		Ok(optimizer_object)
+		Self::try_from_toml_string(&contents)
 	}
 
 	pub fn try_to_toml_string(&self) -> Result<String, AlcError> {
@@ -232,13 +237,13 @@ pub fn option_descriptions() -> HashMap<String, String> {
 	options_map.insert(String::from("fitness_cutoff"), String::from("Fraction of best layouts per generation to duplicate and modify into layouts of the next generation. With a value of 1.0, all layouts will be retained generation to generation so no new ones will be created. With a value of 0.0, a single layout (the minimum possible) will be retained generation to generation; all layouts within a generation will be based on the best layout of the previous generation."));
 	options_map.insert(String::from("swap_weight"), String::from("swap_weight:replace_weight represents the ratio of swap mutations (i.e., swapping two keys) to replace mutations (i.e., replacing one key with another)."));
 	options_map.insert(String::from("replace_weight"), String::from("See swap_weight."));
-	options_map.insert(String::from("include_alphas"), String::from("Whether to include alphabet keycodes. Recommended to be set to true, as otherwise the user must manually place every alpha."));
+	options_map.insert(String::from("include_alphas"), String::from("Convenience toggle. Recommended to be set to true, as otherwise the user must manually place every alpha."));
 	options_map.insert(String::from("include_numbers"), String::from("Whether to include number keycodes. Recommended to set this to false with manual number placement -- optimized layouts cannot currently guarantee numbers to be arranged in order."));
-	options_map.insert(String::from("include_number_symbols"), String::from("Whether to include shifted numbers (!@#$ etc.). If false, these symbols must be accessed through shifted numbers. Recommended to set to false. For specific symbols, such as ones common to programming languages, include them in `explicit_inclusions`."));
-	options_map.insert(String::from("include_brackets"), String::from("Whether to include ()[]{}<> Recommended to set to false with manual bracket placement, as optimized layouts cannot guarantee corresponding brackets will appear next to each other."));
-	options_map.insert(String::from("include_misc_symbols"), String::from("Whether to include -=\\;'`/[] Set to true or manually place in the layout, as these are needed for typing."));
-	options_map.insert(String::from("include_misc_symbols_shifted"), String::from("Whether to include shifted versions of misc. symbols, i.e., _+|:\"~?{} Recommended to set to false and access through shift."));
-	options_map.insert(String::from("explicit_inclusions"), String::from("Keycodes to explicitly include. If no combination of options covers exactly what you want, add them here."));
+	options_map.insert(String::from("include_number_symbols"), String::from("Whether shifted numbers (!@#$ etc.) should be considered their own keycodes. If false, these symbols must be accessed through shift+numbers. Recommended to set to false, as it is uncommon for general typing to need immediate access to all such symbols. Instead, include specific symbols, such as ones common to a programming language, via `explicit_inclusions`."));
+	options_map.insert(String::from("include_brackets"), String::from("Whether the various brackets ()[]{}<> should be considered their own keycodes. (Note that \"[]\" will always be considered their own keycodes since they are base, non-shifted keys.) If users prefer symmetrically placed brackets, recommended to set to true with manual initial symmetric placements. Otherwise, set to false."));
+	options_map.insert(String::from("include_misc_symbols"), String::from("Convenience toggle. -=\\;'`/[] Set to true or manually place in the layout, as these are required for typing."));
+	options_map.insert(String::from("include_misc_symbols_shifted"), String::from("Whether shifted versions of misc. symbols, i.e., _+|:\"~?{} should be considered their own keycodes. Recommended to set to false, as it is uncommon for general typing to need immediate access to all such symbols. Instead, include specific symbols via `explicit_inclusions`."));
+	options_map.insert(String::from("explicit_inclusions"), String::from("Keycodes to explicitly include, for if no combination of options covers exactly what the user wants. If not manually added to the layout, shift (SFT) should be included here."));
 	options_map.insert(String::from("dataset_paths"), String::from("Path to directories containing textual data. Currently only looks in the immediate directory and not recursively. Presets are planned."));
 	options_map.insert(String::from("dataset_weights"), String::from("Ratio of datasets' importance. For example, with two datasets at a 2:1 ratio, the first dataset will constitute 2/(2 + 1) of the score and the second will constitute 1/(2 + 1)."));
 	options_map.insert(String::from("max_ngram_size"), String::from("Maximum length of ngrams to extract from text. Recommended to set to 4."));
