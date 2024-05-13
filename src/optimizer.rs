@@ -333,6 +333,9 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		let current_step_file = format!("{}current_step.txt", cache_dir.into_string().unwrap());
 		
 		let datasets = &self.compute_datasets()?;
+		if datasets.is_empty() {
+			return Err(AlcError::GenericError(String::from("no datasets to optimize")));
+		}
 		if datasets.len() != self.config.dataset_options.dataset_weights.len() {
 			return Err(AlcError::DatasetWeightsMismatchError(datasets.len(), self.config.dataset_options.dataset_weights.len()));
 		}
