@@ -2,10 +2,13 @@ pub mod config;
 pub mod optimizer_presets;
 
 use std::collections::HashSet;
+use std::fs;
 use std::iter::zip;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::RwLock;
 use std::time::SystemTime;
+use clap::builder::PathBufValueParser;
 use rand::prelude::*;
 use rand::Rng;
 use rand_chacha::ChaCha8Rng;
@@ -53,6 +56,14 @@ impl PartialEq for OperationCounter {
 
 // pub trait Opt: erased_serde::Serialize {}
 // impl<const R: usize, const C: usize, S> Opt for LayoutOptimizer<R, C, S> where S: Score<R, C> + Send + Sync {}
+
+fn write_text_to_file(filename: &str, text: String) -> Result<(), AlcError> {
+	match fs::write(filename, text) {
+		Ok(_) => Ok(()),
+		Err(_) => return Err(AlcError::GenericError(format!("unable to write file {}", filename))),
+	}
+
+}
 
 #[derive(Debug, PartialEq)]
 pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, C> + Send + Sync {
@@ -313,10 +324,19 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 
 	pub fn optimize(&mut self, rng: &mut impl Rng, base_filename: Option<String>) -> Result<Layout<R, C>, AlcError> {
 		
+		let mut cache_dir = dirs::cache_dir().unwrap().into_os_string();
+		cache_dir.push("/alc/");
+		match fs::create_dir_all(cache_dir.clone()) {
+			Ok(v) => v,
+			Err(_e) => return Err(AlcError::ExpectedDirectoryError(PathBuf::from(cache_dir)))
+		}
+		let current_step_file = format!("{}current_step.txt", cache_dir.into_string().unwrap());
+		
 		let datasets = &self.compute_datasets()?;
 		if datasets.len() != self.config.dataset_options.dataset_weights.len() {
 			return Err(AlcError::DatasetWeightsMismatchError(datasets.len(), self.config.dataset_options.dataset_weights.len()));
 		}
+		write_text_to_file(&current_step_file, String::from("Loaded datasets"))?;
 
 		self.activate();
 		println!("base layout\n{}", self.base_layout);
@@ -336,8 +356,10 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 
 		let mut now = SystemTime::now();
 		let mut layouts_and_scores = self.generate_and_score_initial_population(rng, datasets)?;
-		let initial_time = now.elapsed().unwrap().as_secs_f64();
+		
+		write_text_to_file(&current_step_file, String::from("Processed initial population"))?;
 
+		let initial_time = now.elapsed().unwrap().as_secs_f64();
 			
 		let mut layouts: Vec<Layout<R, C>>; // = Default::default();
 		let mut best_layouts: Vec<Layout<R, C>>;
@@ -361,6 +383,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 			
 			println!("after {} generation(s), best score: {}, worst score {}", i, best_scores[0], best_scores[best_scores.len()-1]);
 			
+			write_text_to_file(&current_step_file, format!("Finished generation {} / {}", i, self.config.genetic_options.generation_count))?;
 		}
 		(best_layouts, best_scores) = self.take_best_layouts(layouts_and_scores);
 		// let mut final_layout = best_layouts[0].clone();
@@ -503,6 +526,8 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 }
 
 pub fn optimize_from_toml(filename: String) -> Result<String, AlcError> {
+	
+
 	let t = LayoutOptimizerTomlAdapter::try_from_toml_file(filename.as_str())?;
 	let num_rows = t.layout_info.num_rows;
 	let num_cols = t.layout_info.num_cols;
