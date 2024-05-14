@@ -5,7 +5,6 @@ use std::collections::HashMap;
 
 // use serde::Deserialize;
 use serde_derive::{Serialize, Deserialize};
-use serde_json::json;
 
 use crate::alc_error::AlcError;
 
@@ -119,6 +118,10 @@ mod tests {
 	#[test]
 	fn test_from_directory() -> Result<(), AlcError> {
 		let frequency_dataset = FrequencyDataset::try_from_dir("./data/rust_book_test/", 4, All, &KeycodeOptions::default())?;
+		let dataset_text = fs::read_to_string("./data/rust_book_test/rust_book_test_4_All_100010__SPC__SFT__ENT__TAB.ron").unwrap();
+		let frequency_dataset2 = ron::from_str(&dataset_text).unwrap();
+		assert_eq!(frequency_dataset, frequency_dataset2);
+
 		let twogram_frequency = &frequency_dataset.ngram_frequencies[&2];
 		assert_eq!(twogram_frequency[Ngram::new(vec![_H, _E])], 145 + 201);
 		assert_eq!(twogram_frequency[Ngram::new(vec![_B, _E])], 34 + 23);

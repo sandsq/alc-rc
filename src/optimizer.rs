@@ -8,7 +8,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::RwLock;
 use std::time::SystemTime;
-use clap::builder::PathBufValueParser;
 use rand::prelude::*;
 use rand::Rng;
 use rand_chacha::ChaCha8Rng;

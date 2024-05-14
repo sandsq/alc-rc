@@ -5,7 +5,7 @@ use std::io::{self, BufRead};
 use std::ops::Index;
 use std::collections::hash_map::{IntoIter, IntoKeys, Iter};
 use std::fs::File;
-use std::path::{Display, Path};
+use std::path::Path;
 
 use crate::alc_error::AlcError;
 
