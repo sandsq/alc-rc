@@ -1,10 +1,11 @@
+use core::fmt;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::io::{self, BufRead};
 use std::ops::Index;
 use std::collections::hash_map::{IntoIter, IntoKeys, Iter};
 use std::fs::File;
-use std::path::Path;
+use std::path::{Display, Path};
 
 use crate::alc_error::AlcError;
 
@@ -20,10 +21,20 @@ pub enum TopFrequenciesToTake {
 	All,
 	Num(usize),
 }
+
+use serde_derive::{Deserialize, Serialize};
 use TopFrequenciesToTake::*;
+impl fmt::Display for TopFrequenciesToTake {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			All => write!(f, "All"),
+			Num(i) => write!(f, "{}", i),
+		}
+	}
+}
 
 /// single as in only holds one length of n-gram
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Deserialize, Serialize)]
 pub struct SingleGramFrequencies<T> where T: Frequencies {
 	frequencies: HashMap<Ngram, T>,
 	n: usize,

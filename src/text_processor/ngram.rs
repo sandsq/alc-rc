@@ -1,10 +1,12 @@
 use std::vec::IntoIter;
 use std::fmt;
 
+use serde_derive::{Deserialize, Serialize};
+
 use super::keycode::Keycode;
 
 /// Holds a collection of keycodes corresponding to a string
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Deserialize, Serialize)]
 pub struct Ngram {
 	sequence: Vec<Keycode>,
 }

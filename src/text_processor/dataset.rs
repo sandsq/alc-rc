@@ -1,7 +1,11 @@
-use std::fs::read_dir;
+use std::fs::{self, read_dir};
 use std::ops::Index;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::collections::HashMap;
+
+// use serde::Deserialize;
+use serde_derive::{Serialize, Deserialize};
+use serde_json::json;
 
 use crate::alc_error::AlcError;
 
@@ -18,8 +22,9 @@ pub enum FrequencyDatasetError {
 // 	TheRustBook,
 // }
 
+    
 type MultipleNgramFrequencies<T> = HashMap<usize, SingleGramFrequencies<T>>;
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Deserialize, Serialize)]
 pub struct FrequencyDataset<T> where T: Frequencies {
 	pub name: String,
 	pub ngram_frequencies: MultipleNgramFrequencies<T>,
@@ -41,22 +46,51 @@ impl FrequencyDataset<u32> {
 		if !metadata.is_dir() {
 			Err(AlcError::ExpectedDirectoryError(dir))
 		} else {
-			// be a bit lazy for now and don't check for directories recursively
-			let mut ngram_frequencies: HashMap<usize, SingleGramFrequencies<u32>> = Default::default();
-			for n in 1..=max_ngram_size {
-				ngram_frequencies.insert(n, SingleGramFrequencies::new(n));
-			}
-			for n in 1..=max_ngram_size {
-				let files = read_dir(dir.clone()).unwrap();
-				for file in files {
-					let single_gram_frequencies = SingleGramFrequencies::<u32>::try_from_file(file.unwrap().path(), n, options)?;
-					ngram_frequencies.get_mut(&n).unwrap().combine_with(single_gram_frequencies).unwrap(); // 
+			let dir_name = dir.file_name().unwrap();
+			let inclusions = options.explicit_inclusions.iter().map(|x| format!("{}", x)).collect::<Vec<String>>().join("_");
+			let saved_dataset_filename = format!("{}/{}_{}_{}_{}{}{}{}{}{}_{}.ron", dir.to_str().unwrap(), dir_name.to_str().unwrap(), max_ngram_size, top_frequencies_to_take, options.include_alphas as i32, options.include_numbers as i32, options.include_number_symbols as i32, options.include_brackets as i32, options.include_misc_symbols as i32, options.include_misc_symbols_shifted as i32, inclusions);
+
+			if Path::new(&saved_dataset_filename).exists() {
+				println!("loading dataset from {}", saved_dataset_filename);
+				let dataset_from_read = fs::read_to_string(saved_dataset_filename).unwrap();
+				let fd = match ron::from_str(dataset_from_read.as_str()) {
+					Ok(v) => v,
+					Err(e) => return Err(AlcError::GenericError(format!("error deserializing from string: {}", e))),
+				};
+				Ok(fd)
+			} else {
+				println!("processing dataset for the first time");
+				// be a bit lazy for now and don't check for directories recursively
+				let mut ngram_frequencies: HashMap<usize, SingleGramFrequencies<u32>> = Default::default();
+				for n in 1..=max_ngram_size {
+					ngram_frequencies.insert(n, SingleGramFrequencies::new(n));
 				}
-				ngram_frequencies.get_mut(&n).unwrap().take_top_frequencies(top_frequencies_to_take.clone());
+				for n in 1..=max_ngram_size {
+					let files = read_dir(dir.clone()).unwrap();
+					for file in files {
+						let single_gram_frequencies = SingleGramFrequencies::<u32>::try_from_file(file.unwrap().path(), n, options)?;
+						ngram_frequencies.get_mut(&n).unwrap().combine_with(single_gram_frequencies).unwrap(); // 
+					}
+					ngram_frequencies.get_mut(&n).unwrap().take_top_frequencies(top_frequencies_to_take.clone());
+				}
+				// do something about this
+				let name = dir.file_name().unwrap().to_str().unwrap().to_string();
+				let fd = FrequencyDataset::new(name, ngram_frequencies);
+				
+				
+				let dataset_to_write = match ron::to_string(&fd) {
+					Ok(v) => v,
+					Err(e) => return Err(AlcError::GenericError(format!("error serializing: {}", e))),
+				};
+				match fs::write(saved_dataset_filename, dataset_to_write) {
+					Ok(_) => (),
+					Err(e) => return Err(AlcError::GenericError(format!("{}", e))),
+				}
+				Ok(fd)
 			}
-			// do something about this
-			let name = dir.file_name().unwrap().to_str().unwrap().to_string();
-			Ok(FrequencyDataset::new(name, ngram_frequencies))
+
+			
+			
 		}
 	}
 
@@ -83,8 +117,8 @@ mod tests {
 	
 
 	#[test]
-	fn test_from_directory() {
-		let frequency_dataset = FrequencyDataset::try_from_dir("./data/rust_book_test/", 4, All, &KeycodeOptions::default()).unwrap();
+	fn test_from_directory() -> Result<(), AlcError> {
+		let frequency_dataset = FrequencyDataset::try_from_dir("./data/rust_book_test/", 4, All, &KeycodeOptions::default())?;
 		let twogram_frequency = &frequency_dataset.ngram_frequencies[&2];
 		assert_eq!(twogram_frequency[Ngram::new(vec![_H, _E])], 145 + 201);
 		assert_eq!(twogram_frequency[Ngram::new(vec![_B, _E])], 34 + 23);
@@ -92,6 +126,7 @@ mod tests {
 		// assert_eq!(threegram_frequency.len(), 1000);
 		assert_eq!(threegram_frequency[Ngram::new(vec![_T, _H, _E])], 114 + 175);
 		assert_eq!(threegram_frequency[Ngram::new(vec![_H, _E, _A])], 1 + 3);
+		Ok(())
 	}
 	
 
