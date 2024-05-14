@@ -66,8 +66,17 @@ impl FrequencyDataset<u32> {
 				}
 				for n in 1..=max_ngram_size {
 					let files = read_dir(dir.clone()).unwrap();
-					for file in files {
-						let single_gram_frequencies = SingleGramFrequencies::<u32>::try_from_file(file.unwrap().path(), n, options)?;
+					for file0 in files {
+						let file = match file0 {
+							Ok(v) => v,
+							Err(e) => return Err(AlcError::GenericError(format!("{}", e))),
+						};
+						if let Some(ext) = file.path().extension() {
+							if ext.to_os_string() == "ron" {
+								continue
+							}
+						}
+						let single_gram_frequencies = SingleGramFrequencies::<u32>::try_from_file(file.path(), n, options)?;
 						ngram_frequencies.get_mut(&n).unwrap().combine_with(single_gram_frequencies).unwrap(); // 
 					}
 					ngram_frequencies.get_mut(&n).unwrap().take_top_frequencies(top_frequencies_to_take.clone());
