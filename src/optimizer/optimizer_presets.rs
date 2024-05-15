@@ -18,6 +18,18 @@ impl<S> Default for LayoutOptimizer<2, 4, S> where S: Score<2, 4> + Send + Sync 
 	}
 }
 
+impl<S> Default for LayoutOptimizer<5, 6, S> where S: Score<5, 6> + Send + Sync + Clone {
+	fn default() -> Self {
+		let base_layout = Layout::<5, 6>::default();
+		let effort_layer = Layer::<5, 6, f64>::default();
+		let phalanx_layer = Layer::<5, 6, PhalanxKey>::default();
+		let score_function = S::new();
+		let config = LayoutOptimizerConfig::default();	
+		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, super::OperationCounter::new((0, 0, 0, 0)))
+	}
+}
+
+
 impl<S> Default for LayoutOptimizer<4, 10, S> where S: Score<4, 10> + Send + Sync + Clone {
 	fn default() -> Self {
 		let base_layout = Layout::<4, 10>::default();
@@ -40,11 +52,33 @@ impl<S> Default for LayoutOptimizer<4, 12, S> where S: Score<4, 12> + Send + Syn
 	}
 }
 
+impl<S> Default for LayoutOptimizer<5, 12, S> where S: Score<5, 12> + Send + Sync + Clone {
+	fn default() -> Self {
+		let base_layout = Layout::<5, 12>::default();
+		let effort_layer = Layer::<5, 12, f64>::default();
+		let phalanx_layer = Layer::<5, 12, PhalanxKey>::default();
+		let score_function = S::new();
+		let config = LayoutOptimizerConfig::default();	
+		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, super::OperationCounter::new((0, 0, 0, 0)))
+	}
+}
+
 impl<S> Default for LayoutOptimizer<5, 15, S> where S: Score<5, 15> + Send + Sync + Clone {
 	fn default() -> Self {
 		let base_layout = Layout::<5, 15>::default();
 		let effort_layer = Layer::<5, 15, f64>::default();
 		let phalanx_layer = Layer::<5, 15, PhalanxKey>::default();
+		let score_function = S::new();
+		let config = LayoutOptimizerConfig::default();	
+		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, super::OperationCounter::new((0, 0, 0, 0)))
+	}
+}
+
+impl<S> Default for LayoutOptimizer<6, 20, S> where S: Score<6, 20> + Send + Sync + Clone {
+	fn default() -> Self {
+		let base_layout = Layout::<6, 20>::default();
+		let effort_layer = Layer::<6, 20, f64>::default();
+		let phalanx_layer = Layer::<6, 20, PhalanxKey>::default();
 		let score_function = S::new();
 		let config = LayoutOptimizerConfig::default();	
 		LayoutOptimizer::new(base_layout, effort_layer, phalanx_layer, score_function, config, super::OperationCounter::new((0, 0, 0, 0)))

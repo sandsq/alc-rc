@@ -12,9 +12,12 @@ use strum::IntoEnumIterator;
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Copy, strum_macros::Display, strum_macros::EnumString, strum_macros::EnumIter, Serialize, Deserialize)]
 pub enum LayoutSizePresets {
 	TwoByFour,
+	FiveBySix,
 	FourByTen,
 	FourByTwelve,
+	FiveByTwelve,
 	FiveByFifteen,
+	SixByTwenty,
 }
 use LayoutSizePresets::*;
 pub fn get_all_layout_size_presets() -> Vec<(usize, usize)> {
@@ -22,9 +25,12 @@ pub fn get_all_layout_size_presets() -> Vec<(usize, usize)> {
 	for size in LayoutSizePresets::iter() {
 		match size {
 			TwoByFour => sizes.push((2, 4)),
+			FiveBySix => sizes.push((5, 6)),
 			FourByTen => sizes.push((4, 10)),
 			FourByTwelve => sizes.push((4, 12)),
+			FiveByTwelve => sizes.push((5, 12)),
 			FiveByFifteen => sizes.push((5, 15)),
+			SixByTwenty => sizes.push((6, 20)),
 		}
 	}
 	sizes	
@@ -34,15 +40,24 @@ pub fn get_size_variant(s: (usize, usize)) -> Result<LayoutSizePresets, AlcError
 		(2, 4) => {
 			TwoByFour
 		},
+		(5, 6) => {
+			FiveBySix
+		},
 		(4, 10) => {
 			FourByTen
 		},
 		(4, 12) => {
 			FourByTwelve
 		},
+		(5, 12) => {
+			FiveByTwelve
+		},
 		(5, 15) => {
 			FiveByFifteen
-		}
+		},
+		(6, 20) => {
+			SixByTwenty
+		},
 		_ => return Err(AlcError::UnsupportedSizeError(s, get_all_layout_size_presets())),
 	};
 	Ok(o)
@@ -92,6 +107,53 @@ impl Default for Layer<2, 4, PhalanxKey> {
 		").unwrap()
 	}
 }
+
+impl Default for Layout<5, 6> {
+	fn default() -> Self {
+		Layout::try_from(
+		"
+		___Layer 0___
+			0       1       2       3       4       5
+		0| __10  __10    __10    __10    __10    __10
+		1| __10  __10    __10    __10    __10    __10
+		2| __10  __10    __10    LS1_10    __10    __10
+		3| __10    __10    __10    __10   __10    __10
+		4| __10    __10    __10    __10   BSPC_00  SPC_00
+
+		___Layer 1___
+			0       1       2       3       4       5
+		0| __10  __10    __10    __10    __10    __10
+		1| __10  __10    __10    __10    __10    __10
+		2| __10  __10    __10    __10    __10    __10
+		3| __10    __10    __10    __10   __10    __10
+		4| __10    __10    __10    __10   __10  __10
+		").unwrap()
+	}
+}
+
+impl Default for Layer<5, 6, f64> {
+	fn default() -> Self {
+		Layer::try_from("
+		10 5 3 3 3 7
+		8 4 2 2 2 5
+		5 3 1 1 1 3
+		7 4 2 2 2 4
+		10 9 7 3 2 1
+		").unwrap()
+	}
+}
+impl Default for Layer<5, 6, PhalanxKey> {
+	fn default() -> Self {
+		Layer::try_from("
+		L:P L:P L:R L:M L:I L:I
+		L:P L:P L:R L:M L:I L:I
+		L:P L:P L:R L:M L:I L:I
+		L:P L:P L:R L:M L:I L:I
+		L:P L:P L:R L:T L:T L:T
+		").unwrap()
+	}
+}
+
 
 impl Default for Layout<4, 12> {
 	fn default() -> Self {

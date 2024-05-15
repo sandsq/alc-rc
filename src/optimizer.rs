@@ -544,6 +544,10 @@ pub fn optimize_from_toml(filename: String) -> Result<String, AlcError> {
 			let mut lo = LayoutOptimizer::<2, 4, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
 			lo.optimize(&mut rng, Some(filename))?;
 		}
+		LayoutSizePresets::FiveBySix => {
+			let mut lo = LayoutOptimizer::<5, 6, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
+			lo.optimize(&mut rng, Some(filename))?;
+		}
 		LayoutSizePresets::FourByTen => {
 			let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
 			lo.optimize(&mut rng, Some(filename))?;
@@ -552,10 +556,18 @@ pub fn optimize_from_toml(filename: String) -> Result<String, AlcError> {
 			let mut lo = LayoutOptimizer::<4, 12, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
 			lo.optimize(&mut rng, Some(filename))?;
 		},
+		LayoutSizePresets::FiveByTwelve => {
+			let mut lo = LayoutOptimizer::<5, 12, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
+			lo.optimize(&mut rng, Some(filename))?;
+		},
 		LayoutSizePresets::FiveByFifteen => {
 			let mut lo = LayoutOptimizer::<5, 15, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
 			lo.optimize(&mut rng, Some(filename))?;
-		}
+		},
+		LayoutSizePresets::SixByTwenty => {
+			let mut lo = LayoutOptimizer::<6, 20, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
+			lo.optimize(&mut rng, Some(filename))?;
+		},
 	};
 
 	let mut parent = Path::new(&fclone.as_str()).parent().unwrap().to_path_buf();
