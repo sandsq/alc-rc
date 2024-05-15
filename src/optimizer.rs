@@ -64,6 +64,9 @@ fn write_text_to_file(filename: &str, text: String) -> Result<(), AlcError> {
 
 }
 
+pub trait LO {}
+impl<const R: usize, const C: usize, S> LO for LayoutOptimizer<R, C, S> where S: Score<R, C> + Send + Sync {}
+
 #[derive(Debug, PartialEq)]
 pub struct LayoutOptimizer<const R: usize, const C: usize, S> where S: Score<R, C> + Send + Sync {
 	pub base_layout: Layout<R, C>,
@@ -151,10 +154,12 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		Ok((score, visited_positions))
 	}
 
-	fn score_datasets(&self, layout: &Layout<R, C>, datasets: &[FrequencyDataset<u32>], save_positions: bool) -> Result<(f64, HashSet<LayoutPosition>), AlcError> {
+	pub fn score_datasets(&self, layout: &Layout<R, C>, datasets: &[FrequencyDataset<u32>], save_positions: bool) -> Result<(f64, HashSet<LayoutPosition>), AlcError> {
 		let mut score: f64 = 0.0;
 		let mut visited_positions: HashSet<LayoutPosition> = HashSet::default();
 		// let mut d_ind: usize = 0;
+		let dataset_weights_total: f64 = self.config.dataset_options.dataset_weights.iter().sum();
+		let weights_scaled = self.config.dataset_options.dataset_weights.iter().map(|x| x / dataset_weights_total).collect::<Vec<f64>>();
 		for (d_ind, dataset) in datasets.iter().enumerate() {
 			let ngram_ratio = 1.0 / dataset.ngram_frequencies.len() as f64;
 			let mut dataset_score = 0.0;
@@ -165,7 +170,7 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 					visited_positions.extend(calculated_positions);
 				}
 			}
-			dataset_score *= self.config.dataset_options.dataset_weights[d_ind];
+			dataset_score *= weights_scaled[d_ind];
 			// d_ind += 1;
 			score += dataset_score;
 		}
@@ -485,7 +490,16 @@ impl<const R: usize, const C: usize, S> LayoutOptimizer<R, C, S> where S: Score<
 		Ok(final_layout)
 	}
 
-	
+	fn score_datasets_standalone(&self) -> Result<f64, AlcError> {
+		let datasets = &self.compute_datasets()?;
+		if datasets.is_empty() {
+			return Err(AlcError::GenericError(String::from("no datasets to optimize")));
+		}
+		if datasets.len() != self.config.dataset_options.dataset_weights.len() {
+			return Err(AlcError::DatasetWeightsMismatchError(datasets.len(), self.config.dataset_options.dataset_weights.len()));
+		}
+		Ok(self.score_datasets(&self.base_layout, datasets, false)?.0)
+	}
 
 	pub fn try_from_optimizer_toml_object(t: LayoutOptimizerTomlAdapter) -> Result<Self, AlcError> {
 		// let num_rows = t.layout_info.num_rows;
@@ -585,6 +599,59 @@ fn arg_min(scores: &[f64]) -> Result<usize, AlcError> {
 		None => return Err(AlcError::GenericError(String::from("Error for the developer, couldn't find a min score index"))),
 	};
 	Ok(min_index)
+}
+
+enum GeneralLayoutOptimizer {
+	TwoByFour(LayoutOptimizer<2, 4, AdvancedScoreFunction>),
+	FiveBySix(LayoutOptimizer<5, 6, AdvancedScoreFunction>),
+	FourByTen(LayoutOptimizer<4, 10, AdvancedScoreFunction>),
+	FourByTwelve(LayoutOptimizer<4, 12, AdvancedScoreFunction>),
+	FiveByTwelve(LayoutOptimizer<5, 12, AdvancedScoreFunction>),
+	FiveByFifteen(LayoutOptimizer<5, 15, AdvancedScoreFunction>),
+	SixByTwenty(LayoutOptimizer<6, 20, AdvancedScoreFunction>),
+}
+// use GeneralLayoutOptimizer::*;
+
+pub fn score_from_toml(filename: String) -> Result<f64, AlcError> {
+	
+	let t = LayoutOptimizerTomlAdapter::try_from_toml_file(filename.as_str())?;
+	let num_rows = t.layout_info.num_rows;
+	let num_cols = t.layout_info.num_cols;
+	
+	let size_variant = get_size_variant((num_rows, num_cols))?;
+
+	let score = match size_variant {
+	// let glo: GeneralLayoutOptimizer = match size_variant {
+		LayoutSizePresets::TwoByFour => {
+			let lo = LayoutOptimizer::<2, 4, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
+			lo.score_datasets_standalone()
+		}
+		LayoutSizePresets::FiveBySix => {
+			let lo = LayoutOptimizer::<5, 6, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
+			lo.score_datasets_standalone()
+		}
+		LayoutSizePresets::FourByTen => {
+			let lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
+			lo.score_datasets_standalone()
+		},
+		LayoutSizePresets::FourByTwelve => {
+			let lo = LayoutOptimizer::<4, 12, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
+			lo.score_datasets_standalone()
+		},
+		LayoutSizePresets::FiveByTwelve => {
+			let lo = LayoutOptimizer::<5, 12, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
+			lo.score_datasets_standalone()
+		},
+		LayoutSizePresets::FiveByFifteen => {
+			let lo = LayoutOptimizer::<5, 15, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
+			lo.score_datasets_standalone()
+		},
+		LayoutSizePresets::SixByTwenty => {
+			let lo = LayoutOptimizer::<6, 20, AdvancedScoreFunction>::try_from_optimizer_toml_file(filename.as_str())?;
+			lo.score_datasets_standalone()
+		},
+	};
+	score
 }
 
 

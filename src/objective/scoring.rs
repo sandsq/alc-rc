@@ -484,6 +484,13 @@ mod tests {
 		let red = calculate_final_reduction(0.9, 2, 0.4);
 		assert_eq!(format!("{:.5}", score), format!("{:.5}", (0.9 + 0.6 + 0.3) * red));
 
+		// length 3 roll but out of order
+		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 2, 0), LayoutPosition::new(0, 0, 2), LayoutPosition::new(0, 1, 1)]);
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);
+		// let red = calculate_final_reduction(0.9, 2, 0.4);
+		let red = 1.0;
+		assert_eq!(format!("{:.5}", score), format!("{:.5}", (0.9 + 0.3 + 0.6) * red));
+
 		// roll into alternate
 		let layout_position_sequence = LayoutPositionSequence::from_vector(vec![LayoutPosition::new(0, 2, 0), LayoutPosition::new(0, 1, 1), LayoutPosition::new(0, 0, 2), LayoutPosition::new(0, 0, 4), LayoutPosition::new(0, 1, 0), LayoutPosition::new(0, 1, 4)]);
 		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, layout_position_sequence, &config);

@@ -399,11 +399,11 @@ impl Default for Layout<6, 20> {
 impl Default for Layer<6, 20, f64> {
 	fn default() -> Self {
 		Layer::try_from("
-		15 7 5 5 5 10 11 11 11 11 11 11 11  11 10 5 5 5 7 15
-		13 5 3 3 3 8 9 9 9 9 9 9 99 8 3 3 3 5 13
+		15 7 5 5 5 10 11 11 11 11 11 11 11 11 10 5 5 5 7 15
+		13 5 3 3 3 8 9 9 9 9 9 9 9 9 8 3 3 3 5 13
 		12 7 2 2 2 7 8 8 8 8 8 8 8 8 7 2 2 2 7 12
 		6 3 1 1 1 3 8 8 8 8 8 8 8 8 3 1 1 1 3 6
-		13 5 3 3 3 8 9 9 9 9 99 9 9 8 3 3 3 5 13
+		13 5 3 3 3 8 9 9 9 9 9 9 9 9 8 3 3 3 5 13
 		14 10 7 4 2 1 4 5 5 5 5 5 5 4 1 2 4 7 10 14
 		").unwrap()
 	}
@@ -411,6 +411,7 @@ impl Default for Layer<6, 20, f64> {
 impl Default for Layer<6, 20, PhalanxKey> {
 	fn default() -> Self {
 		Layer::try_from("
+		L:P L:P L:R L:M L:I L:I L:I L:I L:I R:I R:I R:I R:I R:I R:I R:I R:M R:R R:P R:P
 		L:P L:P L:R L:M L:I L:I L:I L:I L:I R:I R:I R:I R:I R:I R:I R:I R:M R:R R:P R:P
 		L:P L:P L:R L:M L:I L:I L:I L:I L:I R:I R:I R:I R:I R:I R:I R:I R:M R:R R:P R:P
 		L:P L:P L:R L:M L:I L:I L:I L:I L:I R:I R:I R:I R:I R:I R:I R:I R:M R:R R:P R:P
