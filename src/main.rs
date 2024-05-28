@@ -24,7 +24,10 @@ fn main() {
 	// cargo flamegraph --bin=alc --palette=rust --output=performance/0_1_1.svg
 	
 	let args = Args::parse();
-	optimize_from_toml(args.config);
+	match optimize_from_toml(args.config) {
+		Ok(_) => (),
+		Err(e) => println!("{}", e),
+	}
 	
 	// let mut lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::try_from_optimizer_toml_file("./templates/ferris_sweep.toml").unwrap();
 	

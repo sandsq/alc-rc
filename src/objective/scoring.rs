@@ -84,10 +84,10 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		AdvancedScoreFunction {}
 	}
 
-	fn cancel_layer_switches(&self, _layout: Layout<R, C>, _layout_position_sequence: LayoutPositionSequence) -> LayoutPositionSequence {
-		// for lp in layout_position_sequence {
-		// 	let layer = lp.layer_index;
-		// }
+	fn cancel_layer_switches(&self, _layout: Layout<R, C>, layout_position_sequence: LayoutPositionSequence) -> LayoutPositionSequence {
+		for lp in layout_position_sequence {
+			let layer = lp.layer_index;
+		}
 		LayoutPositionSequence::from_tuples(vec![(0_usize, 0_usize, 0_usize)])
 	}
 
