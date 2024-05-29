@@ -1,15 +1,14 @@
 
-
-use crate::{keyboard::key::{Finger::{self, *}, Hand::{self, *}, KeyValue, PhalanxKey}, optimizer::config::LayoutOptimizerConfig};
+use crate::{keyboard::{key::{Finger::{self, *}, Hand::{self, *}, KeyValue, PhalanxKey}, LayoutPosition}, optimizer::config::LayoutOptimizerConfig};
 use crate::keyboard::{LayoutPositionSequence, layer::Layer, layout::Layout};
-
+use crate::text_processor::keycode::Keycode::*;
 
 
 
 pub trait Score<const R: usize, const C: usize> {
 	fn new() -> Self;
 
-	fn cancel_layer_switches(&self, layout: Layout<R, C>, layout_position_sequence: LayoutPositionSequence) -> LayoutPositionSequence;
+	fn cancel_layer_switches(&self, layout: &Layout<R, C>, layout_position_sequence: LayoutPositionSequence) -> LayoutPositionSequence;
 
 	fn score_small(&self, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> Option<f64>;
 
@@ -36,7 +35,7 @@ impl<const R: usize, const C: usize> Score<R, C> for SimpleScoreFunction {
 		SimpleScoreFunction{}
 	}
 
-	fn cancel_layer_switches(&self, _layout: Layout<R, C>, _layout_position_sequence: LayoutPositionSequence) -> LayoutPositionSequence {
+	fn cancel_layer_switches(&self, _layout: &Layout<R, C>, _layout_position_sequence: LayoutPositionSequence) -> LayoutPositionSequence {
 		LayoutPositionSequence::from_tuples(vec![(0_usize, 0_usize, 0_usize)])
 	}
 
@@ -84,11 +83,20 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		AdvancedScoreFunction {}
 	}
 
-	fn cancel_layer_switches(&self, _layout: Layout<R, C>, layout_position_sequence: LayoutPositionSequence) -> LayoutPositionSequence {
+	fn cancel_layer_switches(&self, layout: &Layout<R, C>, layout_position_sequence: LayoutPositionSequence) -> LayoutPositionSequence {
+		let mut new_sequence: Vec<LayoutPosition> = Default::default();
+
+		let mut imminent_layer = 0;
 		for lp in layout_position_sequence {
-			let layer = lp.layer_index;
+			if let _LS(n) = layout[lp].value() {
+				if n == imminent_layer {
+					continue;
+				}
+				imminent_layer = n;
+			}
+			new_sequence.push(lp);
 		}
-		LayoutPositionSequence::from_tuples(vec![(0_usize, 0_usize, 0_usize)])
+		LayoutPositionSequence::from_vector(new_sequence)
 	}
 
 	fn score_small(&self, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> Option<f64> {
@@ -164,7 +172,8 @@ impl<const R: usize, const C: usize> Score<R, C> for AdvancedScoreFunction {
 		None
 	}
 
-	fn score_layout_position_sequence(&self, _layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> f64 {
+	fn score_layout_position_sequence(&self, layout: &Layout<R, C>, effort_layer: &Layer<R, C, f64>, phalanx_layer: &Layer<R, C, PhalanxKey>, base_layout_position_sequence: LayoutPositionSequence, config: &LayoutOptimizerConfig) -> f64 {
+		let layout_position_sequence = self.cancel_layer_switches(layout, base_layout_position_sequence);
 		// during debug, check that the position preceeding a higher layer position is a layer switch
 		// we can use the fact that layer switches always should occur before a higher layer position to eliminate the need to actually check the layout for layer switches, and simplify checking when layer switches can be canceled
 		let debug_clone = layout_position_sequence.clone();
@@ -347,7 +356,7 @@ fn same_hand_and_finger(current_hand: Hand, previous_hand: Hand, current_finger:
 mod tests {
 	
 
-	use crate::keyboard::LayoutPosition;
+	use crate::keyboard::{layout, LayoutPosition};
 	use super::*;
 
 	#[test]
@@ -375,6 +384,42 @@ mod tests {
 		assert_eq!(red, 0.96);
 		let red = calculate_final_reduction(0.9, 1, 0.5);
 		assert_eq!(red, 0.95);
+	}
+
+	#[test]
+	fn test_layer_switch_cancels() {
+		let layout = Layout::<1, 4>::try_from("
+			___Layer 0___
+			LS1_10 H_10 I_10 T_10
+
+			___Layer 1___
+			NO_10 H_10 E_10 R_10
+		").unwrap();
+		let effort_layer = Layer::<1, 4, f64>::try_from("
+			0.1 0.2 0.3 0.4
+		").unwrap();
+		let phalanx_layer = Layer::<1, 4, PhalanxKey>::try_from("
+			l:r l:m r:m r:r
+		").unwrap();
+		let sf = AdvancedScoreFunction{};
+
+		let base_layout_position_sequence = LayoutPositionSequence::from_tuples(vec![(0, 0, 1), (0, 0, 0), (1, 0, 1), (0, 0, 0), (1, 0, 2)]);
+		let expected_sequence = LayoutPositionSequence::from_tuples(vec![(0, 0, 1), (0, 0, 0), (1, 0, 1), (1, 0, 2)]);
+
+		let new_sequence = sf.cancel_layer_switches(&layout, base_layout_position_sequence.clone());
+		assert_eq!(new_sequence, expected_sequence);
+
+		let mut config = LayoutOptimizerConfig::default();
+		config.score_options.hand_alternation_reduction_factor = 0.9;
+		config.score_options.hand_alternation_weight = 3.0;
+		config.score_options.finger_roll_weight = 2.0;
+		config.score_options.same_finger_penalty_factor = 3.0;
+
+		let expected_score = 0.2 + 0.1 + 0.2 + 0.3;
+
+		let score = sf.score_layout_position_sequence(&layout, &effort_layer, &phalanx_layer, base_layout_position_sequence, &config);
+		assert_eq!(score, expected_score);
+		
 	}
 
 	#[test]

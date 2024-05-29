@@ -601,15 +601,15 @@ fn arg_min(scores: &[f64]) -> Result<usize, AlcError> {
 	Ok(min_index)
 }
 
-enum GeneralLayoutOptimizer {
-	TwoByFour(LayoutOptimizer<2, 4, AdvancedScoreFunction>),
-	FiveBySix(LayoutOptimizer<5, 6, AdvancedScoreFunction>),
-	FourByTen(LayoutOptimizer<4, 10, AdvancedScoreFunction>),
-	FourByTwelve(LayoutOptimizer<4, 12, AdvancedScoreFunction>),
-	FiveByTwelve(LayoutOptimizer<5, 12, AdvancedScoreFunction>),
-	FiveByFifteen(LayoutOptimizer<5, 15, AdvancedScoreFunction>),
-	SixByTwenty(LayoutOptimizer<6, 20, AdvancedScoreFunction>),
-}
+// enum GeneralLayoutOptimizer {
+// 	TwoByFour(LayoutOptimizer<2, 4, AdvancedScoreFunction>),
+// 	FiveBySix(LayoutOptimizer<5, 6, AdvancedScoreFunction>),
+// 	FourByTen(LayoutOptimizer<4, 10, AdvancedScoreFunction>),
+// 	FourByTwelve(LayoutOptimizer<4, 12, AdvancedScoreFunction>),
+// 	FiveByTwelve(LayoutOptimizer<5, 12, AdvancedScoreFunction>),
+// 	FiveByFifteen(LayoutOptimizer<5, 15, AdvancedScoreFunction>),
+// 	SixByTwenty(LayoutOptimizer<6, 20, AdvancedScoreFunction>),
+// }
 // use GeneralLayoutOptimizer::*;
 
 pub fn score_from_toml(filename: String) -> Result<f64, AlcError> {
@@ -712,11 +712,11 @@ mod tests {
 		Ok(())
 	}
 
-	#[test]
-	fn test_saved() -> Result<(), AlcError> {
-		let mut _lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::try_from_optimizer_toml_file("/home/sand/.config/alc/autosave.toml")?;
-		Ok(())
-	}
+	// #[test]
+	// fn test_saved() -> Result<(), AlcError> {
+	// 	let mut _lo = LayoutOptimizer::<4, 10, AdvancedScoreFunction>::try_from_optimizer_toml_file("/home/sand/.config/alc/autosave.toml")?;
+	// 	Ok(())
+	// }
 
 	#[test]
 	#[ignore = "expensive"] // cargo test -- --ignored to run ignored, cargo test -- --include-ignored to run all
