@@ -356,7 +356,7 @@ fn same_hand_and_finger(current_hand: Hand, previous_hand: Hand, current_finger:
 mod tests {
 	
 
-	use crate::keyboard::{layout, LayoutPosition};
+	use crate::keyboard::LayoutPosition;
 	use super::*;
 
 	#[test]
