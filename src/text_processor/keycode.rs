@@ -16,10 +16,10 @@ impl Default for KeycodeOptions {
 	fn default() -> Self {
 		KeycodeOptions {
 			include_alphas: true,
+			include_misc_symbols: true,
 			include_numbers: false,
 			include_number_symbols: false,
 			include_brackets: false,
-			include_misc_symbols: true,
 			include_misc_symbols_shifted: false,
 			explicit_inclusions: vec![_SPC, _SFT, _ENT, _TAB],
 		}
